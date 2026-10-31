@@ -1,0 +1,32 @@
+name: Sync GitHub Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview changes without modifying the Project
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: github-project-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add issues and mark completed work
+        env:
+          HOSHI_PROJECTS_TOKEN: ${{ secrets.HOSHI_PROJECTS_TOKEN }}
+          REPOSITORY_TOKEN: ${{ github.token }}
+          PROJECT_OWNER: Hoshiko86
+          PROJECT_NUMBER: '2'
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 scripts/sync_project.py
