@@ -1,0 +1,27 @@
+name: Feature
+description: A reviewable editing or platform capability
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: User behavior
+      description: What can the artist do when this is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and exclusions
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and validation
+      description: Include undo, cancellation, save behavior and platforms when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and target version
