@@ -31,6 +31,7 @@ slint::slint! {
         out property <float> canvas-top: viewport.absolute-position.y / 1px;
         out property <float> layer-input-left: layer-input.absolute-position.x / 1px;
         out property <float> layer-input-top: layer-input.absolute-position.y / 1px;
+        out property <string> layer-edit-text: layer-input.text;
         callback pointer-down(float, float);
         callback pointer-move(float, float);
         callback pointer-up(float, float);
@@ -41,7 +42,7 @@ slint::slint! {
         callback rename(string);
         callback zoom-at(float, float, float);
         callback show-about();
-        show-about => { root.about-open = true; about-focus.focus(); }
+        show-about => { root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
             Menu {
@@ -93,7 +94,7 @@ slint::slint! {
                     }
                     Rectangle { height: 12px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); } }
+                    layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
                     Text { text: "ADJUST ACTIVE SHAPE"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     HorizontalLayout {
                         Button { text: "←"; enabled: root.has-shape; clicked => { root.action(5); } }

@@ -92,6 +92,12 @@ fn software_rendered_canvas_accepts_real_input_events() {
         committed,
         "text editing must not modify canvas pixels"
     );
+    let accepted_name = state.borrow().document().layers()[0].name().to_string();
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: "a".repeat(512).into(),
+    });
+    assert_eq!(ui.get_layer_edit_text(), accepted_name);
+    assert_eq!(state.borrow().document().layers()[0].name(), accepted_name);
 
     ui.window().dispatch_event(WindowEvent::PointerPressed {
         position: pointer(150.0, 150.0),
@@ -127,7 +133,20 @@ fn software_rendered_canvas_accepts_real_input_events() {
 
     ui.window()
         .dispatch_event(WindowEvent::WindowActiveChanged(true));
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(30.0, 30.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(90.0, 90.0),
+    });
+    assert!(state.borrow().is_dragging());
     ui.invoke_show_about();
+    assert!(
+        !state.borrow().is_dragging(),
+        "opening a modal cancels an unfinished gesture before blocking callbacks"
+    );
+    assert!(!ui.get_has_shape());
     ui.window().dispatch_event(WindowEvent::PointerPressed {
         position: pointer(30.0, 30.0),
         button: PointerEventButton::Left,

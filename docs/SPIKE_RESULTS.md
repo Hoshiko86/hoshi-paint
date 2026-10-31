@@ -40,6 +40,8 @@ machine. The software renderer still draws and its pixel checks pass.
 - Filled rectangle drag/release, adjustable position/size/color, commit/cancel.
 - One exposed raster layer with name editing; undo/redo and canvas-scoped shortcuts.
 - Top-level Help/About attribution, input-blocking modal, keyboard focus restoration.
+- Opening About mid-drag cancels the unfinished gesture before blocking input;
+  oversized layer-name edits reset the visible draft as well as preserving the model.
 - Click/no-drag produces no pixels. Lost activation cancels an unfinished drag;
   released editable shapes survive. Text editing does not run canvas shortcuts.
 

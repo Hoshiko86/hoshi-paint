@@ -11,7 +11,7 @@ Linux needs pkg-config and fontconfig development files plus the X11/Wayland,
 fontconfig and xkbcommon runtime libraries. On Ubuntu, start with:
 
 ```sh
-sudo apt-get install build-essential pkg-config libfontconfig1-dev libxkbcommon-x11-0
+sudo apt-get install build-essential pkg-config libfontconfig-dev libxkbcommon-x11-0
 ```
 
 On macOS install Xcode command-line tools. On Windows use the MSVC Rust toolchain
@@ -44,6 +44,7 @@ is already isolated; use the existing checkout rather than creating a worktree.
   use a fixed logical anchor. Reset view restores 1:1 coordinates.
 - Edit the layer name. This commits an active shape before renaming it.
 - Help → About Hoshi Paint opens an input-blocking overlay with Slint attribution.
+  Opening it cancels an unfinished drag before blocking controller callbacks.
 - Losing window activation cancels an unfinished drag; a released active shape
   survives. Clicks and zero-area drags do not paint stray edge pixels.
 
