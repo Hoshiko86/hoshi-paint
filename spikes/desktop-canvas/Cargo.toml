@@ -1,0 +1,14 @@
+[package]
+name = "hoshi-canvas-spike"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hoshi-controller = { path = "../../crates/hoshi-controller" }
+slint = { version = "=1.18.1", default-features = false, features = ["std", "backend-winit", "renderer-software", "accessibility", "compat-1-18"] }
+
+[dev-dependencies]
+i-slint-backend-testing = { version = "=1.18.1", features = ["renderer-software"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

@@ -1,6 +1,8 @@
 # UI architecture evaluation — ARCH-1
 
 Status: research complete; **production framework decision remains open**.
+The subsequent desktop experiment and its actual validation are recorded in
+[SPIKE_RESULTS.md](SPIKE_RESULTS.md); statements below describe the research phase.
 Evidence reviewed on 2026-10-31. This document recommends the next bounded
 evaluation, not an already validated UI stack. No Windows/macOS/iOS build,
 GUI input test, accessibility test, or performance measurement was run here.
@@ -52,7 +54,7 @@ or distribution constraints change the priorities.
 
 ## Version and licensing gates
 
-The repository currently pins Rust **1.85.1**. The released workspace manifests
+The repository at the research baseline pinned Rust **1.85.1**. The released workspace manifests
 reviewed here declare:
 
 | Candidate | Reviewed release | Declared Rust minimum |
