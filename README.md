@@ -27,6 +27,7 @@ separate worktree.
 - [Release roadmap](docs/ROADMAP.md)
 - [v0.0.0 specification](docs/V0_0_0.md)
 - [Architecture decisions](docs/ARCHITECTURE.md)
+- [UI framework evaluation and next spike](docs/UI_EVALUATION.md)
 - [Issue-ready backlog](docs/BACKLOG.md)
 
 Native shapes follow **draw → adjust → commit to pixels**. They remain editable
