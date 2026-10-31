@@ -35,6 +35,11 @@ No GPU dependency is required by the current slice.
 
 ## Open: UI framework
 
+The [source-backed evaluation](UI_EVALUATION.md) recommends a bounded Slint-first
+spike, with egui as a desktop fallback. This is not a production stack selection;
+toolchain compatibility, licensing, desktop input and Apple-host validation remain
+gates before adopting a framework.
+
 Compare Slint, egui, and a native-shell approach. Evaluate: desktop pointer
 capture, pen/pressure, IME and text, accessibility, menus/dialogs, high DPI,
 iOS compilation/distribution, custom canvas integration with wgpu, licensing,

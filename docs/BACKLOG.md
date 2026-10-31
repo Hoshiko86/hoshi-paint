@@ -10,7 +10,7 @@ integration permissions (`createProjectV2`: resource not accessible).
 | PLAN-1 | Release/interaction/architecture specifications | P0 | — | Written; user review pending |
 | CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Implemented; validation below |
 | CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Implemented; validation below |
-| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Ready |
+| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research delivered; integration spike and iOS evidence pending |
 | UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | Backlog |
 | DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
 | LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | Backlog |
