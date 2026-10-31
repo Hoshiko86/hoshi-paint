@@ -401,10 +401,11 @@ impl Document {
                 for x in 0..self.width {
                     let index = (y * self.width + x) as usize;
                     let mut color = layer.pixels[index];
-                    if include_preview && layer_index == self.state.selected {
-                        if let Some(preview) = self.active.and_then(|shape| shape.color_at(x, y)) {
-                            color = preview.over(color, 255);
-                        }
+                    if include_preview
+                        && layer_index == self.state.selected
+                        && let Some(preview) = self.active.and_then(|shape| shape.color_at(x, y))
+                    {
+                        color = preview.over(color, 255);
                     }
                     output[index] = color.over(output[index], layer.opacity);
                 }

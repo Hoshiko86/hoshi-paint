@@ -40,6 +40,11 @@ spike, with egui as a desktop fallback. This is not a production stack selection
 toolchain compatibility, licensing, desktop input and Apple-host validation remain
 gates before adopting a framework.
 
+The first [desktop integration spike](SPIKE_RESULTS.md) uses Slint 1.18.1,
+software rendering and a separate UI-independent `hoshi-controller` crate.
+Rust is now pinned to 1.99.1. This establishes a desktop evaluation baseline,
+not production framework selection, GPU validation or iOS support.
+
 Compare Slint, egui, and a native-shell approach. Evaluate: desktop pointer
 capture, pen/pressure, IME and text, accessibility, menus/dialogs, high DPI,
 iOS compilation/distribution, custom canvas integration with wgpu, licensing,

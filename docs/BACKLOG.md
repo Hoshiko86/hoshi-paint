@@ -10,8 +10,8 @@ integration permissions (`createProjectV2`: resource not accessible).
 | PLAN-1 | Release/interaction/architecture specifications | P0 | — | Written; user review pending |
 | CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Completed; core checks pass on desktop CI |
 | CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Completed; core checks pass on desktop CI |
-| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research delivered; integration spike and iOS evidence pending |
-| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | Backlog |
+| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research and first desktop spike delivered; hardware/GPU/iOS evidence pending |
+| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | First rectangle/canvas shell implemented; remaining UI scope open |
 | DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
 | LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | Backlog |
 | SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Backlog |
@@ -83,6 +83,11 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 | RELEASE-1 | [#13](https://github.com/Hoshiko86/hoshi-paint/issues/13) |
 
 ## Current validation
+
+See [SPIKE_RESULTS.md](SPIKE_RESULTS.md) for the newer Rust 1.99.1 desktop
+experiment: 28 Rust integration tests pass locally, including a rendered UI
+scenario; real Linux desktop software-rendering smoke passes. The earlier core
+baseline below is retained as historical cross-platform evidence.
 
 The reviewed core passes 15 integration tests, formatting, and Clippy locally on
 Linux with pinned Rust 1.85.1. The same checks passed on GitHub-hosted Windows,

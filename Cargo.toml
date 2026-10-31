@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/hoshi-core"]
-resolver = "2"
+members = ["crates/hoshi-core", "crates/hoshi-controller", "spikes/desktop-canvas"]
+resolver = "3"
 
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.99"
 license = "MIT"
