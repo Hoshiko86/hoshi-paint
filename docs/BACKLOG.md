@@ -8,8 +8,8 @@ integration permissions (`createProjectV2`: resource not accessible).
 | ID | Deliverable | Priority | Dependencies | Status |
 | --- | --- | --- | --- | --- |
 | PLAN-1 | Release/interaction/architecture specifications | P0 | — | Written; user review pending |
-| CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Implemented; validation below |
-| CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Implemented; validation below |
+| CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Completed; core checks pass on desktop CI |
+| CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Completed; core checks pass on desktop CI |
 | ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research delivered; integration spike and iOS evidence pending |
 | UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | Backlog |
 | DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
@@ -84,6 +84,8 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 
 ## Current validation
 
-The reviewed core passes 15 integration tests, formatting, and Clippy on Linux
-with pinned Rust 1.85.1. Windows/macOS CI and iOS validation remain unverified.
-CORE-1 and CORE-2 are implemented; remaining release work is open.
+The reviewed core passes 15 integration tests, formatting, and Clippy locally on
+Linux with pinned Rust 1.85.1. The same checks passed on GitHub-hosted Windows,
+macOS and Ubuntu in [foundation CI](https://github.com/Hoshiko86/hoshi-paint/actions/runs/41249496579).
+This validates the core, not graphical application behavior or iOS. CORE-1 and
+CORE-2 are complete; remaining release work is open.
