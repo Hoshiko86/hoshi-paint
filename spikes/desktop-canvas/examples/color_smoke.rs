@@ -10,7 +10,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ui = main.upgrade().unwrap();
         ui.invoke_pointer_down(64.0, 64.0);
         ui.invoke_pointer_move(256.0, 224.0);
-        ui.invoke_pointer_up(256.0, 224.0);
         ui.invoke_show_colors();
         assert!(picker.get_has_active_shape());
         picker.window().take_snapshot().unwrap();

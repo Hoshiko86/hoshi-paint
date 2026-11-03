@@ -15,14 +15,30 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     let (ui, state, picker) = create_app_with_colors().unwrap();
     ui.window().set_size(LogicalSize::new(1120.0, 760.0));
     ui.show().unwrap();
+    ui.window().take_snapshot().unwrap();
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+    let canvas_point =
+        |x, y| slint::LogicalPosition::new(ui.get_canvas_left() + x, ui.get_canvas_top() + y);
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::PointerPressed {
+            position: canvas_point(40.0, 40.0),
+            button: slint::platform::PointerEventButton::Left,
+        });
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::PointerMoved {
+            position: canvas_point(100.0, 80.0),
+        });
     ui.invoke_show_colors();
+    assert!(
+        !state.borrow().is_dragging(),
+        "opening Colors must settle the gesture without discarding its preview"
+    );
+    assert!(state.borrow().document().active_shape().is_some());
     picker.window().set_size(LogicalSize::new(640.0, 680.0));
     picker.invoke_set_rgba(12, 34, 56, 128);
     assert_eq!(state.borrow().primary_color(), Color::rgba(12, 34, 56, 128));
     assert_eq!(picker.get_hex_value(), "#0C223880");
-    ui.invoke_pointer_down(40.0, 40.0);
-    ui.invoke_pointer_move(100.0, 80.0);
-    ui.invoke_pointer_up(100.0, 80.0);
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(false));
     picker

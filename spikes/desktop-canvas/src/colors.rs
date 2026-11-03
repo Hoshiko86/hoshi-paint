@@ -211,7 +211,18 @@ pub(super) fn bind_picker(
             if ui.get_modal_visible() {
                 return;
             }
-            synchronize(&colors, state.borrow().primary_color(), None);
+            // Switching to our color window must preserve the editable preview,
+            // even if native pointer release/capture has not settled yet.
+            {
+                let mut controller = state.borrow_mut();
+                controller
+                    .pointer_up()
+                    .expect("end gesture before color editing");
+                controller
+                    .set_aspect_lock(false)
+                    .expect("gesture has ended");
+            }
+            refresh(&ui, &state.borrow());
             colors.show().expect("show color picker");
         }
     });
