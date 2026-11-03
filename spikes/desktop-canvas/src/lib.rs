@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 
 slint::slint! {
-    import { Button, LineEdit, AboutSlint } from "std-widgets.slint";
+    import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
     export component AppWindow inherits Window {
         title: "Hoshi Paint · Canvas study";
         preferred-width: 1120px;
@@ -15,6 +15,8 @@ slint::slint! {
         background: #f2f4f8;
         default-font-family: "DejaVu Sans";
         default-font-size: 14px;
+        // Match widgets to the shell's fixed light surfaces on dark-themed Windows.
+        init => { Palette.color-scheme = ColorScheme.light; }
         in property <image> canvas-image;
         in property <float> zoom: 1;
         in property <float> offset-x;
@@ -32,6 +34,10 @@ slint::slint! {
         out property <float> layer-input-left: layer-input.absolute-position.x / 1px;
         out property <float> layer-input-top: layer-input.absolute-position.y / 1px;
         out property <string> layer-edit-text: layer-input.text;
+        out property <float> rectangle-tool-left: rectangle-tool.absolute-position.x / 1px;
+        out property <float> rectangle-tool-top: rectangle-tool.absolute-position.y / 1px;
+        out property <float> rectangle-tool-width: rectangle-tool.width / 1px;
+        out property <float> rectangle-tool-height: rectangle-tool.height / 1px;
         callback pointer-down(float, float);
         callback pointer-move(float, float);
         callback pointer-up(float, float);
@@ -82,7 +88,7 @@ slint::slint! {
                     width: 190px;
                     spacing: 8px;
                     Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    Button { text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
+                    rectangle-tool := Button { text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
                     Button { text: root.selected-tool == 1 ? "● Move shape" : "Move shape"; enabled: root.has-shape; clicked => { root.choose-tool(1); } }
                     Button { text: root.selected-tool == 2 ? "● Pan canvas" : "Pan canvas"; clicked => { root.choose-tool(2); } }
                     Rectangle { height: 12px; }

@@ -19,6 +19,23 @@ fn software_rendered_canvas_accepts_real_input_events() {
         .dispatch_event(WindowEvent::WindowActiveChanged(true));
     let initial = ui.window().take_snapshot().unwrap();
     assert_eq!((initial.width(), initial.height()), (1120, 760));
+    // Inspect actual enabled button text, excluding its border. This also runs
+    // with Windows' Fluent widgets in CI and with SLINT_STYLE=fluent locally.
+    let left = ui.get_rectangle_tool_left() as usize + 8;
+    let top = ui.get_rectangle_tool_top() as usize + 5;
+    let right = (ui.get_rectangle_tool_left() + ui.get_rectangle_tool_width()) as usize - 8;
+    let bottom = (ui.get_rectangle_tool_top() + ui.get_rectangle_tool_height()) as usize - 5;
+    let dark_text_pixels = (top..bottom)
+        .flat_map(|y| (left..right).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let p = initial.as_slice()[y * initial.width() as usize + x];
+            p.r < 120 && p.g < 120 && p.b < 120
+        })
+        .count();
+    assert!(
+        dark_text_pixels > 30,
+        "enabled labels must remain dark and readable on light surfaces"
+    );
     let x = ui.get_canvas_left();
     let y = ui.get_canvas_top();
     let pointer = |dx, dy| LogicalPosition::new(x + dx, y + dy);
