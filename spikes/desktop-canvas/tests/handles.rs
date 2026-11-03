@@ -69,10 +69,10 @@ fn visible_handles_resize_rotate_and_commit_through_window_events() {
     let preview = state.borrow().composite();
     let edge = state.borrow().handle_positions()[3];
     ui.invoke_pointer_down(edge.x as f32, edge.y as f32);
-    ui.invoke_pointer_up(100_000_000.0, edge.y as f32);
+    ui.invoke_pointer_up(f32::NAN, edge.y as f32);
     assert!(
         !state.borrow().is_dragging(),
-        "rejected oversized resize must still end the gesture on release"
+        "rejected non-finite input must still end the gesture on release"
     );
     assert_eq!(state.borrow().composite(), preview);
     let snapshot = ui.window().take_snapshot().unwrap();
