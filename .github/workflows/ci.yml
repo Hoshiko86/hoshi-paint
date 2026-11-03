@@ -35,6 +35,12 @@ jobs:
           HOSHI_SPIKE_SNAPSHOT: target/spike-desktop.png
           HOSHI_SPIKE_EDITABLE_SNAPSHOT: target/spike-handles.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example desktop_smoke --locked
+      - name: Real Linux color picker smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+          HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
+        run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}
@@ -43,5 +49,6 @@ jobs:
             target/debug/hoshi-canvas-spike.exe
             target/spike-desktop.png
             target/spike-handles.png
+            target/spike-colors.png
           if-no-files-found: error
           retention-days: 14

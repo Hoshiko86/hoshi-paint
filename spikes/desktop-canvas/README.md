@@ -38,13 +38,23 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Drag any of the eight square control points: corners resize both dimensions;
   edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
   rounding, even after rotation. Crossed edges clamp at one pixel.
+- Hold Shift while dragging a corner to preserve the aspect ratio from the start
+  of that drag, within pixel rounding. Press/release Shift mid-drag to toggle it
+  live; edge handles remain single-axis. Works after rotation and zoom.
 - Drag the round control point above the top edge to rotate about the center
   in one-degree increments. Handles keep their screen size when zoomed.
 - Select Move shape and drag, or use nudge/size buttons to adjust it.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
 - Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
   Shortcuts apply only when the canvas has keyboard focus.
-- Choose a color before drawing or while a shape is active.
+- Open Colors… before drawing or while a shape is active. The picker supplies
+  RGB (0–255), HSV (degrees/percentages), a saturation/value area, hue slider,
+  alpha (0 transparent,255 opaque), presets, and hex RGB/RGBA. Changes apply live.
+  Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter or Apply.
+- Pick / Eyedropper samples merged canvas pixels with alpha, not checkerboard
+  colors. Selecting it commits an active shape first; sampling adds no history.
+  Select Rectangle again to draw with the sampled color. It does not sample
+  other applications or the desktop.
 - Pan canvas changes the viewport; scroll zooms about the pointer. Zoom buttons
   use a fixed logical anchor. Reset view restores 1:1 coordinates.
 - Edit the layer name. This commits an active shape before renaming it.
@@ -108,3 +118,7 @@ transitive license inventory remains a packaged-release gate.
 The widget palette is explicitly light to match the fixed light shell, even on
 dark-themed Windows. Rendered tests check enabled-label contrast and a second
 scenario exercises resize/rotation through synthetic window events.
+
+A separate `color_smoke` example opens the actual desktop color window, edits
+HSV/hex, samples alpha-preserving canvas color and exits. Use the same Xvfb
+command with `--example color_smoke` and optional `HOSHI_COLOR_SNAPSHOT`.

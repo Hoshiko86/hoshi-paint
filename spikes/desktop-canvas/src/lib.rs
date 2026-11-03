@@ -3,6 +3,8 @@
 use hoshi_controller::{Controller, ControllerError, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
+mod colors;
+pub use colors::ColorPickerWindow;
 
 slint::slint! {
     import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
@@ -29,6 +31,8 @@ slint::slint! {
         in property <bool> can-undo;
         in property <bool> can-redo;
         in property <int> selected-tool;
+        in property <color> primary-color;
+        in property <string> primary-hex;
         private property <bool> about-open;
         out property <bool> modal-visible: root.about-open;
         out property <float> canvas-left: viewport.absolute-position.x / 1px;
@@ -46,11 +50,15 @@ slint::slint! {
         callback pointer-cancel();
         callback action(int);
         callback choose-tool(int);
+        callback shift-modifier(bool);
+        callback show-colors();
+        callback hide-colors();
+        callback sync-color(int, int, int, int);
         callback choose-color(int);
         callback rename(string);
         callback zoom-at(float, float, float);
         callback show-about();
-        show-about => { root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
+        show-about => { root.hide-colors(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
             Menu {
@@ -96,10 +104,13 @@ slint::slint! {
                     Rectangle { height: 12px; }
                     Text { text: "PRIMARY COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     HorizontalLayout {
-                        Button { text: "Blue"; clicked => { root.choose-color(0); } }
-                        Button { text: "Coral"; clicked => { root.choose-color(1); } }
-                        Button { text: "Mint"; clicked => { root.choose-color(2); } }
+                        Rectangle { width: 26px; background: white;
+                            Rectangle { background: root.primary-color; }
+                        }
+                        Button { text: "Colors…"; clicked => { root.show-colors(); } }
+                        Button { text: root.selected-tool == 3 ? "● Pick" : "Pick"; clicked => { root.choose-tool(3); } }
                     }
+                    Text { text: root.primary-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
@@ -166,6 +177,7 @@ slint::slint! {
                             if reason == FocusReason.window-activation { root.pointer-cancel(); }
                         }
                         key-pressed(event) => {
+                            if event.text == Key.Shift { root.shift-modifier(true); return accept; }
                             if event.text == Key.Return { root.action(2); return accept; }
                             if event.text == Key.Escape { root.action(3); return accept; }
                             if event.modifiers.control || event.modifiers.meta {
@@ -174,13 +186,19 @@ slint::slint! {
                             }
                             reject
                         }
+                        key-released(event) => {
+                            if event.text == Key.Shift { root.shift-modifier(false); return accept; }
+                            reject
+                        }
                         touch := TouchArea {
                             enabled: !root.about-open;
                             pointer-event(event) => {
                                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                                     canvas-focus.focus();
+                                    root.shift-modifier(event.modifiers.shift);
                                     root.pointer-down(self.mouse-x / 1px, self.mouse-y / 1px);
                                 } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                                    root.shift-modifier(event.modifiers.shift);
                                     root.pointer-up(self.mouse-x / 1px, self.mouse-y / 1px);
                                 } else if event.kind == PointerEventKind.cancel { root.pointer-cancel(); }
                             }
@@ -262,7 +280,19 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         Tool::Rectangle => 0,
         Tool::MoveShape => 1,
         Tool::Pan => 2,
+        Tool::Eyedropper => 3,
     });
+    let color = controller.primary_color();
+    ui.set_primary_color(slint::Color::from_argb_u8(
+        color.a, color.r, color.g, color.b,
+    ));
+    ui.set_primary_hex(hoshi_controller::color::format_hex(color).into());
+    ui.invoke_sync_color(
+        color.r.into(),
+        color.g.into(),
+        color.b.into(),
+        color.a.into(),
+    );
     ui.set_layer_name(document.layers()[document.selected_layer()].name().into());
     let shape = document
         .active_shape()
@@ -307,9 +337,22 @@ fn update(
 }
 
 pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformError> {
+    let (ui, controller, _) = create_app_with_colors()?;
+    Ok((ui, controller))
+}
+
+pub fn create_app_with_colors()
+-> Result<(AppWindow, SharedController, Rc<ColorPickerWindow>), slint::PlatformError> {
     let ui = AppWindow::new()?;
     let controller = Rc::new(RefCell::new(Controller::default()));
     refresh(&ui, &controller.borrow());
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_shift_modifier(move |pressed| {
+        if state.borrow().aspect_lock() == pressed {
+            return;
+        }
+        update(&weak, &state, |c| c.set_aspect_lock(pressed));
+    });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_pointer_down(move |x, y| update(&weak, &state, |c| c.pointer_down(x.into(), y.into())));
     let (weak, state) = (ui.as_weak(), controller.clone());
@@ -328,7 +371,7 @@ pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformErro
             if c.is_dragging() {
                 c.cancel_pointer();
             }
-            Ok(())
+            c.set_aspect_lock(false)
         })
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
@@ -337,6 +380,7 @@ pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformErro
             c.set_tool(match tool {
                 1 => Tool::MoveShape,
                 2 => Tool::Pan,
+                3 => Tool::Eyedropper,
                 _ => Tool::Rectangle,
             })
         })
@@ -394,5 +438,6 @@ pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformErro
             _ => Ok(()),
         })
     });
-    Ok((ui, controller))
+    let picker = colors::bind_picker(&ui, controller.clone())?;
+    Ok((ui, controller, picker))
 }

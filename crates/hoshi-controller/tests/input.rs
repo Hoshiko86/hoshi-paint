@@ -418,3 +418,74 @@ fn huge_finite_view_changes_are_rejected_before_float_conversion_for_ui() {
     controller.zoom_at(10.0, 10.0, f64::MIN_POSITIVE).unwrap();
     assert_eq!(controller.viewport().zoom, 1.0 / 16.0);
 }
+
+#[test]
+fn shift_corner_resize_preserves_ratio_and_rotated_opposite_anchor() {
+    for corner in [0, 2, 4, 6] {
+        let mut c = Controller::new(256, 256).unwrap();
+        c.pointer_down(40.0, 40.0).unwrap();
+        c.pointer_move(120.0, 80.0).unwrap();
+        c.pointer_up().unwrap();
+        c.set_shape_rotation(37).unwrap();
+        c.zoom_at(0.0, 0.0, 2.0).unwrap();
+        let handle = c.handle_positions()[corner];
+        let fixed = c.handle_positions()[(corner + 4) % 8];
+        c.set_aspect_lock(true).unwrap();
+        c.pointer_down(handle.x, handle.y).unwrap();
+        c.pointer_move(handle.x + 42.0, handle.y - 13.0).unwrap();
+        let shape = c.document().active_shape().unwrap();
+        assert!((f64::from(shape.width) - 2.0 * f64::from(shape.height)).abs() <= 1.0);
+        let after = c.handle_positions()[(corner + 4) % 8];
+        assert!((fixed.x - after.x).hypot(fixed.y - after.y) <= 1.42);
+        assert_eq!(shape.rotation_degrees, 37);
+        assert_eq!(c.document().undo_len(), 0);
+    }
+}
+
+#[test]
+fn shift_can_toggle_mid_drag_and_does_not_constrain_edge_handles() {
+    let mut c = Controller::new(256, 256).unwrap();
+    c.pointer_down(40.0, 40.0).unwrap();
+    c.pointer_move(120.0, 80.0).unwrap();
+    c.pointer_up().unwrap();
+    c.pointer_down(120.0, 80.0).unwrap();
+    c.pointer_move(160.0, 80.0).unwrap();
+    assert_eq!(c.document().active_shape().unwrap().width, 120);
+    c.set_aspect_lock(true).unwrap();
+    let locked = c.document().active_shape().unwrap();
+    assert_eq!((locked.width, locked.height), (112, 56));
+    c.set_aspect_lock(false).unwrap();
+    assert_eq!(
+        (
+            c.document().active_shape().unwrap().width,
+            c.document().active_shape().unwrap().height
+        ),
+        (120, 40)
+    );
+    c.set_aspect_lock(true).unwrap();
+    c.pointer_up().unwrap();
+    c.commit().unwrap();
+    assert_eq!(c.document().undo_len(), 1);
+    c.undo().unwrap();
+    c.redo().unwrap();
+    assert_eq!(
+        c.document().layers()[0]
+            .pixels()
+            .iter()
+            .filter(|p| p.a != 0)
+            .count(),
+        112 * 56
+    );
+
+    let mut c = Controller::new(256, 256).unwrap();
+    c.pointer_down(40.0, 40.0).unwrap();
+    c.pointer_move(120.0, 80.0).unwrap();
+    c.pointer_up().unwrap();
+    c.set_aspect_lock(true).unwrap();
+    c.pointer_down(120.0, 60.0).unwrap();
+    c.pointer_move(160.0, 70.0).unwrap();
+    let edge = c.document().active_shape().unwrap();
+    assert_eq!((edge.width, edge.height), (120, 40));
+    c.cancel_pointer();
+    assert!(!c.aspect_lock());
+}

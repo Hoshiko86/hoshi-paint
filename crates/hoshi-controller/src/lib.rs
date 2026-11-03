@@ -4,6 +4,8 @@
 //! This controller owns document mutations; views receive immutable state and
 //! an RGBA image. It has no windowing, rendering-framework, or filesystem dependency.
 
+pub mod color;
+
 pub use hoshi_core::Color;
 use hoshi_core::{Document, Error, Shape, ShapeKind, ShapeStyle};
 
@@ -101,6 +103,7 @@ pub enum Tool {
     Rectangle,
     MoveShape,
     Pan,
+    Eyedropper,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,6 +122,7 @@ impl From<Error> for ControllerError {
 
 #[derive(Clone, Copy)]
 enum Gesture {
+    Sample,
     Rectangle {
         anchor: (f64, f64),
     },
@@ -146,6 +150,8 @@ pub struct Controller {
     tool: Tool,
     gesture: Option<Gesture>,
     primary_color: Color,
+    aspect_lock: bool,
+    last_pointer: Option<(f64, f64)>,
 }
 
 impl Default for Controller {
@@ -162,6 +168,8 @@ impl Controller {
             tool: Tool::Rectangle,
             gesture: None,
             primary_color: Color::rgba(72, 136, 240, 255),
+            aspect_lock: false,
+            last_pointer: None,
         })
     }
 
@@ -179,6 +187,24 @@ impl Controller {
     }
     pub fn is_dragging(&self) -> bool {
         self.gesture.is_some()
+    }
+
+    pub fn aspect_lock(&self) -> bool {
+        self.aspect_lock
+    }
+
+    /// Shift can be pressed/released during a corner drag, without moving again.
+    pub fn set_aspect_lock(&mut self, pressed: bool) -> Result<(), ControllerError> {
+        if self.aspect_lock == pressed {
+            return Ok(());
+        }
+        self.aspect_lock = pressed;
+        if matches!(self.gesture, Some(Gesture::Resize { .. }))
+            && let Some((x, y)) = self.last_pointer
+        {
+            self.pointer_move(x, y)?;
+        }
+        Ok(())
     }
 
     /// Handle dimensions stay constant in logical pixels as the canvas zooms.
@@ -208,10 +234,10 @@ impl Controller {
     }
 
     /// MoveShape and Pan are temporary interaction modes that preserve the active
-    /// shape. Returning to Rectangle commits it before starting another drawing.
+    /// shape. Rectangle and Eyedropper commit it before starting another action.
     pub fn set_tool(&mut self, tool: Tool) -> Result<(), ControllerError> {
         if tool != self.tool {
-            if tool == Tool::Rectangle {
+            if matches!(tool, Tool::Rectangle | Tool::Eyedropper) {
                 self.commit()?;
             }
             self.gesture = None;
@@ -240,7 +266,8 @@ impl Controller {
 
     pub fn pointer_down(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
         let point = self.document_point(x, y)?;
-        if self.tool != Tool::Pan
+        self.last_pointer = Some((x, y));
+        if matches!(self.tool, Tool::Rectangle | Tool::MoveShape)
             && let Some(handle) = self
                 .handle_positions()
                 .into_iter()
@@ -297,8 +324,24 @@ impl Controller {
                 });
             }
             Tool::Pan => self.gesture = Some(Gesture::Pan { last: (x, y) }),
+            Tool::Eyedropper => {
+                self.sample_color(point);
+                self.gesture = Some(Gesture::Sample);
+            }
         }
         Ok(())
+    }
+
+    fn sample_color(&mut self, point: (f64, f64)) {
+        if point.0 >= 0.0
+            && point.1 >= 0.0
+            && point.0 < f64::from(self.document.width())
+            && point.1 < f64::from(self.document.height())
+        {
+            let index = point.1.floor() as usize * self.document.width() as usize
+                + point.0.floor() as usize;
+            self.primary_color = self.document.composite(false)[index];
+        }
     }
 
     fn rectangle(&self, anchor: (f64, f64), point: (f64, f64)) -> Shape {
@@ -329,7 +372,9 @@ impl Controller {
 
     pub fn pointer_move(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
         let point = self.document_point(x, y)?;
+        self.last_pointer = Some((x, y));
         match self.gesture {
+            Some(Gesture::Sample) => self.sample_color(point),
             Some(Gesture::Rectangle { anchor }) => {
                 let point = self.clip_point(point);
                 if point.0 == anchor.0 || point.1 == anchor.1 {
@@ -379,20 +424,32 @@ impl Controller {
                     point.0 + handle.0 - pointer_anchor.0 - fixed.0,
                     point.1 + handle.1 - pointer_anchor.1 - fixed.1,
                 );
-                let width = if sx == 0.0 {
+                let mut width = if sx == 0.0 {
                     original.width
                 } else {
                     (sx * (delta.0 * u.0 + delta.1 * u.1))
                         .round()
                         .clamp(1.0, 65_536.0) as u32
                 };
-                let height = if sy == 0.0 {
+                let mut height = if sy == 0.0 {
                     original.height
                 } else {
                     (sy * (delta.0 * v.0 + delta.1 * v.1))
                         .round()
                         .clamp(1.0, 65_536.0) as u32
                 };
+                if self.aspect_lock && sx != 0.0 && sy != 0.0 {
+                    let w = f64::from(original.width);
+                    let h = f64::from(original.height);
+                    let desired_w = sx * (delta.0 * u.0 + delta.1 * u.1);
+                    let desired_h = sy * (delta.0 * v.0 + delta.1 * v.1);
+                    // Closest point on the original corner diagonal: one scale
+                    // in shape-local axes, also after rotation and zoom.
+                    let scale = ((desired_w * w + desired_h * h) / (w * w + h * h))
+                        .clamp(1.0 / w.min(h), 65_536.0 / w.max(h));
+                    width = (w * scale).round().clamp(1.0, 65_536.0) as u32;
+                    height = (h * scale).round().clamp(1.0, 65_536.0) as u32;
+                }
                 let new_center = (
                     fixed.0
                         + sx * f64::from(width) / 2.0 * u.0
@@ -436,6 +493,8 @@ impl Controller {
     /// The uncommitted shape is discarded; existing document/history survive.
     pub fn cancel_pointer(&mut self) {
         self.cancel();
+        self.aspect_lock = false;
+        self.last_pointer = None;
     }
 
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
