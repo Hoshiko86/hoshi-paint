@@ -51,6 +51,9 @@ is already isolated; use the existing checkout rather than creating a worktree.
   RGB (0–255), HSV (degrees/percentages), a saturation/value area, hue slider,
   alpha (0 transparent,255 opaque), presets, and hex RGB/RGBA. Changes apply live.
   Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter or Apply.
+- The picker says **Editing the active shape** while resize handles are visible.
+  After Enter or a committing tool change it says **Next drawing color**: existing
+  pixels remain unchanged, and the chosen color applies to the next drawing.
 - Pick / Eyedropper samples merged canvas pixels with alpha, not checkerboard
   colors. Selecting it commits an active shape first; sampling adds no history.
   Select Rectangle again to draw with the sampled color. It does not sample

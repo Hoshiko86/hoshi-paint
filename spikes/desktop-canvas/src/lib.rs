@@ -53,7 +53,7 @@ slint::slint! {
         callback shift-modifier(bool);
         callback show-colors();
         callback hide-colors();
-        callback sync-color(int, int, int, int);
+        callback sync-color(int, int, int, int, bool);
         callback choose-color(int);
         callback rename(string);
         callback zoom-at(float, float, float);
@@ -292,6 +292,7 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         color.g.into(),
         color.b.into(),
         color.a.into(),
+        document.active_shape().is_some(),
     );
     ui.set_layer_name(document.layers()[document.selected_layer()].name().into());
     let shape = document

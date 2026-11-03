@@ -13,6 +13,10 @@ slint::slint! {
         in property <string> label;
         in property <float> value;
         in property <int> maximum: 255;
+        out property <float> slider-left: slider.absolute-position.x / 1px;
+        out property <float> slider-top: slider.absolute-position.y / 1px;
+        out property <float> slider-width: slider.width / 1px;
+        out property <float> slider-height: slider.height / 1px;
         callback edited(float);
         changed value => { slider.value = root.value; spin.value = round(root.value); }
         HorizontalLayout {
@@ -46,6 +50,15 @@ slint::slint! {
         in property <string> error;
         in property <image> sv-image;
         in property <color> current-color;
+        in property <bool> has-active-shape;
+        out property <float> red-slider-left: red-channel.slider-left;
+        out property <float> red-slider-top: red-channel.slider-top;
+        out property <float> red-slider-width: red-channel.slider-width;
+        out property <float> red-slider-height: red-channel.slider-height;
+        out property <float> sv-left: sv.absolute-position.x / 1px;
+        out property <float> sv-top: sv.absolute-position.y / 1px;
+        out property <float> sv-width: sv.width / 1px;
+        out property <float> sv-height: sv.height / 1px;
         callback set-rgba(int, int, int, int);
         callback set-hsv(float, float, float);
         callback set-hex(string);
@@ -88,7 +101,7 @@ slint::slint! {
                 spacing: 16px;
                 VerticalLayout {
                     Text { text: "RGB · 0–255"; color: #526079; }
-                    Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
+                    red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
                     Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
                     Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
                 }
@@ -103,9 +116,9 @@ slint::slint! {
             HorizontalLayout {
                 Text { text: "Hex"; width: 32px; vertical-alignment: center; color: #273650; }
                 hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accepted(text) => { root.set-hex(text); } }
-                Button { text: "Apply"; clicked => { root.set-hex(hex-entry.text); } }
+                Button { text: "Apply hex"; clicked => { root.set-hex(hex-entry.text); } }
             }
-            Text { text: root.error == "" ? "Alpha: 0 transparent · 255 opaque. Hex uses RGBA." : root.error;
+            Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
                 color: root.error == "" ? #526079 : #a12828; height: 18px; }
             HorizontalLayout {
                 Button { text: "Blue"; clicked => { root.set-rgba(72, 136, 240, root.alpha); } }
@@ -174,6 +187,7 @@ pub(super) fn bind_picker(
         slint::CloseRequestResponse::HideWindow
     });
     synchronize(&picker, controller.borrow().primary_color(), None);
+    picker.set_has_active_shape(controller.borrow().document().active_shape().is_some());
     let weak = picker.as_weak();
     ui.on_hide_colors(move || {
         if let Some(p) = weak.upgrade() {
@@ -181,8 +195,9 @@ pub(super) fn bind_picker(
         }
     });
     let weak = picker.as_weak();
-    ui.on_sync_color(move |r, g, b, a| {
+    ui.on_sync_color(move |r, g, b, a, active| {
         if let Some(picker) = weak.upgrade() {
+            picker.set_has_active_shape(active);
             synchronize(
                 &picker,
                 Color::rgba(r as u8, g as u8, b as u8, a as u8),

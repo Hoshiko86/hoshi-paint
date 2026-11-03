@@ -23,6 +23,84 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     ui.invoke_pointer_down(40.0, 40.0);
     ui.invoke_pointer_move(100.0, 80.0);
     ui.invoke_pointer_up(100.0, 80.0);
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(false));
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+    let before_click = state.borrow().primary_color();
+    picker.window().take_snapshot().unwrap();
+    let position = slint::LogicalPosition::new(
+        picker.get_sv_left() + picker.get_sv_width() * 0.8,
+        picker.get_sv_top() + picker.get_sv_height() * 0.2,
+    );
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::PointerPressed {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        });
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::PointerReleased {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        });
+    assert_ne!(
+        state.borrow().primary_color(),
+        before_click,
+        "actual SV pointer input must select a color"
+    );
+    assert_eq!(
+        state.borrow().composite()[50 * 512 + 50],
+        state.borrow().primary_color(),
+        "picker input must update the released active shape while the main window is inactive"
+    );
+    assert!(picker.get_has_active_shape());
+    let selected = state.borrow().primary_color();
+    let canvas = ui.window().take_snapshot().unwrap();
+    let pixel = canvas.as_slice()[(ui.get_canvas_top() as usize + 50) * canvas.width() as usize
+        + ui.get_canvas_left() as usize
+        + 50];
+    let display = |channel: u8| {
+        ((u32::from(channel) * u32::from(selected.a) + 224 * (255 - u32::from(selected.a)) + 127)
+            / 255) as u8
+    };
+    assert_eq!(
+        (pixel.r, pixel.g, pixel.b),
+        (
+            display(selected.r),
+            display(selected.g),
+            display(selected.b)
+        ),
+        "inactive main window must render the newly selected color"
+    );
+    let before_slider = state.borrow().primary_color();
+    let position = slint::LogicalPosition::new(
+        picker.get_red_slider_left() + picker.get_red_slider_width() * 0.9,
+        picker.get_red_slider_top() + picker.get_red_slider_height() * 0.5,
+    );
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::PointerPressed {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        });
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::PointerReleased {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        });
+    assert_ne!(
+        state.borrow().primary_color().r,
+        before_slider.r,
+        "actual RGB slider input must change the color"
+    );
+    assert_eq!(
+        state.borrow().composite()[50 * 512 + 50],
+        state.borrow().primary_color()
+    );
     picker.invoke_set_hsv(120.0, 100.0, 100.0);
     assert_eq!(state.borrow().primary_color(), Color::rgba(0, 255, 0, 128));
     assert_eq!(
@@ -50,9 +128,15 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     assert!(!picker.get_error().is_empty());
     picker.invoke_set_hex("#3C87E0".into());
     picker.invoke_pick();
+    assert!(!picker.get_has_active_shape());
     assert_eq!(state.borrow().tool(), Tool::Eyedropper);
     assert_eq!(state.borrow().document().undo_len(), 1);
     picker.invoke_set_rgba(0, 0, 0, 255);
+    assert_eq!(
+        state.borrow().composite()[50 * 512 + 50],
+        Color::rgba(60, 135, 224, 255),
+        "changing the next drawing color must not repaint committed pixels"
+    );
     ui.invoke_pointer_down(50.0, 50.0);
     ui.invoke_pointer_up(50.0, 50.0);
     assert_eq!(
