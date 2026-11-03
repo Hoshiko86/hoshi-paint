@@ -12,49 +12,104 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let y = ui.get_canvas_top();
         let point = |dx, dy| LogicalPosition::new(x + dx, y + dy);
         ui.window().dispatch_event(WindowEvent::PointerPressed {
-            position: point(64.0, 64.0),
+            position: point(96.0, 120.0),
             button: PointerEventButton::Left,
         });
         ui.window().dispatch_event(WindowEvent::PointerMoved {
-            position: point(320.0, 240.0),
+            position: point(320.0, 280.0),
         });
         ui.window().dispatch_event(WindowEvent::PointerReleased {
-            position: point(320.0, 240.0),
+            position: point(320.0, 280.0),
             button: PointerEventButton::Left,
         });
         assert!(
             ui.get_has_shape(),
             "desktop pointer events must reach the controller"
         );
-        ui.window().dispatch_event(WindowEvent::KeyPressed {
-            text: Key::Return.into(),
+        let corner = controller.borrow().handle_positions()[4];
+        ui.window().dispatch_event(WindowEvent::PointerPressed {
+            position: point(corner.x as f32, corner.y as f32),
+            button: PointerEventButton::Left,
         });
-        ui.window().dispatch_event(WindowEvent::KeyReleased {
-            text: Key::Return.into(),
+        ui.window().dispatch_event(WindowEvent::PointerMoved {
+            position: point(corner.x as f32 + 32.0, corner.y as f32 + 16.0),
         });
-        assert!(!ui.get_has_shape());
-        assert_eq!(controller.borrow().document().undo_len(), 1);
-        let snapshot = ui
-            .window()
-            .take_snapshot()
-            .expect("desktop software snapshot");
-        let sample = snapshot.as_slice()
-            [((y as usize + 100) * snapshot.width() as usize) + x as usize + 100];
-        assert_eq!((sample.r, sample.g, sample.b), (72, 136, 240));
-        if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
-            image::save_buffer(
-                path,
-                snapshot.as_bytes(),
-                snapshot.width(),
-                snapshot.height(),
-                image::ColorType::Rgba8,
-            )
-            .unwrap();
-        }
-        println!(
-            "PASS: desktop window rendered, pointer drag committed, displayed pixels match core color."
+        ui.window().dispatch_event(WindowEvent::PointerReleased {
+            position: point(corner.x as f32 + 32.0, corner.y as f32 + 16.0),
+            button: PointerEventButton::Left,
+        });
+        let shape = controller.borrow().document().active_shape().unwrap();
+        assert_eq!((shape.width, shape.height), (256, 176));
+        let knob = controller.borrow().handle_positions()[8];
+        let center = (224.0_f64, 208.0_f64);
+        let radius = center.1 - knob.y;
+        let destination = (
+            center.0 + radius / 2.0_f64.sqrt(),
+            center.1 - radius / 2.0_f64.sqrt(),
         );
-        slint::quit_event_loop().unwrap();
+        ui.window().dispatch_event(WindowEvent::PointerPressed {
+            position: point(knob.x as f32, knob.y as f32),
+            button: PointerEventButton::Left,
+        });
+        ui.window().dispatch_event(WindowEvent::PointerMoved {
+            position: point(destination.0 as f32, destination.1 as f32),
+        });
+        ui.window().dispatch_event(WindowEvent::PointerReleased {
+            position: point(destination.0 as f32, destination.1 as f32),
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(
+            controller
+                .borrow()
+                .document()
+                .active_shape()
+                .unwrap()
+                .rotation_degrees,
+            45
+        );
+        // Let standard-widget enable/focus animations settle for the visual artifact.
+        slint::Timer::single_shot(Duration::from_millis(200), move || {
+            if let Some(path) = std::env::var_os("HOSHI_SPIKE_EDITABLE_SNAPSHOT") {
+                let snapshot = ui.window().take_snapshot().unwrap();
+                image::save_buffer(
+                    path,
+                    snapshot.as_bytes(),
+                    snapshot.width(),
+                    snapshot.height(),
+                    image::ColorType::Rgba8,
+                )
+                .unwrap();
+            }
+            ui.window().dispatch_event(WindowEvent::KeyPressed {
+                text: Key::Return.into(),
+            });
+            ui.window().dispatch_event(WindowEvent::KeyReleased {
+                text: Key::Return.into(),
+            });
+            assert!(!ui.get_has_shape());
+            assert_eq!(controller.borrow().document().undo_len(), 1);
+            let snapshot = ui
+                .window()
+                .take_snapshot()
+                .expect("desktop software snapshot");
+            let sample = snapshot.as_slice()
+                [((y as usize + 208) * snapshot.width() as usize) + x as usize + 224];
+            assert_eq!((sample.r, sample.g, sample.b), (72, 136, 240));
+            if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
+                image::save_buffer(
+                    path,
+                    snapshot.as_bytes(),
+                    snapshot.width(),
+                    snapshot.height(),
+                    image::ColorType::Rgba8,
+                )
+                .unwrap();
+            }
+            println!(
+                "PASS: desktop window rendered, corner resize and rotation committed, displayed pixels match core color."
+            );
+            slint::quit_event_loop().unwrap();
+        });
     });
     ui.run()?;
     Ok(())

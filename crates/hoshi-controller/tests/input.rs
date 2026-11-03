@@ -78,15 +78,21 @@ fn pan_and_zoom_do_not_modify_pixels_or_active_shape() {
 
 #[test]
 fn move_drag_uses_document_coordinates_after_zoom() {
-    let mut controller = Controller::new(16, 16).unwrap();
-    draw(&mut controller);
+    let mut controller = Controller::new(128, 128).unwrap();
+    controller.pointer_down(20.0, 20.0).unwrap();
+    controller.pointer_move(80.0, 80.0).unwrap();
+    controller.pointer_up().unwrap();
     controller.zoom_at(0.0, 0.0, 2.0).unwrap();
     controller.set_tool(Tool::MoveShape).unwrap();
-    controller.pointer_down(4.0, 6.0).unwrap();
-    controller.pointer_move(10.0, 10.0).unwrap();
+    // Grab the interior, away from the new corner/edge control points.
+    controller.pointer_down(100.0, 100.0).unwrap();
+    controller.pointer_move(106.0, 104.0).unwrap();
     controller.pointer_up().unwrap();
     let shape = controller.document().active_shape().unwrap();
-    assert_eq!((shape.x, shape.y, shape.width, shape.height), (5, 5, 5, 6));
+    assert_eq!(
+        (shape.x, shape.y, shape.width, shape.height),
+        (23, 22, 60, 60)
+    );
 }
 
 #[test]
@@ -194,13 +200,186 @@ fn workspace_click_does_not_commit_or_replace_active_shape() {
     let mut controller = Controller::new(16, 16).unwrap();
     draw(&mut controller);
     let shape = controller.document().active_shape();
-    for (x, y) in [(-1.0, 1.0), (1.0, -1.0), (16.0, 1.0), (1.0, 16.0)] {
+    // Nearby workspace points may now intentionally select outlying handles.
+    for (x, y) in [(-1000.0, 1.0), (1.0, -1000.0), (1000.0, 1.0), (1.0, 1000.0)] {
         controller.pointer_down(x, y).unwrap();
         controller.pointer_move(5.0, 6.0).unwrap();
         controller.pointer_up().unwrap();
         assert_eq!(controller.document().active_shape(), shape);
         assert_eq!(controller.document().undo_len(), 0);
     }
+}
+
+fn large_controller() -> Controller {
+    let mut c = Controller::new(256, 256).unwrap();
+    c.pointer_down(20.0, 30.0).unwrap();
+    c.pointer_move(100.0, 90.0).unwrap();
+    c.pointer_up().unwrap();
+    c
+}
+
+fn handle(c: &Controller, kind: i32) -> (f64, f64) {
+    let h = c
+        .handle_positions()
+        .into_iter()
+        .find(|h| h.kind == kind)
+        .unwrap();
+    (h.x, h.y)
+}
+
+#[test]
+fn corners_and_edges_resize_preview_under_zoom_without_committing() {
+    let mut c = large_controller();
+    c.zoom_at(0.0, 0.0, 2.0).unwrap();
+    c.pan(17.0, -8.0).unwrap();
+    let fixed = handle(&c, 0);
+    let br = handle(&c, 4);
+    c.pointer_down(br.0, br.1).unwrap();
+    c.pointer_move(br.0 + 20.0, br.1 + 40.0).unwrap();
+    c.pointer_up().unwrap();
+    let shape = c.document().active_shape().unwrap();
+    assert_eq!(
+        (shape.x, shape.y, shape.width, shape.height),
+        (20, 30, 90, 80)
+    );
+    assert_eq!(handle(&c, 0), fixed);
+    assert_eq!(c.document().undo_len(), 0);
+
+    let right = handle(&c, 3);
+    c.pointer_down(right.0 + 3.0, right.1 + 2.0).unwrap();
+    // Grab offset does not cause the handle to jump; tangential motion is ignored.
+    c.pointer_move(right.0 + 23.0, right.1 + 50.0).unwrap();
+    c.pointer_up().unwrap();
+    let shape = c.document().active_shape().unwrap();
+    assert_eq!((shape.width, shape.height), (100, 80));
+    assert_eq!(handle(&c, 0), fixed);
+}
+
+#[test]
+fn all_eight_handles_resize_their_axes_and_preserve_opposite_points() {
+    let signs = [
+        (-1.0, -1.0),
+        (0.0, -1.0),
+        (1.0, -1.0),
+        (1.0, 0.0),
+        (1.0, 1.0),
+        (0.0, 1.0),
+        (-1.0, 1.0),
+        (-1.0, 0.0),
+    ];
+    for (kind, (sx, sy)) in signs.into_iter().enumerate() {
+        let mut c = large_controller();
+        let selected = handle(&c, kind as i32);
+        let opposite = handle(&c, ((kind + 4) % 8) as i32);
+        c.pointer_down(selected.0, selected.1).unwrap();
+        c.pointer_move(selected.0 + sx * 20.0, selected.1 + sy * 30.0)
+            .unwrap();
+        c.pointer_up().unwrap();
+        let shape = c.document().active_shape().unwrap();
+        assert_eq!(shape.width, if sx == 0.0 { 80 } else { 100 });
+        assert_eq!(shape.height, if sy == 0.0 { 60 } else { 90 });
+        assert_eq!(handle(&c, ((kind + 4) % 8) as i32), opposite);
+        assert_eq!(c.document().undo_len(), 0);
+    }
+}
+
+#[test]
+fn rotated_resize_keeps_the_opposite_anchor_fixed() {
+    let mut c = large_controller();
+    c.set_shape_rotation(37).unwrap();
+    let fixed = handle(&c, 4);
+    let corner = handle(&c, 0);
+    c.pointer_down(corner.0, corner.1).unwrap();
+    c.pointer_move(corner.0 - 30.0, corner.1 - 30.0).unwrap();
+    c.pointer_up().unwrap();
+    let after = handle(&c, 4);
+    // Integer raster bounds permit at most half a pixel of rounding per axis.
+    assert!((after.0 - fixed.0).hypot(after.1 - fixed.1) <= 0.71);
+    assert_eq!(c.document().active_shape().unwrap().rotation_degrees, 37);
+    let edge_fixed = handle(&c, 7);
+    let edge = handle(&c, 3);
+    let height = c.document().active_shape().unwrap().height;
+    c.pointer_down(edge.0, edge.1).unwrap();
+    c.pointer_move(edge.0 + 30.0, edge.1 + 20.0).unwrap();
+    c.pointer_up().unwrap();
+    let after = handle(&c, 7);
+    assert!((after.0 - edge_fixed.0).hypot(after.1 - edge_fixed.1) <= 0.71);
+    assert_eq!(c.document().active_shape().unwrap().height, height);
+}
+
+#[test]
+fn rotation_handle_keeps_center_and_commits_as_one_undoable_action() {
+    let mut c = large_controller();
+    let knob = handle(&c, 8);
+    assert_eq!(c.handle_positions().len(), 9);
+    assert_eq!(knob, (60.0, 2.0));
+    c.pointer_down(knob.0, knob.1).unwrap();
+    c.pointer_move(118.0, 60.0).unwrap();
+    c.pointer_up().unwrap();
+    let shape = c.document().active_shape().unwrap();
+    assert_eq!(
+        (shape.x, shape.y, shape.width, shape.height),
+        (20, 30, 80, 60)
+    );
+    assert_eq!(shape.rotation_degrees, 90);
+    let knob = handle(&c, 8);
+    assert!((knob.0 - 118.0).abs() < 1e-10 && (knob.1 - 60.0).abs() < 1e-10);
+    let preview = c.composite();
+    assert!(c.commit().unwrap());
+    assert!(c.handle_positions().is_empty());
+    assert_eq!(c.document().undo_len(), 1);
+    assert_eq!(c.composite(), preview);
+    c.undo().unwrap();
+    assert!(c.composite().iter().all(|p| p.a == 0));
+    c.redo().unwrap();
+    assert_eq!(c.composite(), preview);
+}
+
+#[test]
+fn rotation_wraps_without_jumping_and_ignores_the_undefined_center_angle() {
+    let mut c = large_controller();
+    c.set_shape_rotation(359).unwrap();
+    let knob = handle(&c, 8);
+    c.pointer_down(knob.0, knob.1).unwrap();
+    c.pointer_move(60.0, 60.0).unwrap();
+    assert_eq!(c.document().active_shape().unwrap().rotation_degrees, 359);
+    let theta = (-89.0_f64).to_radians();
+    c.pointer_move(60.0 + 58.0 * theta.cos(), 60.0 + 58.0 * theta.sin())
+        .unwrap();
+    c.pointer_up().unwrap();
+    assert_eq!(c.document().active_shape().unwrap().rotation_degrees, 1);
+}
+
+#[test]
+fn rotation_knob_offset_is_zoom_independent_and_pan_ignores_handles() {
+    let mut c = large_controller();
+    c.zoom_at(0.0, 0.0, 3.0).unwrap();
+    let top = handle(&c, 1);
+    let knob = handle(&c, 8);
+    assert!(((top.0 - knob.0).hypot(top.1 - knob.1) - 28.0).abs() < 1e-10);
+    let before = c.document().active_shape();
+    c.set_tool(Tool::Pan).unwrap();
+    let corner = handle(&c, 0);
+    c.pointer_down(corner.0, corner.1).unwrap();
+    c.pointer_move(corner.0 + 15.0, corner.1 - 5.0).unwrap();
+    c.pointer_up().unwrap();
+    assert_eq!(c.document().active_shape(), before);
+    assert_eq!((c.viewport().offset_x, c.viewport().offset_y), (15.0, -5.0));
+}
+
+#[test]
+fn crossing_an_opposite_edge_clamps_safely_and_cancel_discards_preview() {
+    let mut c = large_controller();
+    let edge = handle(&c, 3);
+    c.pointer_down(edge.0, edge.1).unwrap();
+    c.pointer_move(-500.0, edge.1).unwrap();
+    c.pointer_up().unwrap();
+    let shape = c.document().active_shape().unwrap();
+    assert_eq!((shape.x, shape.width), (20, 1));
+    c.cancel();
+    assert!(c.document().active_shape().is_none());
+    assert_eq!(c.document().undo_len(), 0);
+    assert!(c.composite().iter().all(|p| p.a == 0));
 }
 
 #[test]

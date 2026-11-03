@@ -33,6 +33,7 @@ jobs:
         env:
           SLINT_BACKEND: winit-software
           HOSHI_SPIKE_SNAPSHOT: target/spike-desktop.png
+          HOSHI_SPIKE_EDITABLE_SNAPSHOT: target/spike-handles.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example desktop_smoke --locked
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
@@ -41,5 +42,6 @@ jobs:
             target/debug/hoshi-canvas-spike
             target/debug/hoshi-canvas-spike.exe
             target/spike-desktop.png
+            target/spike-handles.png
           if-no-files-found: error
           retention-days: 14

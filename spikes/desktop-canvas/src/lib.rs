@@ -6,6 +6,7 @@ use std::{cell::RefCell, rc::Rc};
 
 slint::slint! {
     import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
+    export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
         title: "Hoshi Paint · Canvas study";
         preferred-width: 1120px;
@@ -18,6 +19,7 @@ slint::slint! {
         // Match widgets to the shell's fixed light surfaces on dark-themed Windows.
         init => { Palette.color-scheme = ColorScheme.light; }
         in property <image> canvas-image;
+        in property <[ControlPoint]> control-points;
         in property <float> zoom: 1;
         in property <float> offset-x;
         in property <float> offset-y;
@@ -113,7 +115,7 @@ slint::slint! {
                         Button { text: "Larger"; enabled: root.has-shape; clicked => { root.action(10); } }
                     }
                     Rectangle { vertical-stretch: 1; }
-                    Text { text: "Drag → adjust → Enter.\nEscape cancels. Scroll zooms."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
+                    Text { text: "Drag handles to resize.\nRound handle rotates.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
                 }
                 viewport := Rectangle {
                     horizontal-stretch: 1;
@@ -130,6 +132,32 @@ slint::slint! {
                         width: 512px * root.zoom;
                         height: 512px * root.zoom;
                         image-fit: fill;
+                    }
+                    if root.has-shape : Path {
+                        width: parent.width;
+                        height: parent.height;
+                        viewbox-width: self.width / 1px;
+                        viewbox-height: self.height / 1px;
+                        stroke: #315cae;
+                        stroke-width: 1px;
+                        fill: transparent;
+                        MoveTo { x: root.control-points[0].x; y: root.control-points[0].y; }
+                        LineTo { x: root.control-points[2].x; y: root.control-points[2].y; }
+                        LineTo { x: root.control-points[4].x; y: root.control-points[4].y; }
+                        LineTo { x: root.control-points[6].x; y: root.control-points[6].y; }
+                        Close { }
+                        MoveTo { x: root.control-points[1].x; y: root.control-points[1].y; }
+                        LineTo { x: root.control-points[8].x; y: root.control-points[8].y; }
+                    }
+                    for point in root.control-points : Rectangle {
+                        x: point.x * 1px - 5px;
+                        y: point.y * 1px - 5px;
+                        width: 10px;
+                        height: 10px;
+                        border-width: 1.5px;
+                        border-color: #315cae;
+                        border-radius: point.kind == 8 ? 5px : 1px;
+                        background: point.kind == 8 ? #c8ddff : white;
                     }
                     canvas-focus := FocusScope {
                         width: parent.width;
@@ -217,6 +245,16 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
     ui.set_zoom(viewport.zoom as f32);
     ui.set_offset_x(viewport.offset_x as f32);
     ui.set_offset_y(viewport.offset_y as f32);
+    let points = controller
+        .handle_positions()
+        .into_iter()
+        .map(|p| ControlPoint {
+            x: p.x as f32,
+            y: p.y as f32,
+            kind: p.kind,
+        })
+        .collect::<Vec<_>>();
+    ui.set_control_points(Rc::new(slint::VecModel::from(points)).into());
     ui.set_has_shape(document.active_shape().is_some());
     ui.set_can_undo(document.undo_len() > 0);
     ui.set_can_redo(document.redo_len() > 0);
@@ -230,8 +268,12 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         .active_shape()
         .map(|s| {
             format!(
-                " · Active shape: {} × {} at {}, {}",
-                s.width, s.height, s.x, s.y
+                " · Active shape: {} × {} at {}, {} · {}°",
+                s.width,
+                s.height,
+                s.x,
+                s.y,
+                s.rotation_degrees.rem_euclid(360)
             )
         })
         .unwrap_or_default();
@@ -275,8 +317,9 @@ pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformErro
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_pointer_up(move |x, y| {
         update(&weak, &state, |c| {
-            c.pointer_move(x.into(), y.into())?;
-            c.pointer_up()
+            let movement = c.pointer_move(x.into(), y.into());
+            let release = c.pointer_up();
+            movement.and(release)
         })
     });
     let (weak, state) = (ui.as_weak(), controller.clone());

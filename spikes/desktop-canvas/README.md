@@ -35,6 +35,11 @@ is already isolated; use the existing checkout rather than creating a worktree.
 ## Try the interaction
 
 - Drag on the checkerboard to draw a filled rectangle. Release keeps it editable.
+- Drag any of the eight square control points: corners resize both dimensions;
+  edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
+  rounding, even after rotation. Crossed edges clamp at one pixel.
+- Drag the round control point above the top edge to rotate about the center
+  in one-degree increments. Handles keep their screen size when zoomed.
 - Select Move shape and drag, or use nudge/size buttons to adjust it.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
 - Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
@@ -49,7 +54,7 @@ is already isolated; use the existing checkout rather than creating a worktree.
   survives. Clicks and zero-area drags do not paint stray edge pixels.
 
 Only one layer is exposed in this shell. There is no brush, file import/save,
-shape rotation, outline styling, rounded rectangle, ellipse tool or selection UI
+outline styling, rounded rectangle, ellipse tool or selection UI
 yet. Core support does not imply that a corresponding UI has shipped.
 
 ## Validation commands
@@ -99,3 +104,7 @@ renderer does not establish iOS support; the official iOS path requires Skia.
 Slint's royalty-free 2.0 license is selected for this experiment, with the
 top-level Help → About attribution. See THIRD_PARTY_NOTICES.md. A complete
 transitive license inventory remains a packaged-release gate.
+
+The widget palette is explicitly light to match the fixed light shell, even on
+dark-themed Windows. Rendered tests check enabled-label contrast and a second
+scenario exercises resize/rotation through synthetic window events.

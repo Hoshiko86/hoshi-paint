@@ -89,7 +89,8 @@ pub enum ShapeStyle {
     },
 }
 
-/// Integer bounds; outline is drawn inside the bounds. Rotation comes later.
+/// Integer local bounds; outline is drawn inside the bounds. Rotation is about
+/// the bounds' center, clockwise in screen coordinates, at whole-degree steps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Shape {
     pub kind: ShapeKind,
@@ -97,6 +98,7 @@ pub struct Shape {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    pub rotation_degrees: i32,
     pub style: ShapeStyle,
 }
 
@@ -133,23 +135,56 @@ impl Shape {
             }
         }
     }
+}
+
+/// Cache the transform once per raster operation rather than taking a sine and
+/// cosine for every pixel. Exact quarter turns avoid floating-point edge drift.
+#[derive(Clone, Copy)]
+struct RasterShape {
+    shape: Shape,
+    center_x: f64,
+    center_y: f64,
+    sin: f64,
+    cos: f64,
+}
+
+impl RasterShape {
+    fn new(shape: Shape) -> Self {
+        let angle = shape.rotation_degrees.rem_euclid(360);
+        let (sin, cos) = match angle {
+            0 => (0.0, 1.0),
+            90 => (1.0, 0.0),
+            180 => (0.0, -1.0),
+            270 => (-1.0, 0.0),
+            _ => f64::from(angle).to_radians().sin_cos(),
+        };
+        Self {
+            shape,
+            center_x: f64::from(shape.x) + f64::from(shape.width) / 2.0,
+            center_y: f64::from(shape.y) + f64::from(shape.height) / 2.0,
+            sin,
+            cos,
+        }
+    }
 
     fn color_at(self, x: u32, y: u32) -> Option<Color> {
-        let x = f64::from(x) + 0.5;
-        let y = f64::from(y) + 0.5;
-        if !self.contains(x, y, 0.0) {
+        let dx = f64::from(x) + 0.5 - self.center_x;
+        let dy = f64::from(y) + 0.5 - self.center_y;
+        let x = self.center_x + self.cos * dx + self.sin * dy;
+        let y = self.center_y - self.sin * dx + self.cos * dy;
+        if !self.shape.contains(x, y, 0.0) {
             return None;
         }
-        match self.style {
+        match self.shape.style {
             ShapeStyle::Fill(color) => Some(color),
             ShapeStyle::Outline { color, width } => {
-                (!self.contains(x, y, f64::from(width))).then_some(color)
+                (!self.shape.contains(x, y, f64::from(width))).then_some(color)
             }
             ShapeStyle::Both {
                 fill,
                 outline,
                 width,
-            } => Some(if self.contains(x, y, f64::from(width)) {
+            } => Some(if self.shape.contains(x, y, f64::from(width)) {
                 fill
             } else {
                 outline
@@ -373,6 +408,7 @@ impl Document {
         };
         let before = self.state.clone();
         let layer = &mut self.state.layers[self.state.selected];
+        let shape = RasterShape::new(shape);
         let mut changed = false;
         for y in 0..self.height {
             for x in 0..self.width {
@@ -393,6 +429,7 @@ impl Document {
     /// Preview blends the active shape into its layer before layer opacity.
     pub fn composite(&self, include_preview: bool) -> Vec<Color> {
         let mut output = vec![Color::TRANSPARENT; (self.width * self.height) as usize];
+        let active = self.active.map(RasterShape::new);
         for (layer_index, layer) in self.state.layers.iter().enumerate() {
             if !layer.visible {
                 continue;
@@ -403,7 +440,7 @@ impl Document {
                     let mut color = layer.pixels[index];
                     if include_preview
                         && layer_index == self.state.selected
-                        && let Some(preview) = self.active.and_then(|shape| shape.color_at(x, y))
+                        && let Some(preview) = active.and_then(|shape| shape.color_at(x, y))
                     {
                         color = preview.over(color, 255);
                     }

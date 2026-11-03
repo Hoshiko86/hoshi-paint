@@ -9,6 +9,51 @@ use hoshi_core::{Document, Error, Shape, ShapeKind, ShapeStyle};
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
 const MAX_VIEW_OFFSET: f64 = 1_000_000_000.0;
+const HANDLE_RADIUS: f64 = 8.0;
+
+/// Control points in logical viewport pixels: corners/edges clockwise from
+/// top-left (0..=7), followed by the rotation point (8).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HandlePoint {
+    pub x: f64,
+    pub y: f64,
+    pub kind: i32,
+}
+
+const HANDLE_SIGNS: [(f64, f64); 8] = [
+    (-1.0, -1.0),
+    (0.0, -1.0),
+    (1.0, -1.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+    (-1.0, 1.0),
+    (-1.0, 0.0),
+];
+
+fn axes(shape: Shape) -> ((f64, f64), (f64, f64)) {
+    let (sin, cos) = f64::from(shape.rotation_degrees.rem_euclid(360))
+        .to_radians()
+        .sin_cos();
+    ((cos, sin), (-sin, cos))
+}
+
+fn center(shape: Shape) -> (f64, f64) {
+    (
+        f64::from(shape.x) + f64::from(shape.width) / 2.0,
+        f64::from(shape.y) + f64::from(shape.height) / 2.0,
+    )
+}
+
+fn control_point(shape: Shape, kind: usize) -> (f64, f64) {
+    let (sx, sy) = HANDLE_SIGNS[kind];
+    let (u, v) = axes(shape);
+    let c = center(shape);
+    (
+        c.0 + sx * f64::from(shape.width) / 2.0 * u.0 + sy * f64::from(shape.height) / 2.0 * v.0,
+        c.1 + sx * f64::from(shape.width) / 2.0 * u.1 + sy * f64::from(shape.height) / 2.0 * v.1,
+    )
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Viewport {
@@ -74,9 +119,25 @@ impl From<Error> for ControllerError {
 
 #[derive(Clone, Copy)]
 enum Gesture {
-    Rectangle { anchor: (f64, f64) },
-    Move { anchor: (f64, f64), original: Shape },
-    Pan { last: (f64, f64) },
+    Rectangle {
+        anchor: (f64, f64),
+    },
+    Move {
+        anchor: (f64, f64),
+        original: Shape,
+    },
+    Pan {
+        last: (f64, f64),
+    },
+    Resize {
+        original: Shape,
+        kind: usize,
+        pointer_anchor: (f64, f64),
+    },
+    Rotate {
+        original: Shape,
+        anchor_angle: f64,
+    },
 }
 
 pub struct Controller {
@@ -120,6 +181,32 @@ impl Controller {
         self.gesture.is_some()
     }
 
+    /// Handle dimensions stay constant in logical pixels as the canvas zooms.
+    pub fn handle_positions(&self) -> Vec<HandlePoint> {
+        let Some(shape) = self.document.active_shape() else {
+            return Vec::new();
+        };
+        let mut points: Vec<_> = (0..8)
+            .map(|kind| {
+                let p = control_point(shape, kind);
+                let (x, y) = self.viewport.to_logical(p.0, p.1);
+                HandlePoint {
+                    x,
+                    y,
+                    kind: kind as i32,
+                }
+            })
+            .collect();
+        let (_, v) = axes(shape);
+        let top = points[1];
+        points.push(HandlePoint {
+            x: top.x - v.0 * 28.0,
+            y: top.y - v.1 * 28.0,
+            kind: 8,
+        });
+        points
+    }
+
     /// MoveShape and Pan are temporary interaction modes that preserve the active
     /// shape. Returning to Rectangle commits it before starting another drawing.
     pub fn set_tool(&mut self, tool: Tool) -> Result<(), ControllerError> {
@@ -153,6 +240,36 @@ impl Controller {
 
     pub fn pointer_down(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
         let point = self.document_point(x, y)?;
+        if self.tool != Tool::Pan
+            && let Some(handle) = self
+                .handle_positions()
+                .into_iter()
+                .filter(|h| (h.x - x).hypot(h.y - y) <= HANDLE_RADIUS)
+                .min_by(|a, b| {
+                    (a.x - x)
+                        .hypot(a.y - y)
+                        .total_cmp(&(b.x - x).hypot(b.y - y))
+                })
+        {
+            let original = self
+                .document
+                .active_shape()
+                .expect("handles require an active shape");
+            self.gesture = Some(if handle.kind == 8 {
+                let c = center(original);
+                Gesture::Rotate {
+                    original,
+                    anchor_angle: (point.1 - c.1).atan2(point.0 - c.0),
+                }
+            } else {
+                Gesture::Resize {
+                    original,
+                    kind: handle.kind as usize,
+                    pointer_anchor: point,
+                }
+            });
+            return Ok(());
+        }
         match self.tool {
             Tool::Rectangle => {
                 // Clicking the surrounding workspace must not paint an edge
@@ -205,6 +322,7 @@ impl Controller {
             y: top as i32,
             width: ((right - left) as u32).max(1),
             height: ((bottom - top) as u32).max(1),
+            rotation_degrees: 0,
             style: ShapeStyle::Fill(self.primary_color),
         }
     }
@@ -240,6 +358,68 @@ impl Controller {
             Some(Gesture::Pan { last }) => {
                 self.pan(x - last.0, y - last.1)?;
                 self.gesture = Some(Gesture::Pan { last: (x, y) });
+            }
+            Some(Gesture::Resize {
+                original,
+                kind,
+                pointer_anchor,
+            }) => {
+                let (sx, sy) = HANDLE_SIGNS[kind];
+                let (u, v) = axes(original);
+                let c = center(original);
+                let fixed = (
+                    c.0 - sx * f64::from(original.width) / 2.0 * u.0
+                        - sy * f64::from(original.height) / 2.0 * v.0,
+                    c.1 - sx * f64::from(original.width) / 2.0 * u.1
+                        - sy * f64::from(original.height) / 2.0 * v.1,
+                );
+                // Preserve the offset at which the user grabbed the handle.
+                let handle = control_point(original, kind);
+                let delta = (
+                    point.0 + handle.0 - pointer_anchor.0 - fixed.0,
+                    point.1 + handle.1 - pointer_anchor.1 - fixed.1,
+                );
+                let width = if sx == 0.0 {
+                    original.width
+                } else {
+                    (sx * (delta.0 * u.0 + delta.1 * u.1))
+                        .round()
+                        .clamp(1.0, 65_536.0) as u32
+                };
+                let height = if sy == 0.0 {
+                    original.height
+                } else {
+                    (sy * (delta.0 * v.0 + delta.1 * v.1))
+                        .round()
+                        .clamp(1.0, 65_536.0) as u32
+                };
+                let new_center = (
+                    fixed.0
+                        + sx * f64::from(width) / 2.0 * u.0
+                        + sy * f64::from(height) / 2.0 * v.0,
+                    fixed.1
+                        + sx * f64::from(width) / 2.0 * u.1
+                        + sy * f64::from(height) / 2.0 * v.1,
+                );
+                let mut shape = original;
+                shape.width = width;
+                shape.height = height;
+                shape.x = (new_center.0 - f64::from(width) / 2.0).round() as i32;
+                shape.y = (new_center.1 - f64::from(height) / 2.0).round() as i32;
+                self.document.adjust_shape(shape)?;
+            }
+            Some(Gesture::Rotate {
+                mut original,
+                anchor_angle,
+            }) => {
+                let c = center(original);
+                let delta = (point.0 - c.0, point.1 - c.1);
+                if delta.0.hypot(delta.1) > f64::EPSILON {
+                    let degrees = f64::from(original.rotation_degrees)
+                        + (delta.1.atan2(delta.0) - anchor_angle).to_degrees();
+                    original.rotation_degrees = (degrees.round() as i32).rem_euclid(360);
+                    self.document.adjust_shape(original)?;
+                }
             }
             None => (),
         }
@@ -346,6 +526,16 @@ impl Controller {
         shape.y = y;
         shape.width = width;
         shape.height = height;
+        self.document.adjust_shape(shape)?;
+        Ok(())
+    }
+
+    pub fn set_shape_rotation(&mut self, degrees: i32) -> Result<(), ControllerError> {
+        let mut shape = self
+            .document
+            .active_shape()
+            .ok_or(ControllerError::NoActiveShape)?;
+        shape.rotation_degrees = degrees.rem_euclid(360);
         self.document.adjust_shape(shape)?;
         Ok(())
     }

@@ -18,9 +18,9 @@ not reference-hardware release performance measurements.
 
 | Check | Observed result |
 | --- | --- |
-| Existing core | 15 integration tests pass after the Rust upgrade |
-| New UI-independent controller | 12 integration tests pass: lifecycle, coordinates/DPI math, pan/zoom, clipping, limits, color/name edits |
-| Slint software rendering and input | One integration scenario passes with pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
+| Existing core | 19 integration tests pass, including rotated raster geometry and history |
+| New UI-independent controller | 19 integration tests pass, including all eight handles, rotated anchors, rotation wrap, coordinates and lifecycle |
+| Slint software rendering and input | Two integration scenarios pass with resize/rotation and enabled-label contrast assertions, pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
 | Actual Linux winit/software window | Xvfb smoke passes: show/run native event loop, dispatch synthetic input, commit shape, check displayed pixels, capture screenshot, exit |
 | Build, format, lint | `cargo build -p hoshi-canvas-spike --locked`, rustfmt and workspace/all-target Clippy pass |
 | Project-sync regression | Four Python tests pass |
@@ -37,7 +37,11 @@ machine. The software renderer still draws and its pixel checks pass.
 ## Implementation scope
 
 - 512×512 transparency checkerboard; pointer-anchored zoom and pan.
-- Filled rectangle drag/release, adjustable position/size/color, commit/cancel.
+- Filled rectangle drag/release, eight corner/edge handles, rotation about the
+  center, adjustable color and commit/cancel. Opposite resize anchors stay fixed
+  within integer-pixel rounding; rotation is in one-degree increments.
+- Explicit light widgets match the fixed light surfaces, fixing pale labels
+  reported on dark-themed Windows.
 - One exposed raster layer with name editing; undo/redo and canvas-scoped shortcuts.
 - Top-level Help/About attribution, input-blocking modal, keyboard focus restoration.
 - Opening About mid-drag cancels the unfinished gesture before blocking input;
