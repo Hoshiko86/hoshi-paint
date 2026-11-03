@@ -35,7 +35,7 @@ jobs:
           HOSHI_SPIKE_SNAPSHOT: target/spike-desktop.png
           HOSHI_SPIKE_EDITABLE_SNAPSHOT: target/spike-handles.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example desktop_smoke --locked
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}
           path: |
