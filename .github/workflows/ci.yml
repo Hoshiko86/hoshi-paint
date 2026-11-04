@@ -51,14 +51,23 @@ jobs:
         run: |
           xvfb-run -a cargo run --package hoshi-canvas-spike --example cursor_smoke --locked
           SLINT_SCALE_FACTOR=2 xvfb-run -a -s '-screen 0 2560x1800x24' cargo run --package hoshi-canvas-spike --example cursor_smoke --locked
+      - name: Include license notices with debug artifacts
+        shell: python
+        run: |
+          from pathlib import Path
+          import shutil
+          package = Path("target/spike-package")
+          package.mkdir(parents=True, exist_ok=True)
+          for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
+                         "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
+                         "THIRD_PARTY_NOTICES.md"]:
+              path = Path(source)
+              if path.is_file():
+                  shutil.copy2(path, package / path.name)
+          shutil.copytree("licenses", package / "licenses", dirs_exist_ok=True)
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}
-          path: |
-            target/debug/hoshi-canvas-spike
-            target/debug/hoshi-canvas-spike.exe
-            target/spike-desktop.png
-            target/spike-handles.png
-            target/spike-colors.png
+          path: target/spike-package/
           if-no-files-found: error
           retention-days: 14

@@ -234,8 +234,8 @@ slint::slint! {
                 Rectangle {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
-                    width: 380px;
-                    height: 240px;
+                    width: 460px;
+                    height: 360px;
                     background: white;
                     border-radius: 12px;
                     VerticalLayout {
@@ -243,6 +243,7 @@ slint::slint! {
                         spacing: 16px;
                         Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
                         Text { text: "A study in drawing, shapes, and simple workflows."; wrap: word-wrap; color: #526079; }
+                        Text { text: "Eye-dropper icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
                     }
