@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 xvfb
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
       - name: Install pinned Rust
         run: rustup show
       - run: cargo test --workspace --locked
@@ -41,6 +41,16 @@ jobs:
           SLINT_BACKEND: winit-software
           HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
+      - name: Desktop screen picker portal contract
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- cargo run --package hoshi-canvas-spike --example portal_smoke --locked
+      - name: Native eyedropper cursor at 1x and 2x
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+        run: |
+          xvfb-run -a cargo run --package hoshi-canvas-spike --example cursor_smoke --locked
+          SLINT_SCALE_FACTOR=2 xvfb-run -a -s '-screen 0 2560x1800x24' cargo run --package hoshi-canvas-spike --example cursor_smoke --locked
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}

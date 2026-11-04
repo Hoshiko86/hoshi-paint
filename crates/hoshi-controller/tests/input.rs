@@ -489,3 +489,35 @@ fn shift_can_toggle_mid_drag_and_does_not_constrain_edge_handles() {
     c.cancel_pointer();
     assert!(!c.aspect_lock());
 }
+
+#[test]
+fn rectangle_interior_moves_rotated_shape_under_zoom_and_outside_starts_new_shape() {
+    let mut c = large_controller();
+    c.set_shape_rotation(45).unwrap();
+    c.zoom_at(0., 0., 2.5).unwrap();
+    c.pan(17., -9.).unwrap();
+    let original = c.document().active_shape().unwrap();
+    // This interior point is beyond the unrotated top edge, but inside the
+    // rotated rectangle and away from every handle.
+    let p = c.viewport().to_logical(40., 29.);
+    c.pointer_down(p.0, p.1).unwrap();
+    c.pointer_move(p.0 + 25., p.1 - 10.).unwrap();
+    c.pointer_up().unwrap();
+    let moved = c.document().active_shape().unwrap();
+    assert_eq!((moved.x, moved.y), (original.x + 10, original.y - 4));
+    assert_eq!(
+        (moved.width, moved.height, moved.rotation_degrees),
+        (80, 60, 45)
+    );
+    assert_eq!(c.document().undo_len(), 0);
+    // In the axis-aligned bounds, but outside the rotated bounds and handles.
+    let p = c.viewport().to_logical(31., 27.);
+    c.pointer_down(p.0, p.1).unwrap();
+    let end = c.viewport().to_logical(8., 8.);
+    c.pointer_move(end.0, end.1).unwrap();
+    c.pointer_up().unwrap();
+    assert_eq!(c.document().undo_len(), 1);
+    let next = c.document().active_shape().unwrap();
+    assert_eq!((next.x, next.y, next.width, next.height), (8, 8, 23, 19));
+    assert_eq!(next.rotation_degrees, 0);
+}

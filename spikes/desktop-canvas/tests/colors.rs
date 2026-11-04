@@ -15,6 +15,12 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     let (ui, state, picker) = create_app_with_colors().unwrap();
     ui.window().set_size(LogicalSize::new(1120.0, 760.0));
     ui.show().unwrap();
+    // A committed source swatch, separate from the shape being edited.
+    picker.invoke_set_hex("#3C87E0".into());
+    ui.invoke_pointer_down(10.0, 10.0);
+    ui.invoke_pointer_move(20.0, 20.0);
+    ui.invoke_pointer_up(20.0, 20.0);
+    ui.invoke_action(2);
     ui.window().take_snapshot().unwrap();
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
@@ -127,7 +133,7 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
         state.borrow().composite()[50 * 512 + 50],
         Color::rgba(0, 255, 0, 128)
     );
-    assert_eq!(state.borrow().document().undo_len(), 0);
+    assert_eq!(state.borrow().document().undo_len(), 1);
     picker.invoke_set_hsv(240.0, 80.0, 0.0);
     assert_eq!(picker.get_hue(), 240.0);
     assert_eq!(picker.get_saturation(), 80.0);
@@ -144,22 +150,40 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     assert!(!picker.get_error().is_empty());
     picker.invoke_set_hex("#3C87E0".into());
     picker.invoke_pick();
-    assert!(!picker.get_has_active_shape());
+    assert!(picker.get_has_active_shape());
     assert_eq!(state.borrow().tool(), Tool::Eyedropper);
     assert_eq!(state.borrow().document().undo_len(), 1);
     picker.invoke_set_rgba(0, 0, 0, 255);
     assert_eq!(
-        state.borrow().composite()[50 * 512 + 50],
-        Color::rgba(60, 135, 224, 255),
-        "changing the next drawing color must not repaint committed pixels"
+        state.borrow().document().layers()[0].pixels()[50 * 512 + 50].a,
+        0
     );
-    ui.invoke_pointer_down(50.0, 50.0);
-    ui.invoke_pointer_up(50.0, 50.0);
+    ui.invoke_pointer_down(15.0, 15.0);
+    ui.invoke_pointer_up(15.0, 15.0);
     assert_eq!(
         state.borrow().primary_color(),
         Color::rgba(60, 135, 224, 255)
     );
+    assert_eq!(
+        state.borrow().composite()[50 * 512 + 50],
+        Color::rgba(60, 135, 224, 255)
+    );
+    assert!(state.borrow().document().active_shape().is_some());
+    assert_eq!(state.borrow().document().undo_len(), 1);
     assert_eq!(picker.get_hex_value(), "#3C87E0FF");
+    ui.invoke_choose_tool(0);
+    assert!(
+        ui.get_has_shape(),
+        "returning from eyedropper must keep the shape editable"
+    );
+    ui.invoke_action(2);
+    assert!(!picker.get_has_active_shape());
+    assert_eq!(state.borrow().document().undo_len(), 2);
+    picker.invoke_set_rgba(0, 0, 0, 255);
+    assert_eq!(
+        state.borrow().composite()[50 * 512 + 50],
+        Color::rgba(60, 135, 224, 255)
+    );
     ui.invoke_show_colors();
     let snapshot = picker.window().take_snapshot().unwrap();
     assert_eq!((snapshot.width(), snapshot.height()), (640, 680));

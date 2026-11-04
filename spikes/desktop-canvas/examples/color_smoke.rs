@@ -8,6 +8,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let main = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = main.upgrade().unwrap();
+        picker.invoke_set_hex("#3C87E080".into());
+        ui.invoke_pointer_down(10.0, 10.0);
+        ui.invoke_pointer_move(30.0, 30.0);
+        ui.invoke_pointer_up(30.0, 30.0);
+        ui.invoke_action(2);
+        picker.invoke_set_rgba(72, 136, 240, 255);
         ui.invoke_pointer_down(64.0, 64.0);
         ui.invoke_pointer_move(256.0, 224.0);
         ui.invoke_show_colors();
@@ -44,15 +50,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(state.borrow().primary_color(), Color::rgba(0, 255, 0, 255));
         picker.invoke_set_hex("#3C87E080".into());
         picker.invoke_pick();
-        assert!(!picker.get_has_active_shape());
+        assert!(picker.get_has_active_shape());
         assert_eq!(state.borrow().document().undo_len(), 1);
         picker.invoke_set_rgba(0, 0, 0, 255);
-        ui.invoke_pointer_down(80.0, 80.0);
-        ui.invoke_pointer_up(80.0, 80.0);
+        ui.invoke_pointer_down(20.0, 20.0);
+        ui.invoke_pointer_up(20.0, 20.0);
         assert_eq!(
             state.borrow().primary_color(),
             Color::rgba(60, 135, 224, 128)
         );
+        ui.invoke_choose_tool(0);
+        assert!(ui.get_has_shape());
         ui.invoke_show_colors();
         slint::Timer::single_shot(Duration::from_millis(200), move || {
             let snapshot = picker.window().take_snapshot().unwrap();

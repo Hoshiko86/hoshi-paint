@@ -43,7 +43,8 @@ is already isolated; use the existing checkout rather than creating a worktree.
   live; edge handles remain single-axis. Works after rotation and zoom.
 - Drag the round control point above the top edge to rotate about the center
   in one-degree increments. Handles keep their screen size when zoomed.
-- Select Move shape and drag, or use nudge/size buttons to adjust it.
+- Drag inside the active rectangle to move it, including after rotation.
+  Handles take precedence. Move shape and nudge/size buttons also remain available.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
 - Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
   Shortcuts apply only when the canvas has keyboard focus.
@@ -52,12 +53,15 @@ is already isolated; use the existing checkout rather than creating a worktree.
   alpha (0 transparent,255 opaque), presets, and hex RGB/RGBA. Changes apply live.
   Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter or Apply.
 - The picker says **Editing the active shape** while resize handles are visible.
-  After Enter or a committing tool change it says **Next drawing color**: existing
+  After Enter or starting another shape it says **Next drawing color**: existing
   pixels remain unchanged, and the chosen color applies to the next drawing.
 - Pick / Eyedropper samples merged canvas pixels with alpha, not checkerboard
-  colors. Selecting it commits an active shape first; sampling adds no history.
-  Select Rectangle again to draw with the sampled color. It does not sample
-  other applications or the desktop.
+  colors. It preserves the active shape and applies sampled colors immediately.
+  Sampling uses a frozen visible composite per gesture to avoid alpha feedback.
+  Returning to Rectangle preserves the shape for further adjustment.
+- **Pick from screen…** in Colors opens a native screen sampler for pixels in
+  other applications. Screen colors are opaque RGB; Escape cancels without
+  changing the color or shape. Platform support is described below.
 - Pan canvas changes the viewport; scroll zooms about the pointer. Zoom buttons
   use a fixed logical anchor. Reset view restores 1:1 coordinates.
 - Edit the layer name. This commits an active shape before renaming it.
@@ -125,3 +129,35 @@ scenario exercises resize/rotation through synthetic window events.
 A separate `color_smoke` example opens the actual desktop color window, edits
 HSV/hex, samples alpha-preserving canvas color and exits. Use the same Xvfb
 command with `--example color_smoke` and optional `HOSHI_COLOR_SNAPSHOT`.
+
+## Native cursors and icon attribution
+
+The canvas eyedropper uses a real native cursor with an outlined Font Awesome
+Free SVG and tip hotspot, tested under X11 at 1x and 2x scale. Slint 1.18.1's
+`MouseCursor.custom` is experimental; `.cargo/config.toml` enables its compiler
+flag and the exact toolkit version remains pinned. Recheck native cursors on
+toolkit upgrades. Font Awesome Free 6.7.2 SVG icons use CC BY 4.0; see
+[third-party notices](../../THIRD_PARTY_NOTICES.md) for attribution and changes.
+
+## Screen sampling
+
+Open **Colors… → Pick from screen…**, select a visible pixel on any connected
+display, or press Escape to cancel. The sampled opaque RGB color updates the
+active shape without committing it; if no shape is active it becomes the next
+drawing color. Sampling does not add an undo entry.
+
+- Windows: a temporary desktop overlay catches the selection click and uses
+  an eyedropper cursor. Sampling uses physical virtual-desktop coordinates,
+  including monitors to the left or above the primary display.
+- macOS: AppKit's native `NSColorSampler` supplies its loupe and selection cursor.
+  The operating system controls access and may prompt for screen permissions.
+- Ubuntu/Linux: the desktop portal's `Screenshot.PickColor` request provides
+  screen selection, including on Wayland. A running session bus and a portal
+  backend implementing PickColor (such as GNOME/KDE) are required. Missing
+  support or denied access produces an error in Colors; canvas sampling remains
+  available. A bare Xvfb session does not provide this desktop service.
+
+Protected content and displays the operating system cannot expose may not be
+sampleable. Screen sampling returns a displayed color, rather than an original
+image's uncomposited pixel/alpha. No screenshot is saved or uploaded. This
+desktop feature does not imply screen capture support on iOS.

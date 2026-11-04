@@ -81,13 +81,14 @@ fn strict_hex_forms_and_alpha() {
 }
 
 #[test]
-fn eyedropper_commits_then_samples_document_alpha_without_history() {
+fn eyedropper_samples_document_alpha_without_history() {
     let mut c = Controller::new(16, 16).unwrap();
     let color = Color::rgba(27, 99, 213, 87);
     c.set_primary_color(color).unwrap();
     c.pointer_down(2., 3.).unwrap();
     c.pointer_move(7., 9.).unwrap();
     c.pointer_up().unwrap();
+    c.commit().unwrap();
     c.set_tool(Tool::Eyedropper).unwrap();
     assert!(c.document().active_shape().is_none());
     assert_eq!(c.document().undo_len(), 1);
@@ -115,4 +116,74 @@ fn eyedropper_commits_then_samples_document_alpha_without_history() {
     assert_eq!(c.primary_color(), color);
     assert_eq!(c.document().undo_len(), 1);
     assert!(c.pointer_down(f64::NAN, 0.).is_err());
+}
+
+#[test]
+fn eyedropper_recolors_editable_shape_from_underlying_pixels_then_commit_undo() {
+    let mut c = Controller::new(128, 128).unwrap();
+    let source = Color::rgba(27, 99, 213, 87);
+    c.set_primary_color(source).unwrap();
+    c.pointer_down(10., 10.).unwrap();
+    c.pointer_move(100., 100.).unwrap();
+    c.pointer_up().unwrap();
+    c.commit().unwrap();
+    let committed = c.composite();
+    c.set_primary_color(Color::rgba(255, 0, 0, 255)).unwrap();
+    c.pointer_down(30., 30.).unwrap();
+    c.pointer_move(80., 80.).unwrap();
+    c.pointer_up().unwrap();
+    let original = c.document().active_shape().unwrap();
+    c.set_tool(Tool::Eyedropper).unwrap();
+    assert_eq!(c.document().active_shape(), Some(original));
+    c.zoom_at(0., 0., 2.5).unwrap();
+    c.pan(17., -9.).unwrap();
+    let sample = c.viewport().to_logical(20., 20.);
+    c.pointer_down(sample.0, sample.1).unwrap();
+    c.pointer_up().unwrap();
+    assert_eq!(c.primary_color(), source);
+    let recolored = c.document().active_shape().unwrap();
+    assert_eq!(recolored.style, hoshi_core::ShapeStyle::Fill(source));
+    assert_eq!(
+        (recolored.x, recolored.y, recolored.width, recolored.height),
+        (30, 30, 50, 50)
+    );
+    assert_eq!(c.document().undo_len(), 1);
+    c.set_tool(Tool::Rectangle).unwrap();
+    assert_eq!(c.document().active_shape(), Some(recolored));
+    let preview = c.composite();
+    c.commit().unwrap();
+    assert_eq!(c.document().undo_len(), 2);
+    assert_eq!(c.composite(), preview);
+    c.undo().unwrap();
+    assert_eq!(c.composite(), committed);
+}
+
+#[test]
+fn eyedropper_freezes_visible_translucent_preview_for_each_drag() {
+    let mut c = Controller::new(128, 128).unwrap();
+    c.set_primary_color(Color::rgba(20, 60, 220, 140)).unwrap();
+    c.pointer_down(10., 10.).unwrap();
+    c.pointer_move(100., 100.).unwrap();
+    c.pointer_up().unwrap();
+    c.commit().unwrap();
+    c.set_primary_color(Color::rgba(230, 40, 10, 100)).unwrap();
+    c.pointer_down(30., 30.).unwrap();
+    c.pointer_move(80., 80.).unwrap();
+    c.pointer_up().unwrap();
+    let visible = c.composite()[50 * 128 + 50];
+    c.set_tool(Tool::Eyedropper).unwrap();
+    c.pointer_down(50., 50.).unwrap();
+    assert_eq!(c.primary_color(), visible);
+    assert_ne!(c.composite()[50 * 128 + 50], visible);
+    for _ in 0..3 {
+        c.pointer_move(50., 50.).unwrap();
+        assert_eq!(c.primary_color(), visible);
+    }
+    c.pointer_up().unwrap();
+    let updated = c.composite()[50 * 128 + 50];
+    c.pointer_down(50., 50.).unwrap();
+    assert_eq!(c.primary_color(), updated);
+    c.pointer_up().unwrap();
+    assert!(c.document().active_shape().is_some());
+    assert_eq!(c.document().undo_len(), 1);
 }

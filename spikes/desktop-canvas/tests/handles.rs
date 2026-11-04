@@ -66,6 +66,19 @@ fn visible_handles_resize_rotate_and_commit_through_window_events() {
         90
     );
     assert_eq!(state.borrow().document().undo_len(), 0);
+    drag(&ui, (190.0, 160.0), (200.0, 180.0));
+    let moved = state.borrow().document().active_shape().unwrap();
+    assert_eq!(
+        (
+            moved.x,
+            moved.y,
+            moved.width,
+            moved.height,
+            moved.rotation_degrees
+        ),
+        (90, 120, 220, 120, 90)
+    );
+    assert_eq!(state.borrow().document().undo_len(), 0);
     let preview = state.borrow().composite();
     let edge = state.borrow().handle_positions()[3];
     ui.invoke_pointer_down(edge.x as f32, edge.y as f32);

@@ -4,6 +4,7 @@ use hoshi_controller::{Controller, ControllerError, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
+mod screen_pick;
 pub use colors::ColorPickerWindow;
 
 slint::slint! {
@@ -108,7 +109,7 @@ slint::slint! {
                             Rectangle { background: root.primary-color; }
                         }
                         Button { text: "Colors…"; clicked => { root.show-colors(); } }
-                        Button { text: root.selected-tool == 3 ? "● Pick" : "Pick"; clicked => { root.choose-tool(3); } }
+                        Button { icon: @image-url("../icons/eye-dropper.svg"); text: root.selected-tool == 3 ? "● Pick" : "Pick"; clicked => { root.choose-tool(3); } }
                     }
                     Text { text: root.primary-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
@@ -192,6 +193,7 @@ slint::slint! {
                         }
                         touch := TouchArea {
                             enabled: !root.about-open;
+                            mouse-cursor: root.selected-tool == 3 ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
                             pointer-event(event) => {
                                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                                     canvas-focus.focus();

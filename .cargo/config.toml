@@ -1,0 +1,4 @@
+[env]
+# Slint 1.18.1 gates its native image-cursor constructor as experimental.
+# Keep the exact toolkit pin and exercise the desktop backend smoke test.
+SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"

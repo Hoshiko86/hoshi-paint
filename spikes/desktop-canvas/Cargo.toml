@@ -12,3 +12,16 @@ slint = { version = "=1.18.1", default-features = false, features = ["std", "bac
 [dev-dependencies]
 i-slint-backend-testing = { version = "=1.18.1", features = ["renderer-software"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "=5.19.0"
+futures-lite = "2"
+async-io = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_UI_HiDpi", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "=0.6.5"
+block2 = "=0.6.2"
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSColor", "NSColorSpace", "NSColorSampler", "block2", "objc2-core-foundation"] }

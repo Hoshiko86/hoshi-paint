@@ -152,6 +152,7 @@ pub struct Controller {
     primary_color: Color,
     aspect_lock: bool,
     last_pointer: Option<(f64, f64)>,
+    sample_snapshot: Option<Vec<Color>>,
 }
 
 impl Default for Controller {
@@ -170,6 +171,7 @@ impl Controller {
             primary_color: Color::rgba(72, 136, 240, 255),
             aspect_lock: false,
             last_pointer: None,
+            sample_snapshot: None,
         })
     }
 
@@ -233,14 +235,12 @@ impl Controller {
         points
     }
 
-    /// MoveShape and Pan are temporary interaction modes that preserve the active
-    /// shape. Rectangle and Eyedropper commit it before starting another action.
+    /// Tool changes preserve the editable shape. Starting a new rectangle outside
+    /// its bounds commits it; sampling a color updates its current style.
     pub fn set_tool(&mut self, tool: Tool) -> Result<(), ControllerError> {
         if tool != self.tool {
-            if matches!(tool, Tool::Rectangle | Tool::Eyedropper) {
-                self.commit()?;
-            }
             self.gesture = None;
+            self.sample_snapshot = None;
             self.tool = tool;
         }
         Ok(())
@@ -299,6 +299,22 @@ impl Controller {
         }
         match self.tool {
             Tool::Rectangle => {
+                if let Some(original) = self.document.active_shape() {
+                    let c = center(original);
+                    let (u, v) = axes(original);
+                    let delta = (point.0 - c.0, point.1 - c.1);
+                    let local_x = delta.0 * u.0 + delta.1 * u.1;
+                    let local_y = delta.0 * v.0 + delta.1 * v.1;
+                    if local_x.abs() <= f64::from(original.width) / 2.0
+                        && local_y.abs() <= f64::from(original.height) / 2.0
+                    {
+                        self.gesture = Some(Gesture::Move {
+                            anchor: point,
+                            original,
+                        });
+                        return Ok(());
+                    }
+                }
                 // Clicking the surrounding workspace must not paint an edge
                 // pixel or commit an existing preview.
                 if point.0 < 0.0
@@ -307,6 +323,7 @@ impl Controller {
                     || point.1 >= f64::from(self.document.height())
                 {
                     self.gesture = None;
+                    self.sample_snapshot = None;
                     return Ok(());
                 }
                 self.commit()?;
@@ -325,14 +342,17 @@ impl Controller {
             }
             Tool::Pan => self.gesture = Some(Gesture::Pan { last: (x, y) }),
             Tool::Eyedropper => {
-                self.sample_color(point);
+                // Freeze visible pixels for this drag so recoloring a translucent
+                // preview cannot feed back into subsequent samples.
+                self.sample_snapshot = Some(self.document.composite(true));
+                self.sample_color(point)?;
                 self.gesture = Some(Gesture::Sample);
             }
         }
         Ok(())
     }
 
-    fn sample_color(&mut self, point: (f64, f64)) {
+    fn sample_color(&mut self, point: (f64, f64)) -> Result<(), ControllerError> {
         if point.0 >= 0.0
             && point.1 >= 0.0
             && point.0 < f64::from(self.document.width())
@@ -340,8 +360,11 @@ impl Controller {
         {
             let index = point.1.floor() as usize * self.document.width() as usize
                 + point.0.floor() as usize;
-            self.primary_color = self.document.composite(false)[index];
+            if let Some(pixels) = &self.sample_snapshot {
+                self.set_primary_color(pixels[index])?;
+            }
         }
+        Ok(())
     }
 
     fn rectangle(&self, anchor: (f64, f64), point: (f64, f64)) -> Shape {
@@ -374,7 +397,7 @@ impl Controller {
         let point = self.document_point(x, y)?;
         self.last_pointer = Some((x, y));
         match self.gesture {
-            Some(Gesture::Sample) => self.sample_color(point),
+            Some(Gesture::Sample) => self.sample_color(point)?,
             Some(Gesture::Rectangle { anchor }) => {
                 let point = self.clip_point(point);
                 if point.0 == anchor.0 || point.1 == anchor.1 {
@@ -486,6 +509,7 @@ impl Controller {
     /// Release stops dragging but deliberately leaves the shape editable.
     pub fn pointer_up(&mut self) -> Result<(), ControllerError> {
         self.gesture = None;
+        self.sample_snapshot = None;
         Ok(())
     }
 
@@ -499,21 +523,25 @@ impl Controller {
 
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
         self.gesture = None;
+        self.sample_snapshot = None;
         Ok(self.document.commit_shape()?)
     }
 
     pub fn cancel(&mut self) {
         self.gesture = None;
+        self.sample_snapshot = None;
         self.document.cancel_shape();
     }
 
     pub fn undo(&mut self) -> Result<bool, ControllerError> {
         self.gesture = None;
+        self.sample_snapshot = None;
         Ok(self.document.undo()?)
     }
 
     pub fn redo(&mut self) -> Result<bool, ControllerError> {
         self.gesture = None;
+        self.sample_snapshot = None;
         Ok(self.document.redo()?)
     }
 

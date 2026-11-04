@@ -4,7 +4,7 @@ use hoshi_controller::{
     color::{self, Hsv},
 };
 use slint::ComponentHandle;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc, sync::mpsc::TryRecvError, time::Duration};
 
 slint::slint! {
     import { Button, Slider, SpinBox, LineEdit, Palette } from "std-widgets.slint";
@@ -51,6 +51,7 @@ slint::slint! {
         in property <image> sv-image;
         in property <color> current-color;
         in property <bool> has-active-shape;
+        in property <bool> screen-picking;
         out property <float> red-slider-left: red-channel.slider-left;
         out property <float> red-slider-top: red-channel.slider-top;
         out property <float> red-slider-width: red-channel.slider-width;
@@ -63,6 +64,7 @@ slint::slint! {
         callback set-hsv(float, float, float);
         callback set-hex(string);
         callback pick();
+        callback pick-screen();
         callback close-picker();
         VerticalLayout {
             padding: 16px;
@@ -119,14 +121,15 @@ slint::slint! {
                 Button { text: "Apply hex"; clicked => { root.set-hex(hex-entry.text); } }
             }
             Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
-                color: root.error == "" ? #526079 : #a12828; height: 18px; }
+                color: root.error == "" ? #526079 : #a12828; height: 36px; wrap: word-wrap; }
             HorizontalLayout {
                 Button { text: "Blue"; clicked => { root.set-rgba(72, 136, 240, root.alpha); } }
                 Button { text: "Coral"; clicked => { root.set-rgba(232, 104, 92, root.alpha); } }
                 Button { text: "Mint"; clicked => { root.set-rgba(54, 167, 140, root.alpha); } }
             }
             HorizontalLayout {
-                Button { text: "Eyedropper on canvas"; clicked => { root.pick(); } }
+                Button { icon: @image-url("../icons/eye-dropper.svg"); text: "Eyedropper on canvas"; clicked => { root.pick(); } }
+                Button { icon: @image-url("../icons/eye-dropper.svg"); text: root.screen-picking ? "Picking…" : "Pick from screen…"; enabled: !root.screen-picking; clicked => { root.pick-screen(); } }
                 Button { text: "Close"; clicked => { root.close-picker(); } }
             }
         }
@@ -179,8 +182,13 @@ pub(super) fn bind_picker(
     controller: SharedController,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
+    let request = Rc::new(RefCell::new(None::<crate::screen_pick::ScreenPick>));
+    let timer = Rc::new(slint::Timer::default());
     let colors = picker.as_weak();
+    let (pending, polling) = (request.clone(), timer.clone());
     ui.window().on_close_requested(move || {
+        pending.borrow_mut().take();
+        polling.stop();
         if let Some(picker) = colors.upgrade() {
             let _ = picker.hide();
         }
@@ -189,8 +197,12 @@ pub(super) fn bind_picker(
     synchronize(&picker, controller.borrow().primary_color(), None);
     picker.set_has_active_shape(controller.borrow().document().active_shape().is_some());
     let weak = picker.as_weak();
+    let (pending, polling) = (request.clone(), timer.clone());
     ui.on_hide_colors(move || {
+        pending.borrow_mut().take();
+        polling.stop();
         if let Some(p) = weak.upgrade() {
+            p.set_screen_picking(false);
             let _ = p.hide();
         }
     });
@@ -272,6 +284,52 @@ pub(super) fn bind_picker(
             }
         }
     });
+    // Retain the request and polling timer with the picker callbacks.
+    let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
+    let (pending, polling) = (request.clone(), timer.clone());
+    picker.on_pick_screen(move || {
+        if pending.borrow().is_some() {
+            return;
+        }
+        let Some(ui) = main.upgrade() else { return };
+        if ui.get_modal_visible() {
+            return;
+        }
+        // Finish the pointer gesture before the system picker takes activation.
+        update(&main, &state, |c| c.pointer_up());
+        if let Some(picker) = colors.upgrade() {
+            picker.set_error("Choose a screen pixel. Escape cancels.".into());
+            picker.set_screen_picking(true);
+        }
+        *pending.borrow_mut() = Some(crate::screen_pick::start());
+        let (pending, main, colors, state) =
+            (pending.clone(), main.clone(), colors.clone(), state.clone());
+        let timer = Rc::downgrade(&polling);
+        polling.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(30),
+            move || {
+                let result = {
+                    let borrowed = pending.borrow();
+                    let Some(request) = borrowed.as_ref() else {
+                        return;
+                    };
+                    match request.receiver.try_recv() {
+                        Ok(value) => value,
+                        Err(TryRecvError::Empty) => return,
+                        Err(TryRecvError::Disconnected) => {
+                            Err("Screen picker closed unexpectedly.".into())
+                        }
+                    }
+                };
+                pending.borrow_mut().take();
+                if let Some(timer) = timer.upgrade() {
+                    timer.stop();
+                }
+                finish_screen_pick(&main, &state, &colors, result);
+            },
+        );
+    });
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller);
     picker.on_pick(move || {
         if let Some(ui) = main.upgrade() {
@@ -283,10 +341,80 @@ pub(super) fn bind_picker(
         }
     });
     let colors = picker.as_weak();
+    let (pending, polling, weak) = (request.clone(), timer.clone(), picker.as_weak());
+    picker.window().on_close_requested(move || {
+        pending.borrow_mut().take();
+        polling.stop();
+        if let Some(p) = weak.upgrade() {
+            p.set_screen_picking(false);
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
     picker.on_close_picker(move || {
+        request.borrow_mut().take();
+        timer.stop();
         if let Some(p) = colors.upgrade() {
+            p.set_screen_picking(false);
             let _ = p.hide();
         }
     });
     Ok(picker)
+}
+
+fn finish_screen_pick(
+    main: &slint::Weak<AppWindow>,
+    state: &SharedController,
+    colors: &slint::Weak<ColorPickerWindow>,
+    result: crate::screen_pick::PickResult,
+) {
+    if let Some(picker) = colors.upgrade() {
+        picker.set_screen_picking(false);
+        match result {
+            Ok(Some(value)) => {
+                update(main, state, |c| c.set_primary_color(value));
+                picker.set_error("".into());
+            }
+            Ok(None) => picker.set_error("".into()),
+            Err(error) => picker.set_error(error.into()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn screen_result_recolors_preview_and_cancel_or_failure_preserves_it() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (ui, state, picker) = crate::create_app_with_colors().unwrap();
+        ui.invoke_pointer_down(40.0, 40.0);
+        ui.invoke_pointer_move(100.0, 100.0);
+        ui.invoke_pointer_up(100.0, 100.0);
+        let original = state.borrow().document().active_shape().unwrap();
+        let selected = Color::rgba(11, 123, 234, 255);
+        picker.set_screen_picking(true);
+        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(Some(selected)));
+        assert_eq!(state.borrow().primary_color(), selected);
+        assert_eq!(state.borrow().composite()[50 * 512 + 50], selected);
+        let shape = state.borrow().document().active_shape().unwrap();
+        assert_eq!(
+            (shape.x, shape.y, shape.width, shape.height),
+            (original.x, original.y, original.width, original.height)
+        );
+        assert_eq!(state.borrow().document().undo_len(), 0);
+        assert!(!picker.get_screen_picking());
+        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(None));
+        assert_eq!(state.borrow().document().active_shape(), Some(shape));
+        finish_screen_pick(
+            &ui.as_weak(),
+            &state,
+            &picker.as_weak(),
+            Err("Permission denied".into()),
+        );
+        assert_eq!(state.borrow().document().active_shape(), Some(shape));
+        assert_eq!(state.borrow().primary_color(), selected);
+        assert_eq!(picker.get_error(), "Permission denied");
+        assert_eq!(state.borrow().document().undo_len(), 0);
+    }
 }

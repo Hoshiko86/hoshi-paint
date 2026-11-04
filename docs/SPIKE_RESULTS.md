@@ -19,7 +19,7 @@ not reference-hardware release performance measurements.
 | Check | Observed result |
 | --- | --- |
 | Existing core | 19 integration tests pass, including rotated raster geometry and history |
-| New UI-independent controller | 25 integration tests pass, including Shift constraints, color conversion/validation, eyedropper mapping, handles and lifecycle |
+| New UI-independent controller | 28 integration tests pass, including Shift constraints, color conversion/validation, eyedropper mapping, handles and lifecycle |
 | Slint software rendering and input | Four integration scenarios pass with Shift modifiers, RGB/HSV/hex/alpha synchronization, sampling, resize/rotation, contrast and pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
 | Actual Linux winit/software window | Xvfb smoke passes: show/run native event loop, dispatch synthetic input, commit shape, check displayed pixels, capture screenshot, exit |
 | Build, format, lint | `cargo build -p hoshi-canvas-spike --locked`, rustfmt and workspace/all-target Clippy pass |
@@ -79,12 +79,22 @@ does not complete UI-1 or the v0.0.0 release acceptance scenario.
 
 ## Shift scaling and color controls
 
-The current revision passes 48 Rust integration tests locally (19 core, 25
-controller, 4 rendered UI scenarios), formatting and Clippy. Shift locks corner
+The current revision passes 54 Rust tests locally (19 core, 28 controller,
+4 rendered UI scenarios, 3 screen-result/unit tests), formatting and Clippy. Shift locks corner
 scaling to the drag-start aspect ratio, including rotated/zoomed shapes; edge
 handles remain free. The modeless Colors window provides RGB, HSV, SV area, hue,
-alpha, hex and presets, with live preview. Canvas eyedropper sampling commits
-an active shape before sampling real merged RGBA and never samples the checker.
+alpha, hex and presets, with live preview. Canvas eyedropper sampling preserves
+the active shape and recolors it immediately, sampling a frozen merged RGBA
+image per gesture to avoid translucent feedback. Dragging inside a rotated
+rectangle moves it; handles take priority. Canvas sampling excludes the checker.
+
+Colors also offers native screen sampling via a Windows desktop overlay, macOS
+NSColorSampler, or the Linux desktop portal. Sampled screen colors are opaque.
+A private D-Bus smoke passes the request/response contract, including immediate
+response, cancellation, errors and request cleanup; it does not replace a real
+GNOME/KDE screen-selection test. Linux native cursor checks pass at 1x and 2x
+with the outlined Font Awesome Free eyedropper. Windows/macOS screen sampling
+and mixed-DPI devices still need native manual verification.
 A native winit/software `color_smoke` run passes HSV/hex editing, alpha-preserving
 sampling and actual window snapshot checks. New cross-platform CI must be
 checked for this revision; earlier artifact evidence applies to earlier revisions.
