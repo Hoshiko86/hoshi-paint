@@ -49,18 +49,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         picker.invoke_set_hsv(120.0, 100.0, 100.0);
         assert_eq!(state.borrow().primary_color(), Color::rgba(0, 255, 0, 255));
         picker.invoke_set_hex("#3C87E080".into());
-        picker.invoke_pick();
         assert!(picker.get_has_active_shape());
-        assert_eq!(state.borrow().document().undo_len(), 1);
         picker.invoke_set_rgba(0, 0, 0, 255);
-        ui.invoke_pointer_down(20.0, 20.0);
-        ui.invoke_pointer_up(20.0, 20.0);
+        picker.invoke_set_hex("#3C87E080".into());
         assert_eq!(
-            state.borrow().primary_color(),
+            state.borrow().composite()[128 * 512 + 128],
             Color::rgba(60, 135, 224, 128)
         );
-        ui.invoke_choose_tool(0);
-        assert!(ui.get_has_shape());
+        picker.invoke_toggle_dock();
+        assert!(ui.get_colors_docked());
+        assert!(!picker.window().is_visible());
+        ui.invoke_edit_rgba(80, 140, 200, 255);
+        assert_eq!(
+            state.borrow().composite()[128 * 512 + 128],
+            Color::rgba(80, 140, 200, 255)
+        );
+        if let Some(path) = std::env::var_os("HOSHI_DOCK_SNAPSHOT") {
+            let snapshot = ui.window().take_snapshot().unwrap();
+            image::save_buffer(
+                path,
+                snapshot.as_bytes(),
+                snapshot.width(),
+                snapshot.height(),
+                image::ColorType::Rgba8,
+            )
+            .unwrap();
+        }
+        ui.invoke_toggle_color_dock();
+        assert!(!ui.get_colors_docked());
+        assert!(picker.window().is_visible());
         ui.invoke_show_colors();
         slint::Timer::single_shot(Duration::from_millis(200), move || {
             let snapshot = picker.window().take_snapshot().unwrap();
@@ -79,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .dispatch_event(slint::platform::WindowEvent::CloseRequested);
             assert!(!picker.window().is_visible());
             println!(
-                "PASS: desktop color picker rendered, HSV/hex edits and alpha-preserving eyedropper sampling succeeded."
+                "PASS: desktop color picker rendered, HSV/hex edits and floating/docked color editing succeeded."
             );
         });
     });

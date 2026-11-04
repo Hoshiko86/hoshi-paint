@@ -5,9 +5,10 @@ use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
 mod screen_pick;
-pub use colors::ColorPickerWindow;
 
 slint::slint! {
+    import { ColorPanel } from "../ui/colors.slint";
+    export { ColorPickerWindow } from "../ui/colors.slint";
     import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
     export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
@@ -52,6 +53,32 @@ slint::slint! {
         callback action(int);
         callback choose-tool(int);
         callback shift-modifier(bool);
+        out property <float> docked-red-left: docked-colors.red-slider-left;
+        out property <float> docked-red-top: docked-colors.red-slider-top;
+        out property <float> docked-red-width: docked-colors.red-slider-width;
+        out property <float> docked-red-height: docked-colors.red-slider-height;
+        out property <float> docked-swatches-left: docked-colors.swatches-left;
+        out property <float> docked-swatches-top: docked-colors.swatches-top;
+        in property <bool> colors-docked;
+        in property <bool> colors-visible;
+        in property <int> color-r;
+        in property <int> color-g;
+        in property <int> color-b;
+        in property <int> color-a: 255;
+        in property <float> color-h;
+        in property <float> color-s;
+        in property <float> color-v;
+        in property <string> color-hex;
+        in property <string> color-error;
+        in property <image> color-sv;
+        // Screen picking is temporary; the selected drawing tool stays active.
+        in property <bool> screen-picking;
+        callback edit-rgba(int, int, int, int);
+        callback edit-hsv(float, float, float);
+        callback edit-hex(string);
+        callback pick-screen();
+        callback toggle-color-dock();
+        callback close-colors();
         callback show-colors();
         callback hide-colors();
         callback sync-color(int, int, int, int, bool);
@@ -109,7 +136,7 @@ slint::slint! {
                             Rectangle { background: root.primary-color; }
                         }
                         Button { text: "Colors…"; clicked => { root.show-colors(); } }
-                        Button { icon: @image-url("../icons/eye-dropper.svg"); text: root.selected-tool == 3 ? "● Pick" : "Pick"; clicked => { root.choose-tool(3); } }
+                        Button { icon: @image-url("../icons/eye-dropper.svg"); text: "Pick"; clicked => { root.pick-screen(); } }
                     }
                     Text { text: root.primary-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
@@ -193,7 +220,7 @@ slint::slint! {
                         }
                         touch := TouchArea {
                             enabled: !root.about-open;
-                            mouse-cursor: root.selected-tool == 3 ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
+                            mouse-cursor: root.screen-picking ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
                             pointer-event(event) => {
                                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                                     canvas-focus.focus();
@@ -211,6 +238,23 @@ slint::slint! {
                             }
                         }
                     }
+                }
+                docked-colors := ColorPanel {
+                    visible: root.colors-docked && root.colors-visible;
+                    width: self.visible ? 420px : 0px;
+                    horizontal-stretch: 0;
+                    docked: true;
+                    red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
+                    hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
+                    hex-value: root.color-hex; error: root.color-error;
+                    sv-image: root.color-sv; current-color: root.primary-color;
+                    has-active-shape: root.has-shape; screen-picking: root.screen-picking;
+                    set-rgba(r,g,b,a) => { root.edit-rgba(r,g,b,a); }
+                    set-hsv(h,s,v) => { root.edit-hsv(h,s,v); }
+                    set-hex(text) => { root.edit-hex(text); }
+                    pick-screen => { root.pick-screen(); }
+                    toggle-dock => { root.toggle-color-dock(); }
+                    close-picker => { root.close-colors(); }
                 }
             }
             Text { height: 22px; text: root.status; color: #526079; font-size: 12px; }
@@ -380,6 +424,12 @@ pub fn create_app_with_colors()
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
+        if tool == 3 {
+            if let Some(ui) = weak.upgrade() {
+                ui.invoke_pick_screen();
+            }
+            return;
+        }
         update(&weak, &state, |c| {
             c.set_tool(match tool {
                 1 => Tool::MoveShape,

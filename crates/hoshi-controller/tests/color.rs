@@ -187,3 +187,48 @@ fn eyedropper_freezes_visible_translucent_preview_for_each_drag() {
     assert!(c.document().active_shape().is_some());
     assert_eq!(c.document().undo_len(), 1);
 }
+
+#[test]
+fn interrupted_eyedropper_preserves_shape_for_alternating_numeric_color_edits() {
+    let mut c = Controller::new(128, 128).unwrap();
+    let sampled = Color::rgba(27, 99, 213, 255);
+    c.set_primary_color(sampled).unwrap();
+    c.pointer_down(10., 10.).unwrap();
+    c.pointer_move(25., 25.).unwrap();
+    c.pointer_up().unwrap();
+    c.commit().unwrap();
+    c.pointer_down(50., 50.).unwrap();
+    c.pointer_move(100., 100.).unwrap();
+    c.pointer_up().unwrap();
+    let original = c.document().active_shape().unwrap();
+
+    for numeric in [Color::rgba(240, 20, 70, 180), Color::rgba(30, 220, 80, 255)] {
+        c.set_tool(Tool::Eyedropper).unwrap();
+        c.pointer_down(15., 15.).unwrap();
+        assert_eq!(c.primary_color(), sampled);
+        // Native focus/capture can end the gesture before pointer-up arrives,
+        // for example when moving from the canvas to a floating Colors window.
+        c.cancel_pointer();
+        assert!(!c.is_dragging());
+        let retained = c
+            .document()
+            .active_shape()
+            .expect("sampling must not discard the editable shape");
+        assert_eq!(
+            (retained.x, retained.y, retained.width, retained.height),
+            (original.x, original.y, original.width, original.height)
+        );
+        c.set_primary_color(numeric).unwrap();
+        assert_eq!(c.composite()[60 * 128 + 60], numeric);
+        assert_eq!(c.document().undo_len(), 1);
+        c.set_tool(Tool::Rectangle).unwrap();
+        assert_eq!(
+            c.document().active_shape().unwrap().style,
+            hoshi_core::ShapeStyle::Fill(numeric)
+        );
+    }
+    let before_commit = c.composite();
+    c.commit().unwrap();
+    assert_eq!(c.composite(), before_commit);
+    assert_eq!(c.document().undo_len(), 2);
+}

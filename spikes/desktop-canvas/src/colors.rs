@@ -1,140 +1,10 @@
-use crate::{AppWindow, SharedController, refresh, update};
+use crate::{AppWindow, ColorPickerWindow, SharedController, refresh, update};
 use hoshi_controller::{
-    Color, Tool,
+    Color,
     color::{self, Hsv},
 };
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, sync::mpsc::TryRecvError, time::Duration};
-
-slint::slint! {
-    import { Button, Slider, SpinBox, LineEdit, Palette } from "std-widgets.slint";
-    component Channel inherits Rectangle {
-        preferred-height: 34px;
-        in property <string> label;
-        in property <float> value;
-        in property <int> maximum: 255;
-        out property <float> slider-left: slider.absolute-position.x / 1px;
-        out property <float> slider-top: slider.absolute-position.y / 1px;
-        out property <float> slider-width: slider.width / 1px;
-        out property <float> slider-height: slider.height / 1px;
-        callback edited(float);
-        changed value => { slider.value = root.value; spin.value = round(root.value); }
-        HorizontalLayout {
-            spacing: 4px;
-            Text { text: root.label; width: 40px; color: #273650; vertical-alignment: center; }
-            slider := Slider { minimum: 0; maximum: root.maximum; value: root.value; accessible-label: root.label;
-                changed(v) => { root.edited(v); }
-            }
-            spin := SpinBox { minimum: 0; maximum: root.maximum; value: round(root.value); width: 128px; accessible-label: root.label;
-                edited(v) => { root.edited(v); }
-            }
-        }
-    }
-    export component ColorPickerWindow inherits Window {
-        title: "Colors · Hoshi Paint";
-        preferred-width: 640px;
-        preferred-height: 680px;
-        min-width: 640px;
-        min-height: 660px;
-        background: #f2f4f8;
-        default-font-size: 13px;
-        init => { Palette.color-scheme = ColorScheme.light; }
-        in property <int> red;
-        in property <int> green;
-        in property <int> blue;
-        in property <int> alpha: 255;
-        in property <float> hue;
-        in property <float> saturation;
-        in property <float> brightness;
-        in-out property <string> hex-value;
-        in property <string> error;
-        in property <image> sv-image;
-        in property <color> current-color;
-        in property <bool> has-active-shape;
-        in property <bool> screen-picking;
-        out property <float> red-slider-left: red-channel.slider-left;
-        out property <float> red-slider-top: red-channel.slider-top;
-        out property <float> red-slider-width: red-channel.slider-width;
-        out property <float> red-slider-height: red-channel.slider-height;
-        out property <float> sv-left: sv.absolute-position.x / 1px;
-        out property <float> sv-top: sv.absolute-position.y / 1px;
-        out property <float> sv-width: sv.width / 1px;
-        out property <float> sv-height: sv.height / 1px;
-        callback set-rgba(int, int, int, int);
-        callback set-hsv(float, float, float);
-        callback set-hex(string);
-        callback pick();
-        callback pick-screen();
-        callback close-picker();
-        VerticalLayout {
-            padding: 16px;
-            spacing: 8px;
-            HorizontalLayout {
-                height: 32px;
-                Text { text: "Colors"; font-size: 22px; font-weight: 700; color: #18253c; }
-                Rectangle { horizontal-stretch: 1; }
-                Rectangle { width: 80px; background: #d0d4dc;
-                    Rectangle { background: root.current-color; }
-                }
-            }
-            Text { text: "SATURATION / VALUE"; font-size: 11px; color: #526079; }
-            sv := Rectangle {
-                height: 180px;
-                clip: true;
-                Image { source: root.sv-image; width: parent.width; height: parent.height; image-fit: fill; }
-                Rectangle {
-                    x: parent.width * root.saturation / 100 - 6px;
-                    y: parent.height * (1 - root.brightness / 100) - 6px;
-                    width: 12px; height: 12px; border-radius: 6px;
-                    border-width: 2px; border-color: white; background: transparent;
-                    Rectangle { x: 2px; y: 2px; width: 8px; height: 8px; border-radius: 4px; border-width: 1px; border-color: #18253c; background: transparent; }
-                }
-                area := TouchArea {
-                    pointer-event(event) => { if event.kind == PointerEventKind.down {
-                        root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100);
-                    } }
-                    moved => { if self.pressed { root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100); } }
-                }
-                accessible-role: image;
-                accessible-label: "Saturation and value. Numeric controls below provide keyboard access.";
-            }
-            Channel { label: "Hue"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
-            HorizontalLayout {
-                spacing: 16px;
-                VerticalLayout {
-                    Text { text: "RGB · 0–255"; color: #526079; }
-                    red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
-                    Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
-                    Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
-                }
-                VerticalLayout {
-                    Text { text: "HSV · ° / % / %"; color: #526079; }
-                    Channel { label: "H"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
-                    Channel { label: "S"; maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
-                    Channel { label: "V"; maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
-                }
-            }
-            Channel { label: "Alpha"; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
-            HorizontalLayout {
-                Text { text: "Hex"; width: 32px; vertical-alignment: center; color: #273650; }
-                hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accepted(text) => { root.set-hex(text); } }
-                Button { text: "Apply hex"; clicked => { root.set-hex(hex-entry.text); } }
-            }
-            Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
-                color: root.error == "" ? #526079 : #a12828; height: 36px; wrap: word-wrap; }
-            HorizontalLayout {
-                Button { text: "Blue"; clicked => { root.set-rgba(72, 136, 240, root.alpha); } }
-                Button { text: "Coral"; clicked => { root.set-rgba(232, 104, 92, root.alpha); } }
-                Button { text: "Mint"; clicked => { root.set-rgba(54, 167, 140, root.alpha); } }
-            }
-            HorizontalLayout {
-                Button { icon: @image-url("../icons/eye-dropper.svg"); text: "Eyedropper on canvas"; clicked => { root.pick(); } }
-                Button { icon: @image-url("../icons/eye-dropper.svg"); text: root.screen-picking ? "Picking…" : "Pick from screen…"; enabled: !root.screen-picking; clicked => { root.pick-screen(); } }
-                Button { text: "Close"; clicked => { root.close-picker(); } }
-            }
-        }
-    }
-}
 
 fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hsv>) {
     let mut hsv = override_hsv.unwrap_or_else(|| color::color_to_hsv(value));
@@ -182,31 +52,86 @@ pub(super) fn bind_picker(
     controller: SharedController,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
+    // Both hosts edit the same controller and use the same panel component.
+    let weak = picker.as_weak();
+    ui.on_edit_rgba(move |r, g, b, a| {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_set_rgba(r, g, b, a);
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_edit_hsv(move |h, s, v| {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_set_hsv(h, s, v);
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_edit_hex(move |text| {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_set_hex(text);
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_pick_screen(move || {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_pick_screen();
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_toggle_color_dock(move || {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_toggle_dock();
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_close_colors(move || {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_close_picker();
+        }
+    });
+    let (main, weak) = (ui.as_weak(), picker.as_weak());
+    let state = controller.clone();
+    picker.on_toggle_dock(move || {
+        if let (Some(ui), Some(p)) = (main.upgrade(), weak.upgrade()) {
+            if ui.get_modal_visible() {
+                return;
+            }
+            {
+                let mut c = state.borrow_mut();
+                c.pointer_up().expect("finish gesture before docking");
+                c.set_aspect_lock(false).expect("gesture ended");
+            }
+            let docked = !ui.get_colors_docked();
+            ui.set_colors_docked(docked);
+            ui.set_colors_visible(true);
+            p.set_docked(docked);
+            if docked {
+                let _ = p.hide();
+            } else {
+                let _ = p.show();
+            }
+        }
+    });
     let request = Rc::new(RefCell::new(None::<crate::screen_pick::ScreenPick>));
     let timer = Rc::new(slint::Timer::default());
     let colors = picker.as_weak();
-    let (pending, polling) = (request.clone(), timer.clone());
     ui.window().on_close_requested(move || {
-        pending.borrow_mut().take();
-        polling.stop();
-        if let Some(picker) = colors.upgrade() {
-            let _ = picker.hide();
+        if let Some(p) = colors.upgrade() {
+            p.invoke_close_picker();
         }
         slint::CloseRequestResponse::HideWindow
     });
     synchronize(&picker, controller.borrow().primary_color(), None);
     picker.set_has_active_shape(controller.borrow().document().active_shape().is_some());
+    sync_docked(ui, &picker);
     let weak = picker.as_weak();
-    let (pending, polling) = (request.clone(), timer.clone());
     ui.on_hide_colors(move || {
-        pending.borrow_mut().take();
-        polling.stop();
         if let Some(p) = weak.upgrade() {
-            p.set_screen_picking(false);
-            let _ = p.hide();
+            p.invoke_close_picker();
         }
     });
     let weak = picker.as_weak();
+    let main = ui.as_weak();
     ui.on_sync_color(move |r, g, b, a, active| {
         if let Some(picker) = weak.upgrade() {
             picker.set_has_active_shape(active);
@@ -215,6 +140,9 @@ pub(super) fn bind_picker(
                 Color::rgba(r as u8, g as u8, b as u8, a as u8),
                 None,
             );
+            if let Some(ui) = main.upgrade() {
+                sync_docked(&ui, &picker);
+            }
         }
     });
     let (colors, main, state) = (picker.clone(), ui.as_weak(), controller.clone());
@@ -235,24 +163,45 @@ pub(super) fn bind_picker(
                     .expect("gesture has ended");
             }
             refresh(&ui, &state.borrow());
-            colors.show().expect("show color picker");
+            ui.set_colors_visible(true);
+            if !ui.get_colors_docked() {
+                colors.show().expect("show color picker");
+            }
         }
     });
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
+    let (pending, polling) = (request.clone(), timer.clone());
     picker.on_set_rgba(move |r, g, b, a| {
+        pending.borrow_mut().take();
+        polling.stop();
+        if let Some(p) = colors.upgrade() {
+            p.set_screen_picking(false);
+        }
         let value = Color::rgba(
             r.clamp(0, 255) as u8,
             g.clamp(0, 255) as u8,
             b.clamp(0, 255) as u8,
             a.clamp(0, 255) as u8,
         );
-        update(&main, &state, |c| c.set_primary_color(value));
+        update(&main, &state, |c| {
+            c.pointer_up()?;
+            c.set_primary_color(value)
+        });
         if let Some(picker) = colors.upgrade() {
             picker.set_error("".into());
+            if let Some(ui) = main.upgrade() {
+                sync_docked(&ui, &picker);
+            }
         }
     });
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
+    let (pending, polling) = (request.clone(), timer.clone());
     picker.on_set_hsv(move |h, s, v| {
+        pending.borrow_mut().take();
+        polling.stop();
+        if let Some(p) = colors.upgrade() {
+            p.set_screen_picking(false);
+        }
         if !h.is_finite() || !s.is_finite() || !v.is_finite() {
             return;
         }
@@ -263,24 +212,47 @@ pub(super) fn bind_picker(
         };
         let alpha = state.borrow().primary_color().a;
         if let Ok(value) = color::color_from_hsv(hsv.hue, hsv.saturation, hsv.value, alpha) {
-            update(&main, &state, |c| c.set_primary_color(value));
+            update(&main, &state, |c| {
+                c.pointer_up()?;
+                c.set_primary_color(value)
+            });
             if let Some(picker) = colors.upgrade() {
                 synchronize(&picker, value, Some(hsv));
                 picker.set_error("".into());
+                if let Some(ui) = main.upgrade() {
+                    sync_docked(&ui, &picker);
+                }
             }
         }
     });
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
-    picker.on_set_hex(move |text| match color::parse_hex(&text) {
-        Ok(value) => {
-            update(&main, &state, |c| c.set_primary_color(value));
-            if let Some(p) = colors.upgrade() {
-                p.set_error("".into());
-            }
+    let (pending, polling) = (request.clone(), timer.clone());
+    picker.on_set_hex(move |text| {
+        pending.borrow_mut().take();
+        polling.stop();
+        if let Some(p) = colors.upgrade() {
+            p.set_screen_picking(false);
         }
-        Err(_) => {
-            if let Some(p) = colors.upgrade() {
-                p.set_error("Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.".into());
+        match color::parse_hex(&text) {
+            Ok(value) => {
+                update(&main, &state, |c| {
+                    c.pointer_up()?;
+                    c.set_primary_color(value)
+                });
+                if let Some(p) = colors.upgrade() {
+                    p.set_error("".into());
+                    if let Some(ui) = main.upgrade() {
+                        sync_docked(&ui, &p);
+                    }
+                }
+            }
+            Err(_) => {
+                if let Some(p) = colors.upgrade() {
+                    p.set_error("Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.".into());
+                    if let Some(ui) = main.upgrade() {
+                        sync_docked(&ui, &p);
+                    }
+                }
             }
         }
     });
@@ -295,11 +267,15 @@ pub(super) fn bind_picker(
         if ui.get_modal_visible() {
             return;
         }
+        if !ui.get_colors_visible() {
+            ui.invoke_show_colors();
+        }
         // Finish the pointer gesture before the system picker takes activation.
         update(&main, &state, |c| c.pointer_up());
         if let Some(picker) = colors.upgrade() {
             picker.set_error("Choose a screen pixel. Escape cancels.".into());
             picker.set_screen_picking(true);
+            sync_docked(&ui, &picker);
         }
         *pending.borrow_mut() = Some(crate::screen_pick::start());
         let (pending, main, colors, state) =
@@ -330,31 +306,25 @@ pub(super) fn bind_picker(
             },
         );
     });
-    let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller);
-    picker.on_pick(move || {
-        if let Some(ui) = main.upgrade() {
-            update(&main, &state, |c| c.set_tool(Tool::Eyedropper));
-            if let Some(picker) = colors.upgrade() {
-                let _ = picker.hide();
-            }
-            refresh(&ui, &state.borrow());
-        }
-    });
     let colors = picker.as_weak();
-    let (pending, polling, weak) = (request.clone(), timer.clone(), picker.as_weak());
+    let weak = picker.as_weak();
     picker.window().on_close_requested(move || {
-        pending.borrow_mut().take();
-        polling.stop();
         if let Some(p) = weak.upgrade() {
-            p.set_screen_picking(false);
+            p.invoke_close_picker();
         }
         slint::CloseRequestResponse::HideWindow
     });
+    let main = ui.as_weak();
     picker.on_close_picker(move || {
+        if let Some(ui) = main.upgrade() {
+            ui.set_colors_visible(false);
+            ui.set_screen_picking(false);
+        }
         request.borrow_mut().take();
         timer.stop();
         if let Some(p) = colors.upgrade() {
             p.set_screen_picking(false);
+            p.set_error("".into());
             let _ = p.hide();
         }
     });
@@ -377,7 +347,24 @@ fn finish_screen_pick(
             Ok(None) => picker.set_error("".into()),
             Err(error) => picker.set_error(error.into()),
         }
+        if let Some(ui) = main.upgrade() {
+            sync_docked(&ui, &picker);
+        }
     }
+}
+
+fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
+    ui.set_color_r(picker.get_red());
+    ui.set_color_g(picker.get_green());
+    ui.set_color_b(picker.get_blue());
+    ui.set_color_a(picker.get_alpha());
+    ui.set_color_h(picker.get_hue());
+    ui.set_color_s(picker.get_saturation());
+    ui.set_color_v(picker.get_brightness());
+    ui.set_color_hex(picker.get_hex_value());
+    ui.set_color_error(picker.get_error());
+    ui.set_color_sv(picker.get_sv_image());
+    ui.set_screen_picking(picker.get_screen_picking());
 }
 
 #[cfg(test)]
@@ -415,6 +402,22 @@ mod tests {
         assert_eq!(state.borrow().document().active_shape(), Some(shape));
         assert_eq!(state.borrow().primary_color(), selected);
         assert_eq!(picker.get_error(), "Permission denied");
+        assert_eq!(state.borrow().document().undo_len(), 0);
+        picker.invoke_set_rgba(100, 80, 60, 255);
+        assert_eq!(
+            state.borrow().composite()[50 * 512 + 50],
+            Color::rgba(100, 80, 60, 255)
+        );
+        picker.invoke_toggle_dock();
+        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(Some(selected)));
+        ui.invoke_edit_rgba(20, 40, 60, 255);
+        assert_eq!(
+            state.borrow().composite()[50 * 512 + 50],
+            Color::rgba(20, 40, 60, 255)
+        );
+        assert_eq!(ui.get_color_r(), 20);
+        assert!(state.borrow().document().active_shape().is_some());
+        assert_eq!(state.borrow().tool(), hoshi_controller::Tool::Rectangle);
         assert_eq!(state.borrow().document().undo_len(), 0);
     }
 }

@@ -50,7 +50,9 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 ## Remaining issue acceptance templates
 
 - UI-1: open a window, pan/zoom anchored to pointer, preserve input coordinates at
-  high DPI, expose primary/secondary color and tool settings accessibly.
+  high DPI, expose primary/secondary color and tool settings accessibly. Each
+  adjustment panel must independently support Dock/Float without resetting
+  its state or committing the active drawing.
 - DRAW-1: a complete stroke is one undo; pointer capture handles leaving canvas;
   eraser removes alpha; eyedropper samples the documented source.
 - LAYER-1: every listed layer action has undo; active-shape transitions follow spec.
@@ -85,7 +87,7 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 ## Current validation
 
 See [SPIKE_RESULTS.md](SPIKE_RESULTS.md) for the newer Rust 1.99.1 desktop
-experiment: 54 Rust tests pass locally, including four rendered UI
+experiment: 56 Rust tests pass locally, including five rendered UI
 scenarios; real Linux desktop software-rendering smoke passes. The earlier core
 baseline below is retained as historical cross-platform evidence.
 
@@ -94,3 +96,11 @@ Linux with pinned Rust 1.85.1. The same checks passed on GitHub-hosted Windows,
 macOS and Ubuntu in [foundation CI](https://github.com/Hoshiko86/hoshi-paint/actions/runs/41249496579).
 This validates the core, not graphical application behavior or iOS. CORE-1 and
 CORE-2 are complete; remaining release work is open.
+
+## Palette follow-up
+
+The Colors panel now uses reusable square swatches backed by palette entries,
+with accessible hex labels. Future palette work should add favorite-color
+saving/removal, persistence and palette files while keeping the same selection
+behavior in floating and docked hosts. Those capabilities are not implemented
+by the current preset-swatch foundation.

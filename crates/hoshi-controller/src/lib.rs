@@ -514,9 +514,15 @@ impl Controller {
     }
 
     /// Used for lost pointer capture / focus loss: never leave an active drag.
-    /// The uncommitted shape is discarded; existing document/history survive.
+    /// Interrupting color sampling preserves the editable shape and selected
+    /// color. Interrupted shape gestures discard their uncommitted preview.
     pub fn cancel_pointer(&mut self) {
-        self.cancel();
+        if matches!(self.gesture, Some(Gesture::Sample)) {
+            self.gesture = None;
+            self.sample_snapshot = None;
+        } else {
+            self.cancel();
+        }
         self.aspect_lock = false;
         self.last_pointer = None;
     }

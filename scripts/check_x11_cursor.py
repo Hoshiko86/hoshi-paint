@@ -37,7 +37,7 @@ def main():
             cursor = pointer.contents
             actual = [cursor.width,cursor.height,cursor.xhot,cursor.yhot]
             expected = list(map(int,sys.argv[2:6]))
-            assert actual == expected, f"native cursor dimensions/hotspot {actual}, expected {expected}"
+            assert actual == expected, f"native cursor dimensions/hotspot {actual}, expected {expected}, pointer at ({cursor.x}, {cursor.y})"
             colors = [cursor.pixels[i] for i in range(cursor.width*cursor.height)]
             dark = sum((p>>24)&255 > 200 and max((p>>16)&255,(p>>8)&255,p&255)<120 for p in colors)
             white = sum((p>>24)&255 > 200 and min((p>>16)&255,(p>>8)&255,p&255)>220 for p in colors)

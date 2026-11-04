@@ -6,12 +6,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         env!("CARGO_MANIFEST_DIR"),
         "/../../scripts/check_x11_cursor.py"
     );
-    let (ui, _) = hoshi_canvas_spike::create_app()?;
+    let (ui, _, picker) = hoshi_canvas_spike::create_app_with_colors()?;
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = weak.upgrade().unwrap();
-        ui.invoke_choose_tool(3);
+        // Match the real picker: synchronize the current tool before entering
+        // the shared pending-selection state and moving the native pointer.
+        ui.invoke_choose_tool(0);
+        picker.set_screen_picking(true);
+        ui.set_screen_picking(true);
         let scale = ui.window().scale_factor();
+        if let Ok(requested) = std::env::var("SLINT_SCALE_FACTOR") {
+            assert_eq!(
+                scale,
+                requested.parse::<f32>().unwrap(),
+                "native check must use the requested display scale"
+            );
+        }
         let position = ui.window().position();
         let x = position.x + ((ui.get_canvas_left() + 64.0) * scale) as i32;
         let y = position.y + ((ui.get_canvas_top() + 64.0) * scale) as i32;

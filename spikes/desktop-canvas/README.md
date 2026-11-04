@@ -50,18 +50,24 @@ is already isolated; use the existing checkout rather than creating a worktree.
   Shortcuts apply only when the canvas has keyboard focus.
 - Open Colors… before drawing or while a shape is active. The picker supplies
   RGB (0–255), HSV (degrees/percentages), a saturation/value area, hue slider,
-  alpha (0 transparent,255 opaque), presets, and hex RGB/RGBA. Changes apply live.
+  alpha (0 transparent,255 opaque), square color swatches, and hex RGB/RGBA. Changes apply live.
   Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter or Apply.
 - The picker says **Editing the active shape** while resize handles are visible.
   After Enter or starting another shape it says **Next drawing color**: existing
   pixels remain unchanged, and the chosen color applies to the next drawing.
-- Pick / Eyedropper samples merged canvas pixels with alpha, not checkerboard
-  colors. It preserves the active shape and applies sampled colors immediately.
-  Sampling uses a frozen visible composite per gesture to avoid alpha feedback.
-  Returning to Rectangle preserves the shape for further adjustment.
-- **Pick from screen…** in Colors opens a native screen sampler for pixels in
-  other applications. Screen colors are opaque RGB; Escape cancels without
-  changing the color or shape. Platform support is described below.
+- **Pick** in the main window and **Eyedropper…** in Colors start the same native
+  screen sampler. Select a pixel anywhere the desktop allows, including the
+  canvas. The result is opaque RGB; Escape cancels without changing the color.
+  Picking is one-shot and keeps the current drawing tool and editable shape.
+  RGB/HSV/hex edits can immediately refine the result, repeatedly.
+- **Dock** in Colors moves it into the main window's right side. **Float** returns
+  it to a native window. Both hosts share one controller and the same ColorPanel.
+  The header stays visible while controls scroll in shorter windows. Closing and
+  reopening Colors remembers its placement during the current app session.
+- The preset colors are square swatches with keyboard-accessible hex labels.
+  Clicking a swatch changes RGB while preserving the current alpha. The reusable
+  ColorSwatch and data-driven PaletteSwatch list are the foundation for future
+  favorite saving, editing and palette files; those features are not shipped yet.
 - Pan canvas changes the viewport; scroll zooms about the pointer. Zoom buttons
   use a fixed logical anchor. Reset view restores 1:1 coordinates.
 - Edit the layer name. This commits an active shape before renaming it.
@@ -127,21 +133,24 @@ dark-themed Windows. Rendered tests check enabled-label contrast and a second
 scenario exercises resize/rotation through synthetic window events.
 
 A separate `color_smoke` example opens the actual desktop color window, edits
-HSV/hex, samples alpha-preserving canvas color and exits. Use the same Xvfb
-command with `--example color_smoke` and optional `HOSHI_COLOR_SNAPSHOT`.
+HSV/hex, docks/floats the same panel, refines RGB and exits. Use the same Xvfb
+command with `--example color_smoke` and optional `HOSHI_COLOR_SNAPSHOT` and
+`HOSHI_DOCK_SNAPSHOT`.
 
 ## Native cursors and icon attribution
 
-The canvas eyedropper uses a real native cursor with an outlined Font Awesome
+The application shows a real native cursor while awaiting screen selection with an outlined Font Awesome
 Free SVG and tip hotspot, tested under X11 at 1x and 2x scale. Slint 1.18.1's
 `MouseCursor.custom` is experimental; `.cargo/config.toml` enables its compiler
-flag and the exact toolkit version remains pinned. Recheck native cursors on
+flag and the exact toolkit version remains pinned. CI builds once without a
+scale override, then tests that same binary at runtime scales 1 and 2; setting
+SLINT_SCALE_FACTOR during compilation can pin the generated UI scale. Recheck native cursors on
 toolkit upgrades. Font Awesome Free 6.7.2 SVG icons use CC BY 4.0; see
 [third-party notices](../../THIRD_PARTY_NOTICES.md) for attribution and changes.
 
 ## Screen sampling
 
-Open **Colors… → Pick from screen…**, select a visible pixel on any connected
+Open **Colors… → Eyedropper…**, select a visible pixel on any connected
 display, or press Escape to cancel. The sampled opaque RGB color updates the
 active shape without committing it; if no shape is active it becomes the next
 drawing color. Sampling does not add an undo entry.
@@ -161,3 +170,12 @@ Protected content and displays the operating system cannot expose may not be
 sampleable. Screen sampling returns a displayed color, rather than an original
 image's uncomposited pixel/alpha. No screenshot is saved or uploaded. This
 desktop feature does not imply screen capture support on iOS.
+
+## Reusable adjustment panels
+
+`ui/colors.slint` defines ToolPanelFrame with a fixed title/placement header and
+a scrolling body, plus a reusable ColorPanel rendered by both hosts. Future
+adjustment windows must offer independent Dock/Float placement using that frame and keep their state outside the
+window so Dock/Float never resets an in-progress edit. Colors is the first such
+panel; About remains a modal dialog. Placement is currently a session preference,
+not a saved workspace layout.

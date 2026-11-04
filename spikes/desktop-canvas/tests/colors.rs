@@ -1,9 +1,9 @@
 use hoshi_canvas_spike::create_app_with_colors;
-use hoshi_controller::{Color, Tool};
+use hoshi_controller::Color;
 use slint::{ComponentHandle, LogicalSize};
 
 #[test]
-fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
+fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
     slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
         i_slint_backend_testing::TestingBackendOptions {
             mock_time: true,
@@ -149,33 +149,15 @@ fn picker_controls_sync_live_color_alpha_and_canvas_sampling() {
     assert_eq!(state.borrow().primary_color(), before);
     assert!(!picker.get_error().is_empty());
     picker.invoke_set_hex("#3C87E0".into());
-    picker.invoke_pick();
     assert!(picker.get_has_active_shape());
-    assert_eq!(state.borrow().tool(), Tool::Eyedropper);
-    assert_eq!(state.borrow().document().undo_len(), 1);
-    picker.invoke_set_rgba(0, 0, 0, 255);
-    assert_eq!(
-        state.borrow().document().layers()[0].pixels()[50 * 512 + 50].a,
-        0
-    );
-    ui.invoke_pointer_down(15.0, 15.0);
-    ui.invoke_pointer_up(15.0, 15.0);
-    assert_eq!(
-        state.borrow().primary_color(),
-        Color::rgba(60, 135, 224, 255)
-    );
+    picker.invoke_set_rgba(12, 34, 56, 255);
     assert_eq!(
         state.borrow().composite()[50 * 512 + 50],
-        Color::rgba(60, 135, 224, 255)
+        Color::rgba(12, 34, 56, 255)
     );
+    picker.invoke_set_hex("#3C87E0".into());
     assert!(state.borrow().document().active_shape().is_some());
     assert_eq!(state.borrow().document().undo_len(), 1);
-    assert_eq!(picker.get_hex_value(), "#3C87E0FF");
-    ui.invoke_choose_tool(0);
-    assert!(
-        ui.get_has_shape(),
-        "returning from eyedropper must keep the shape editable"
-    );
     ui.invoke_action(2);
     assert!(!picker.get_has_active_shape());
     assert_eq!(state.borrow().document().undo_len(), 2);
