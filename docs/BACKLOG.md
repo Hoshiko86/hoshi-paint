@@ -87,7 +87,7 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 ## Current validation
 
 See [SPIKE_RESULTS.md](SPIKE_RESULTS.md) for the newer Rust 1.99.1 desktop
-experiment: 56 Rust tests pass locally, including five rendered UI
+experiment: 66 Rust tests pass locally, including nine rendered UI
 scenarios; real Linux desktop software-rendering smoke passes. The earlier core
 baseline below is retained as historical cross-platform evidence.
 

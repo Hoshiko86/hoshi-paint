@@ -42,6 +42,13 @@ jobs:
           HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
           HOSHI_DOCK_SNAPSHOT: target/spike-colors-docked.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
+      - name: Native docked panels and history smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+          HOSHI_PANELS_SNAPSHOT: target/spike-panels.png
+          HOSHI_HISTORY_SNAPSHOT: target/spike-history.png
+        run: xvfb-run -a -s '-screen 0 1600x1000x24' cargo run --package hoshi-canvas-spike --example panels_smoke --locked
       - name: Desktop screen picker portal contract
         if: runner.os == 'Linux'
         run: dbus-run-session -- cargo run --package hoshi-canvas-spike --example portal_smoke --locked
@@ -62,7 +69,7 @@ jobs:
           package.mkdir(parents=True, exist_ok=True)
           for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
                          "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
-                         "target/spike-colors-docked.png",
+                         "target/spike-colors-docked.png", "target/spike-panels.png", "target/spike-history.png",
                          "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)
               if path.is_file():

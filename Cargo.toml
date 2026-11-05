@@ -7,3 +7,20 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
+
+# Keep debug symbols and checks in development artifacts, but optimize the
+# per-pixel hot paths so interactive resizing does not run at opt-level 0.
+[profile.dev.package.hoshi-core]
+opt-level = 3
+
+[profile.dev.package.hoshi-controller]
+opt-level = 3
+
+[profile.dev.package.i-slint-renderer-software]
+opt-level = 3
+
+[profile.dev.package.i-slint-core]
+opt-level = 3
+
+[profile.dev.package.hoshi-canvas-spike]
+opt-level = 2

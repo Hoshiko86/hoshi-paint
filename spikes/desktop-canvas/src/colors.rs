@@ -1,4 +1,4 @@
-use crate::{AppWindow, ColorPickerWindow, SharedController, refresh, update};
+use crate::{AppWindow, ColorPickerWindow, PaletteSwatch, SharedController, refresh, update};
 use hoshi_controller::{
     Color,
     color::{self, Hsv},
@@ -52,6 +52,26 @@ pub(super) fn bind_picker(
     controller: SharedController,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
+    let swatches = [
+        (72, 136, 240, "Blue"),
+        (232, 104, 92, "Coral"),
+        (54, 167, 140, "Mint"),
+    ]
+    .into_iter()
+    .map(|(r, g, b, name)| {
+        let value = Color::rgba(r, g, b, 255);
+        PaletteSwatch {
+            red: r.into(),
+            green: g.into(),
+            blue: b.into(),
+            label: swatch_hex(value).into(),
+            description: describe_swatch(value, Some(name)).into(),
+        }
+    })
+    .collect::<Vec<_>>();
+    let model: slint::ModelRc<PaletteSwatch> = Rc::new(slint::VecModel::from(swatches)).into();
+    picker.set_swatches(model.clone());
+    ui.set_color_swatches(model);
     // Both hosts edit the same controller and use the same panel component.
     let weak = picker.as_weak();
     ui.on_edit_rgba(move |r, g, b, a| {
@@ -89,9 +109,14 @@ pub(super) fn bind_picker(
             p.invoke_close_picker();
         }
     });
-    let (main, weak) = (ui.as_weak(), picker.as_weak());
-    let state = controller.clone();
+    let main = ui.as_weak();
     picker.on_toggle_dock(move || {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_set_colors_placement(if ui.get_colors_placement() == 0 { 2 } else { 0 });
+        }
+    });
+    let (main, weak, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
+    ui.on_set_colors_placement(move |placement| {
         if let (Some(ui), Some(p)) = (main.upgrade(), weak.upgrade()) {
             if ui.get_modal_visible() {
                 return;
@@ -101,21 +126,33 @@ pub(super) fn bind_picker(
                 c.pointer_up().expect("finish gesture before docking");
                 c.set_aspect_lock(false).expect("gesture ended");
             }
-            let docked = !ui.get_colors_docked();
-            ui.set_colors_docked(docked);
+            let placement = placement.clamp(0, 4);
+            ui.set_colors_placement(placement);
+            ui.set_colors_docked(placement != 0);
             ui.set_colors_visible(true);
-            p.set_docked(docked);
-            if docked {
-                let _ = p.hide();
-            } else {
+            p.set_placement(placement);
+            p.set_docked(placement != 0);
+            if placement == 0 {
                 let _ = p.show();
+            } else {
+                let _ = p.hide();
             }
+        }
+    });
+    let main = ui.as_weak();
+    picker.on_placement_selected(move |value| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_set_colors_placement(value);
         }
     });
     let request = Rc::new(RefCell::new(None::<crate::screen_pick::ScreenPick>));
     let timer = Rc::new(slint::Timer::default());
     let colors = picker.as_weak();
+    let main = ui.as_weak();
     ui.window().on_close_requested(move || {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_close_history();
+        }
         if let Some(p) = colors.upgrade() {
             p.invoke_close_picker();
         }
@@ -135,6 +172,19 @@ pub(super) fn bind_picker(
     ui.on_sync_color(move |r, g, b, a, active| {
         if let Some(picker) = weak.upgrade() {
             picker.set_has_active_shape(active);
+            // Geometry/viewport updates do not change the color controls. Avoid
+            // HSV conversion, image/property syncing and layout invalidation on
+            // every resize event when the primary color is unchanged.
+            if (
+                picker.get_red(),
+                picker.get_green(),
+                picker.get_blue(),
+                picker.get_alpha(),
+            ) == (r, g, b, a)
+                && picker.get_sv_image().size().width != 0
+            {
+                return;
+            }
             synchronize(
                 &picker,
                 Color::rgba(r as u8, g as u8, b as u8, a as u8),
@@ -294,7 +344,7 @@ pub(super) fn bind_picker(
                         Ok(value) => value,
                         Err(TryRecvError::Empty) => return,
                         Err(TryRecvError::Disconnected) => {
-                            Err("Screen picker closed unexpectedly.".into())
+                            Err("Color Picker closed unexpectedly.".into())
                         }
                     }
                 };
@@ -353,6 +403,32 @@ fn finish_screen_pick(
     }
 }
 
+fn swatch_hex(value: Color) -> String {
+    if value.a == 255 {
+        format!("#{:02X}{:02X}{:02X}", value.r, value.g, value.b)
+    } else {
+        color::format_hex(value)
+    }
+}
+
+fn describe_swatch(value: Color, name: Option<&str>) -> String {
+    let hsv = color::color_to_hsv(value);
+    let heading = name
+        .filter(|name| !name.is_empty())
+        .map(|name| format!("{name}\n"))
+        .unwrap_or_default();
+    format!(
+        "{heading}Hex: {}\nRGB: {}, {}, {}\nHSV: {:.0}°, {:.0}%, {:.0}%",
+        swatch_hex(value),
+        value.r,
+        value.g,
+        value.b,
+        hsv.hue,
+        hsv.saturation,
+        hsv.value
+    )
+}
+
 fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
     ui.set_color_r(picker.get_red());
     ui.set_color_g(picker.get_green());
@@ -370,6 +446,16 @@ fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn swatch_description_contains_exact_channels_hsv_and_optional_palette_name() {
+        let red = Color::rgba(255, 0, 0, 255);
+        let unnamed = describe_swatch(red, None);
+        assert_eq!(unnamed, "Hex: #FF0000\nRGB: 255, 0, 0\nHSV: 0°, 100%, 100%");
+        assert_eq!(describe_swatch(red, Some("Red")), format!("Red\n{unnamed}"));
+        assert_eq!(describe_swatch(red, Some("")), unnamed);
+        assert!(describe_swatch(Color::rgba(0, 0, 0, 128), None).contains("Hex: #00000080"));
+    }
 
     #[test]
     fn screen_result_recolors_preview_and_cancel_or_failure_preserves_it() {

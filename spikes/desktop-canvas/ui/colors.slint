@@ -1,4 +1,4 @@
-import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView } from "std-widgets.slint";
+import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
     preferred-height: 34px;
     in property <string> label;
@@ -21,24 +21,43 @@ component Channel inherits Rectangle {
         }
     }
 }
-export struct PaletteSwatch { red: int, green: int, blue: int, label: string }
+export struct PaletteSwatch { red: int, green: int, blue: int, label: string, description: string }
+component SwatchDetails inherits Rectangle {
+    in property <string> text;
+    background: Palette.alternate-background;
+    border-width: 1px; border-color: Palette.border; border-radius: 4px;
+    accessible-role: AccessibleRole.text; accessible-label: root.text;
+    VerticalLayout { padding: 8px; Text { text: root.text; color: Palette.foreground; } }
+}
 export component ColorSwatch inherits Rectangle {
     in property <color> value;
     in property <string> label;
+    in property <string> description;
     width: 40px; height: 40px;
     callback clicked();
-    Button { width: parent.width; height: parent.height; accessible-label: root.label; clicked => { root.clicked(); } }
+    Button { width: parent.width; height: parent.height; accessible-label: root.label; accessible-description: root.description; clicked => { root.clicked(); } }
     Rectangle {
         x: 8px; y: 8px; width: 24px; height: 24px;
         background: root.value; border-width: 1px; border-color: #526079;
     }
+    Tooltip { SwatchDetails { text: root.description; } }
 }
 export component ToolPanelFrame inherits Rectangle {
     in property <string> title;
+    // 0 floating; 1 left; 2 right; 3 top; 4 bottom.
+    in property <int> placement;
+    callback placement-selected(int);
     in property <length> body-height: 624px;
     in property <bool> docked;
     callback toggle-dock();
     callback close-panel();
+    // A selection can replace the ComboBox's initial binding. Keep later
+    // Float/Dock shortcut changes reflected in its displayed location too.
+    private property <int> last-nonzero-placement: 2;
+    changed placement => {
+        if root.placement > 0 { root.last-nonzero-placement = root.placement; }
+        placement-choice.current-index = root.placement;
+    }
     background: #f2f4f8;
     VerticalLayout {
         padding: 8px; spacing: 8px;
@@ -46,8 +65,20 @@ export component ToolPanelFrame inherits Rectangle {
             height: 32px; spacing: 8px;
             Text { text: root.title; font-size: 20px; font-weight: 700; color: #18253c; }
             Rectangle { horizontal-stretch: 1; }
-            Button { text: root.docked ? "Float" : "Dock"; clicked => { root.toggle-dock(); } }
-            Button { text: "×"; accessible-label: "Close adjustment panel"; clicked => { root.close-panel(); } }
+            placement-choice := ComboBox {
+                width: 92px;
+                model: ["Float", "Left", "Right", "Top", "Bottom"];
+                current-index: root.placement;
+                accessible-label: root.title + " dock location";
+                selected(value) => { root.placement-selected(self.current-index); }
+            }
+            Button {
+                width: 48px;
+                text: root.docked ? "Float" : "Dock";
+                accessible-label: (root.docked ? "Float " : "Dock ") + root.title;
+                clicked => { root.placement-selected(root.placement == 0 ? root.last-nonzero-placement : 0); }
+            }
+            Button { width: 28px; text: "×"; accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
         }
         ScrollView {
             content-width: self.width;
@@ -58,9 +89,9 @@ export component ToolPanelFrame inherits Rectangle {
 }
 export component ColorPanel inherits Rectangle {
     in property <[PaletteSwatch]> swatches: [
-        { red: 72, green: 136, blue: 240, label: "Select #4888F0" },
-        { red: 232, green: 104, blue: 92, label: "Select #E8685C" },
-        { red: 54, green: 167, blue: 140, label: "Select #36A78C" },
+        { red: 72, green: 136, blue: 240, label: "#4888F0", description: "" },
+        { red: 232, green: 104, blue: 92, label: "#E8685C", description: "" },
+        { red: 54, green: 167, blue: 140, label: "#36A78C", description: "" },
     ];
     in property <int> red;
     in property <int> green;
@@ -91,10 +122,13 @@ export component ColorPanel inherits Rectangle {
     callback pick-screen();
     callback close-picker();
     callback toggle-dock();
+    callback placement-selected(int);
+    in property <int> placement;
     in property <bool> docked;
     preferred-height: 680px;
     ToolPanelFrame {
-        title: "Colors"; docked: root.docked;
+        title: "Colors"; docked: root.docked; placement: root.placement;
+        placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
         VerticalLayout {
@@ -161,12 +195,16 @@ export component ColorPanel inherits Rectangle {
                     for swatch in root.swatches : ColorSwatch {
                         value: rgb(swatch.red, swatch.green, swatch.blue);
                         label: swatch.label;
+                        description: swatch.description;
                         clicked => { root.set-rgba(swatch.red, swatch.green, swatch.blue, root.alpha); }
                     }
                 }
             }
             HorizontalLayout {
-                Button { icon: @image-url("../icons/eye-dropper.svg"); text: root.screen-picking ? "Picking…" : "Eyedropper…"; enabled: !root.screen-picking; clicked => { root.pick-screen(); } }
+                Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
+                    Tooltip { text: @markdown("Color Picker"); }
+                    clicked => { root.pick-screen(); }
+                }
                 Button { text: "Close"; clicked => { root.close-picker(); } }
             }
         }
@@ -178,6 +216,7 @@ export component ColorPickerWindow inherits Window {
     min-width: 380px; min-height: 680px;
     background: #f2f4f8; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.light; }
+    in property <[PaletteSwatch]> swatches <=> panel.swatches;
     in property <int> red <=> panel.red;
     in property <int> green <=> panel.green;
     in property <int> blue <=> panel.blue;
@@ -202,6 +241,8 @@ export component ColorPickerWindow inherits Window {
     out property <float> swatches-left: panel.swatches-left;
     out property <float> swatches-top: panel.swatches-top;
     in property <bool> docked <=> panel.docked;
+    in property <int> placement <=> panel.placement;
+    callback placement-selected(int);
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback set-hex(string);
@@ -209,6 +250,7 @@ export component ColorPickerWindow inherits Window {
     callback close-picker();
     callback toggle-dock();
     panel := ColorPanel {
+        placement-selected(value) => { root.placement-selected(value); }
         set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }
         set-hex(text) => { root.set-hex(text); }

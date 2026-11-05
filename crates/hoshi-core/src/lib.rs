@@ -28,6 +28,18 @@ impl Color {
         // Keep effective source alpha at full precision until the final channels
         // are rounded. Quantizing it to u8 first loses low-opacity colors.
         let alpha = u64::from(self.a) * u64::from(opacity);
+        if alpha == 0 {
+            // Preserve canonical transparent output even when the destination
+            // carries RGB under zero alpha (including rounded low opacity).
+            return if destination.a == 0 {
+                Self::TRANSPARENT
+            } else {
+                destination
+            };
+        }
+        if alpha == 65_025 {
+            return self;
+        }
         let back = u64::from(destination.a) * (65_025 - alpha);
         let denominator = alpha * 255 + back;
         if denominator == 0 {
@@ -202,6 +214,7 @@ pub enum Error {
     ActiveShape,
     NoActiveShape,
     LayerLimit,
+    InvalidHistoryStep,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -210,13 +223,27 @@ struct State {
     selected: usize,
 }
 
+/// A retained committed state in chronological undo/redo order. The first row
+/// is the oldest state still available, not necessarily the original document.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HistoryStep {
+    pub label: &'static str,
+    pub is_current: bool,
+    pub is_redo: bool,
+}
+
+struct HistoryEntry {
+    state: State,
+    label: &'static str,
+}
+
 pub struct Document {
     width: u32,
     height: u32,
     state: State,
     active: Option<Shape>,
-    undo: VecDeque<State>,
-    redo: Vec<State>,
+    undo: VecDeque<HistoryEntry>,
+    redo: Vec<HistoryEntry>,
 }
 
 impl Document {
@@ -266,14 +293,56 @@ impl Document {
         self.redo.len()
     }
 
-    fn checkpoint(&mut self, before: State) {
+    /// The index of the current committed state in `history_steps()`.
+    pub fn history_position(&self) -> usize {
+        self.undo.len()
+    }
+
+    /// Includes retained undo states, the current committed state and redo states.
+    /// An active shape is a preview and has no history row until it is committed.
+    pub fn history_steps(&self) -> Vec<HistoryStep> {
+        std::iter::once("Oldest available state")
+            .chain(self.undo.iter().map(|entry| entry.label))
+            .chain(self.redo.iter().rev().map(|entry| entry.label))
+            .enumerate()
+            .map(|(index, label)| HistoryStep {
+                label,
+                is_current: index == self.undo.len(),
+                is_redo: index > self.undo.len(),
+            })
+            .collect()
+    }
+
+    /// Navigate retained committed states. Callers must explicitly commit or
+    /// cancel a preview first, avoiding implicit commits evicting a clicked row.
+    pub fn go_to_history_step(&mut self, index: usize) -> Result<bool, Error> {
+        if index > self.undo.len() + self.redo.len() {
+            return Err(Error::InvalidHistoryStep);
+        }
+        if self.active.is_some() {
+            return Err(Error::ActiveShape);
+        }
+        let changed = index != self.undo.len();
+        while self.undo.len() > index {
+            self.undo()?;
+        }
+        while self.undo.len() < index {
+            self.redo()?;
+        }
+        Ok(changed)
+    }
+
+    fn checkpoint(&mut self, before: State, label: &'static str) {
         if before == self.state {
             return;
         }
         if self.undo.len() == HISTORY_LIMIT {
             self.undo.pop_front();
         }
-        self.undo.push_back(before);
+        self.undo.push_back(HistoryEntry {
+            state: before,
+            label,
+        });
         self.redo.clear();
     }
 
@@ -316,7 +385,7 @@ impl Document {
             ]),
         });
         self.state.selected = index;
-        self.checkpoint(before);
+        self.checkpoint(before, "Add layer");
         Ok(index)
     }
 
@@ -331,7 +400,7 @@ impl Document {
             self.state.selected -= 1;
         }
         self.state.selected = self.state.selected.min(self.state.layers.len() - 1);
-        self.checkpoint(before);
+        self.checkpoint(before, "Delete layer");
         Ok(())
     }
 
@@ -339,7 +408,7 @@ impl Document {
         self.editable(layer)?;
         let before = self.state.clone();
         self.state.layers[layer].name = name.into();
-        self.checkpoint(before);
+        self.checkpoint(before, "Rename layer");
         Ok(())
     }
 
@@ -353,7 +422,7 @@ impl Document {
         let before = self.state.clone();
         self.state.layers[layer].visible = visible;
         self.state.layers[layer].opacity = opacity;
-        self.checkpoint(before);
+        self.checkpoint(before, "Layer properties");
         Ok(())
     }
 
@@ -375,7 +444,7 @@ impl Document {
         } else {
             self.state.selected
         };
-        self.checkpoint(before);
+        self.checkpoint(before, "Reorder layer");
         Ok(())
     }
 
@@ -408,6 +477,10 @@ impl Document {
         };
         let before = self.state.clone();
         let layer = &mut self.state.layers[self.state.selected];
+        let label = match shape.kind {
+            ShapeKind::Rectangle => "Rectangle",
+            ShapeKind::Ellipse => "Ellipse",
+        };
         let shape = RasterShape::new(shape);
         let mut changed = false;
         for y in 0..self.height {
@@ -422,7 +495,7 @@ impl Document {
                 }
             }
         }
-        self.checkpoint(before);
+        self.checkpoint(before, label);
         Ok(changed)
     }
 
@@ -456,7 +529,10 @@ impl Document {
         let Some(previous) = self.undo.pop_back() else {
             return Ok(false);
         };
-        self.redo.push(std::mem::replace(&mut self.state, previous));
+        self.redo.push(HistoryEntry {
+            state: std::mem::replace(&mut self.state, previous.state),
+            label: previous.label,
+        });
         Ok(true)
     }
 
@@ -467,8 +543,13 @@ impl Document {
         let Some(next) = self.redo.pop() else {
             return Ok(false);
         };
-        self.undo
-            .push_back(std::mem::replace(&mut self.state, next));
+        self.undo.push_back(HistoryEntry {
+            state: std::mem::replace(&mut self.state, next.state),
+            label: next.label,
+        });
         Ok(true)
     }
 }
+
+#[cfg(test)]
+mod color_tests;

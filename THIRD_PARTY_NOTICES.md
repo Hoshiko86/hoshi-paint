@@ -17,11 +17,11 @@ the repository. The framework's bundled resources retain their original notices.
 
 ## Font Awesome Free
 
-The eye-dropper SVG is from **Font Awesome Free 6.7.2**, copyright 2024 Fonticons,
+The eye-dropper, rotate-left (Undo), and rotate-right (Redo) SVGs are from **Font Awesome Free 6.7.2**, copyright 2024 Fonticons,
 Inc., https://fontawesome.com. SVG icons are licensed **CC BY 4.0**:
 https://creativecommons.org/licenses/by/4.0/ . The upstream notice is included at
 [licenses/Font-Awesome-Free-6.7.2.txt](licenses/Font-Awesome-Free-6.7.2.txt).
-Original source: https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs/solid/eye-dropper.svg .
+Original sources: https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs/solid/ (eye-dropper.svg, rotate-left.svg, rotate-right.svg). The latter two are bundled unchanged as undo.svg and redo.svg.
 
 The cursor derivative adds a 32px viewport and a dark fill/white outline for
 contrast; path geometry is unchanged. Attribution comments remain in both SVGs. The Windows `.cur` is a rasterized

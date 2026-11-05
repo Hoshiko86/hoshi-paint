@@ -18,9 +18,9 @@ not reference-hardware release performance measurements.
 
 | Check | Observed result |
 | --- | --- |
-| Existing core | 19 integration tests pass, including rotated raster geometry and history |
-| New UI-independent controller | 29 integration tests pass, including Shift constraints, color conversion/validation, eyedropper mapping, handles and lifecycle |
-| Slint software rendering and input | Five integration scenarios pass with Shift modifiers, RGB/HSV/hex/alpha synchronization, sampling, resize/rotation, contrast and pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
+| Existing core | 22 integration tests pass, including rotated raster geometry and history |
+| New UI-independent controller | 30 integration tests pass, including Shift constraints, color conversion/validation, eyedropper mapping, handles and lifecycle |
+| Slint software rendering and input | Nine integration scenarios pass with Shift modifiers, RGB/HSV/hex/alpha synchronization, sampling, resize/rotation, contrast and pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
 | Actual Linux winit/software window | Xvfb smoke passes: show/run native event loop, dispatch synthetic input, commit shape, check displayed pixels, capture screenshot, exit |
 | Build, format, lint | `cargo build -p hoshi-canvas-spike --locked`, rustfmt and workspace/all-target Clippy pass |
 | Project-sync regression | Four Python tests pass |
@@ -79,17 +79,17 @@ does not complete UI-1 or the v0.0.0 release acceptance scenario.
 
 ## Shift scaling and color controls
 
-The current revision passes 56 Rust tests locally (19 core, 29 controller,
-5 rendered UI scenarios, 3 screen-result/unit tests), formatting and Clippy. Shift locks corner
+The current revision passes 66 Rust tests locally (22 core integration, 1 core reference unit,
+30 controller, 9 rendered UI scenarios, 4 adapter/result unit tests), formatting and Clippy. Shift locks corner
 scaling to the drag-start aspect ratio, including rotated/zoomed shapes; edge
-handles remain free. The modeless Colors window provides RGB, HSV, SV area, hue,
-alpha, hex and square swatches, with live preview. One native screen eyedropper
+handles remain free. The modeless Colors panel provides RGB, HSV, SV area, hue,
+alpha, hex and square swatches, with live preview. One native Color Picker
 is exposed consistently from the main window and Colors. It is a one-shot
 action that preserves the current tool and active shape. A regression that
 failed before the fix now verifies that capture/focus loss while sampling
 keeps the editable shape connected to subsequent numeric color edits.
 
-Colors can dock at the right of the main window or float in a native window.
+Colors and History can dock on any internal edge or float in native windows.
 Both render the same reusable panel with one controller state. The fixed header
 keeps Float/Close available while the body scrolls. A rendered regression checks
 actual docked RGB slider and swatch input, visible swatch RGB pixels, repeated
@@ -112,3 +112,32 @@ checked for this revision; earlier artifact evidence applies to earlier revision
 ![Expanded color picker](images/color-picker.png)
 
 ![Docked Colors panel](images/colors-docked.png)
+
+## History, navigation and dock locations
+
+Colors and History independently support floating or any of the four internal
+edges. Rendered tests cover both panels on every edge, independent locations,
+real location-selector input, remembered Dock/Float, and compact top/bottom bands
+with a usable canvas. A native desktop smoke covers both hosts, history
+undo/redo navigation and closing the application without orphaned windows.
+History shows committed action labels, current/redo rows, and the bounded oldest
+available state. Active shapes require explicit commit/cancel before row jumps.
+
+Color Picker and Undo/Redo use icon-only buttons with accessible names and hover
+tooltips. Swatch hover shows palette name (when available), hex, RGB and HSV;
+the popup is tested for display, dismissal and click-through selection. The
+redundant nudge/size buttons are removed. Canvas input supports Ctrl/Cmd-wheel
+zoom, ordinary/Shift wheel pan and Space/middle/right temporary drag-pan, with
+text-field isolation and preserved document/history state.
+
+[Resize profiling](RESIZE_PERFORMANCE.md) separates sub-microsecond constraint
+geometry from CPU preview/render work. Optimized development hot paths improve
+the measured locked-resize update from approximately 62 ms to 5 ms and a complete
+software snapshot from 227 ms to 24 ms on this host; these are synthetic probe
+measurements, not physical pointer-to-photon latency or a platform FPS guarantee.
+
+![Independent Colors and History docks](images/panels.png)
+
+![Floating History with redo](images/history.png)
+
+![Rich swatch tooltip](images/swatch-tooltip.png)

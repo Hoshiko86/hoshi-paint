@@ -44,7 +44,7 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Drag the round control point above the top edge to rotate about the center
   in one-degree increments. Handles keep their screen size when zoomed.
 - Drag inside the active rectangle to move it, including after rotation.
-  Handles take precedence. Move shape and nudge/size buttons also remain available.
+  Handles take precedence. Move shape also remains available. The redundant nudge/size buttons have been removed.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
 - Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
   Shortcuts apply only when the canvas has keyboard focus.
@@ -55,21 +55,32 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - The picker says **Editing the active shape** while resize handles are visible.
   After Enter or starting another shape it says **Next drawing color**: existing
   pixels remain unchanged, and the chosen color applies to the next drawing.
-- **Pick** in the main window and **Eyedropper…** in Colors start the same native
+- **Color Picker** (eyedropper icon) in the main window or Colors start the same native
   screen sampler. Select a pixel anywhere the desktop allows, including the
   canvas. The result is opaque RGB; Escape cancels without changing the color.
   Picking is one-shot and keeps the current drawing tool and editable shape.
   RGB/HSV/hex edits can immediately refine the result, repeatedly.
-- **Dock** in Colors moves it into the main window's right side. **Float** returns
-  it to a native window. Both hosts share one controller and the same ColorPanel.
-  The header stays visible while controls scroll in shorter windows. Closing and
-  reopening Colors remembers its placement during the current app session.
-- The preset colors are square swatches with keyboard-accessible hex labels.
-  Clicking a swatch changes RGB while preserving the current alpha. The reusable
-  ColorSwatch and data-driven PaletteSwatch list are the foundation for future
-  favorite saving, editing and palette files; those features are not shipped yet.
-- Pan canvas changes the viewport; scroll zooms about the pointer. Zoom buttons
-  use a fixed logical anchor. Reset view restores 1:1 coordinates.
+- Colors and History offer **Float / Left / Right / Top / Bottom** in their
+  header location selectors. Dock/Float shortcuts remember the last selected edge.
+  Panels can choose different edges, or share one edge without covering each other
+  or the canvas. Headers remain visible while compact bodies scroll. Placement
+  is remembered during the current app session.
+- Color preset buttons show only square swatches. Hover shows the palette name
+  when known, hex, RGB and HSV. Accessible labels/descriptions remain available;
+  clicking a swatch changes RGB while preserving current alpha. Favorite-color
+  persistence and palette files remain future work.
+- Open **History…** for labeled committed actions, the current state, grayed redo
+  entries and available undo/redo counts. Click a retained step to undo/redo to it.
+  Commit or cancel an active shape before selecting a history row. Toolbar and
+  History Undo/Redo use icons with tooltips. At most 16 actions are retained; the
+  first row means **Oldest available state**, not necessarily the original image.
+- **Ctrl/Cmd + wheel** zooms about the pointer over the canvas. A plain wheel pans
+  vertically (trackpad horizontal movement pans horizontally); Shift + wheel pans
+  horizontally. **Space + left-drag**, **middle-drag**, or **right-drag** temporarily
+  pan without changing the drawing tool, shape or history. Right-drag is a
+  convenience alias; this is not a claim of complete Paint.NET shortcut parity.
+  Release, Escape, capture loss or focus loss end temporary navigation. Space in
+  text fields remains text input.
 - Edit the layer name. This commits an active shape before renaming it.
 - Help → About Hoshi Paint opens an input-blocking overlay with Slint attribution.
   Opening it cancels an unfinished drag before blocking controller callbacks.
@@ -150,7 +161,7 @@ toolkit upgrades. Font Awesome Free 6.7.2 SVG icons use CC BY 4.0; see
 
 ## Screen sampling
 
-Open **Colors… → Eyedropper…**, select a visible pixel on any connected
+Open **Colors… → Color Picker**, select a visible pixel on any connected
 display, or press Escape to cancel. The sampled opaque RGB color updates the
 active shape without committing it; if no shape is active it becomes the next
 drawing color. Sampling does not add an undo entry.
@@ -163,7 +174,7 @@ drawing color. Sampling does not add an undo entry.
 - Ubuntu/Linux: the desktop portal's `Screenshot.PickColor` request provides
   screen selection, including on Wayland. A running session bus and a portal
   backend implementing PickColor (such as GNOME/KDE) are required. Missing
-  support or denied access produces an error in Colors; canvas sampling remains
+  support or denied access produces an error in Colors; RGB/HSV/hex editing remains
   available. A bare Xvfb session does not provide this desktop service.
 
 Protected content and displays the operating system cannot expose may not be
@@ -176,6 +187,15 @@ desktop feature does not imply screen capture support on iOS.
 `ui/colors.slint` defines ToolPanelFrame with a fixed title/placement header and
 a scrolling body, plus a reusable ColorPanel rendered by both hosts. Future
 adjustment windows must offer independent Dock/Float placement using that frame and keep their state outside the
-window so Dock/Float never resets an in-progress edit. Colors is the first such
-panel; About remains a modal dialog. Placement is currently a session preference,
+window so Dock/Float never resets an in-progress edit. Colors and History share this frame; About remains a modal dialog. Placement is currently a session preference,
 not a saved workspace layout.
+
+## Resize responsiveness
+
+Development binaries now optimize the document/controller, software renderer,
+Slint core and generated application code while retaining debug information and
+assertions. The source-over fast paths retain exact RGBA output; geometry-only
+updates skip unnecessary color-control synchronization. See
+[the measured resize probe](../../docs/RESIZE_PERFORMANCE.md) for before/after
+results and reproducible commands. These are development measurements, not
+physical display-latency or release acceptance results.

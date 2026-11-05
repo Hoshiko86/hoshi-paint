@@ -6,7 +6,7 @@
 
 pub mod color;
 
-pub use hoshi_core::Color;
+pub use hoshi_core::{Color, HistoryStep};
 use hoshi_core::{Document, Error, Shape, ShapeKind, ShapeStyle};
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
@@ -133,6 +133,9 @@ enum Gesture {
     Pan {
         last: (f64, f64),
     },
+    TemporaryPan {
+        last: (f64, f64),
+    },
     Resize {
         original: Shape,
         kind: usize,
@@ -178,6 +181,25 @@ impl Controller {
     pub fn document(&self) -> &Document {
         &self.document
     }
+    pub fn history_steps(&self) -> Vec<HistoryStep> {
+        self.document.history_steps()
+    }
+
+    pub fn history_position(&self) -> usize {
+        self.document.history_position()
+    }
+
+    pub fn go_to_history_step(&mut self, index: usize) -> Result<bool, ControllerError> {
+        // Reject live previews before ending any active gesture. History row
+        // navigation is explicit, unlike the toolbar's commit-then-undo action.
+        let changed = self.document.go_to_history_step(index)?;
+        self.gesture = None;
+        self.sample_snapshot = None;
+        self.aspect_lock = false;
+        self.last_pointer = None;
+        Ok(changed)
+    }
+
     pub fn viewport(&self) -> Viewport {
         self.viewport
     }
@@ -423,9 +445,14 @@ impl Controller {
                     .saturating_add((point.1 - anchor.1).round() as i32);
                 self.document.adjust_shape(original)?;
             }
-            Some(Gesture::Pan { last }) => {
+            Some(Gesture::Pan { last }) | Some(Gesture::TemporaryPan { last }) => {
+                let temporary = matches!(self.gesture, Some(Gesture::TemporaryPan { .. }));
                 self.pan(x - last.0, y - last.1)?;
-                self.gesture = Some(Gesture::Pan { last: (x, y) });
+                self.gesture = Some(if temporary {
+                    Gesture::TemporaryPan { last: (x, y) }
+                } else {
+                    Gesture::Pan { last: (x, y) }
+                });
             }
             Some(Gesture::Resize {
                 original,
@@ -506,6 +533,24 @@ impl Controller {
         Ok(())
     }
 
+    /// Temporarily navigate without selecting the Pan tool or committing the
+    /// current preview. Coordinates are logical view pixels, like pointer_move.
+    pub fn begin_temporary_pan(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
+        self.document_point(x, y)?;
+        self.pointer_up()?;
+        self.aspect_lock = false;
+        self.last_pointer = Some((x, y));
+        self.gesture = Some(Gesture::TemporaryPan { last: (x, y) });
+        Ok(())
+    }
+
+    pub fn end_temporary_pan(&mut self) -> Result<(), ControllerError> {
+        if matches!(self.gesture, Some(Gesture::TemporaryPan { .. })) {
+            self.pointer_up()?;
+        }
+        Ok(())
+    }
+
     /// Release stops dragging but deliberately leaves the shape editable.
     pub fn pointer_up(&mut self) -> Result<(), ControllerError> {
         self.gesture = None;
@@ -514,10 +559,13 @@ impl Controller {
     }
 
     /// Used for lost pointer capture / focus loss: never leave an active drag.
-    /// Interrupting color sampling preserves the editable shape and selected
-    /// color. Interrupted shape gestures discard their uncommitted preview.
+    /// Interrupting sampling or viewport panning preserves the editable shape
+    /// and selected color. Interrupted shape gestures discard their preview.
     pub fn cancel_pointer(&mut self) {
-        if matches!(self.gesture, Some(Gesture::Sample)) {
+        if matches!(
+            self.gesture,
+            Some(Gesture::Sample | Gesture::Pan { .. } | Gesture::TemporaryPan { .. })
+        ) {
             self.gesture = None;
             self.sample_snapshot = None;
         } else {
@@ -674,6 +722,10 @@ impl Controller {
         let pixels = self.composite();
         let mut output = Vec::with_capacity(pixels.len() * 4);
         for (index, pixel) in pixels.into_iter().enumerate() {
+            if pixel.a == 255 {
+                output.extend_from_slice(&[pixel.r, pixel.g, pixel.b, 255]);
+                continue;
+            }
             let background = if ((index % width) / 8 + (index / width) / 8).is_multiple_of(2) {
                 224
             } else {

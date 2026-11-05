@@ -2,3 +2,6 @@
 # Slint 1.18.1 gates its native image-cursor constructor as experimental.
 # Keep the exact toolkit pin and exercise the desktop backend smoke test.
 SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
+# Retain UI element metadata so hover/accessibility regressions inspect actual
+# generated controls and popup trees; pixel hot paths remain optimized.
+SLINT_EMIT_DEBUG_INFO = "1"

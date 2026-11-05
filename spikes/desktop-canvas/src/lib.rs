@@ -4,18 +4,21 @@ use hoshi_controller::{Controller, ControllerError, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
+mod history;
 mod screen_pick;
 
 slint::slint! {
-    import { ColorPanel } from "../ui/colors.slint";
-    export { ColorPickerWindow } from "../ui/colors.slint";
+    import { ColorPanel, PaletteSwatch } from "../ui/colors.slint";
+    import { HistoryPanel, HistoryRow } from "../ui/history.slint";
+    export { HistoryWindow, HistoryRow } from "../ui/history.slint";
+    export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
     import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
     export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
         title: "Hoshi Paint · Canvas study";
         preferred-width: 1120px;
         preferred-height: 760px;
-        min-width: 960px;
+        min-width: max(960px, 236px + root.dock-left-width + root.dock-right-width + 240px);
         min-height: 680px;
         background: #f2f4f8;
         default-font-family: "DejaVu Sans";
@@ -50,6 +53,20 @@ slint::slint! {
         callback pointer-move(float, float);
         callback pointer-up(float, float);
         callback pointer-cancel();
+        callback begin-pan(float, float);
+        callback end-pan(float, float);
+        callback pan-by(float, float);
+        private property <bool> navigation-space;
+        private property <PointerEventButton> navigation-owner: PointerEventButton.other;
+        private property <bool> navigation-panning;
+        private property <bool> navigation-space-pan;
+        callback clear-navigation-state();
+        clear-navigation-state => {
+            root.navigation-space = false;
+            root.navigation-owner = PointerEventButton.other;
+            root.navigation-panning = false;
+            root.navigation-space-pan = false;
+        }
         callback action(int);
         callback choose-tool(int);
         callback shift-modifier(bool);
@@ -59,6 +76,8 @@ slint::slint! {
         out property <float> docked-red-height: docked-colors.red-slider-height;
         out property <float> docked-swatches-left: docked-colors.swatches-left;
         out property <float> docked-swatches-top: docked-colors.swatches-top;
+        in property <[PaletteSwatch]> color-swatches;
+        in property <int> colors-placement;
         in property <bool> colors-docked;
         in property <bool> colors-visible;
         in property <int> color-r;
@@ -77,6 +96,7 @@ slint::slint! {
         callback edit-hsv(float, float, float);
         callback edit-hex(string);
         callback pick-screen();
+        callback set-colors-placement(int);
         callback toggle-color-dock();
         callback close-colors();
         callback show-colors();
@@ -85,8 +105,43 @@ slint::slint! {
         callback choose-color(int);
         callback rename(string);
         callback zoom-at(float, float, float);
+        // Independent placement for each adjustment panel. Same-edge panels
+        // share a row/column without covering the drawing viewport.
+        in property <int> history-placement;
+        in property <bool> history-visible;
+        in property <int> history-position;
+        in property <[HistoryRow]> history-rows;
+        in property <bool> history-can-jump;
+        in property <string> history-status;
+        callback show-history();
+        callback close-history();
+        callback set-history-placement(int);
+        callback history-jump(int);
+        callback history-undo();
+        callback history-redo();
+        callback sync-history();
+        private property <bool> color-host-visible: root.colors-visible && root.colors-docked && root.colors-placement > 0;
+        private property <bool> history-host-visible: root.history-visible && root.history-placement > 0;
+        private property <length> dock-left-width: (root.color-host-visible && root.colors-placement == 1 ? 434px : 0px) + (root.history-host-visible && root.history-placement == 1 ? 314px : 0px);
+        private property <length> dock-right-width: (root.color-host-visible && root.colors-placement == 2 ? 434px : 0px) + (root.history-host-visible && root.history-placement == 2 ? 314px : 0px);
+        private property <bool> has-top-dock: (root.color-host-visible && root.colors-placement == 3) || (root.history-host-visible && root.history-placement == 3);
+        private property <bool> has-bottom-dock: (root.color-host-visible && root.colors-placement == 4) || (root.history-host-visible && root.history-placement == 4);
+        private property <int> dock-row-count: (root.has-top-dock ? 1 : 0) + (root.has-bottom-dock ? 1 : 0);
+        private property <length> dock-row-height: min(264px, (workspace.height - 200px) / max(1, root.dock-row-count));
+        private property <length> dock-top-height: root.has-top-dock ? root.dock-row-height : 0px;
+        private property <length> dock-bottom-height: root.has-bottom-dock ? root.dock-row-height : 0px;
+        out property <float> canvas-width: viewport.width / 1px;
+        out property <float> canvas-height: viewport.height / 1px;
+        out property <float> colors-host-left: docked-colors.absolute-position.x / 1px;
+        out property <float> colors-host-top: docked-colors.absolute-position.y / 1px;
+        out property <float> colors-host-width: docked-colors.width / 1px;
+        out property <float> colors-host-height: docked-colors.height / 1px;
+        out property <float> history-host-left: docked-history.absolute-position.x / 1px;
+        out property <float> history-host-top: docked-history.absolute-position.y / 1px;
+        out property <float> history-host-width: docked-history.width / 1px;
+        out property <float> history-host-height: docked-history.height / 1px;
         callback show-about();
-        show-about => { root.hide-colors(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
+        show-about => { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
             Menu {
@@ -111,19 +166,22 @@ slint::slint! {
             HorizontalLayout {
                 height: 40px;
                 spacing: 8px;
-                Button { text: "Undo"; enabled: root.can-undo || root.has-shape; clicked => { root.action(0); } }
-                Button { text: "Redo"; enabled: root.can-redo && !root.has-shape; clicked => { root.action(1); } }
+                Button { icon: @image-url("../icons/undo.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                    Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
+                Button { icon: @image-url("../icons/redo.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                    Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
+                Button { text: "History…"; clicked => { root.show-history(); } }
                 Button { text: "Commit · Enter"; enabled: root.has-shape; clicked => { root.action(2); } }
                 Button { text: "Cancel · Esc"; enabled: root.has-shape; clicked => { root.action(3); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { text: "−"; clicked => { root.zoom-at(256, 256, -1); } }
+                Button { text: "−"; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(256, 256, -1); } }
                 Button { text: "Reset view"; clicked => { root.action(4); } }
-                Button { text: "+"; clicked => { root.zoom-at(256, 256, 1); } }
+                Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(256, 256, 1); } }
             }
-            HorizontalLayout {
-                spacing: 14px;
+            workspace := Rectangle {
+                vertical-stretch: 1;
                 VerticalLayout {
-                    width: 190px;
+                    x: 0px; y: 0px; width: 190px; height: parent.height;
                     spacing: 8px;
                     Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     rectangle-tool := Button { text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
@@ -136,28 +194,20 @@ slint::slint! {
                             Rectangle { background: root.primary-color; }
                         }
                         Button { text: "Colors…"; clicked => { root.show-colors(); } }
-                        Button { icon: @image-url("../icons/eye-dropper.svg"); text: "Pick"; clicked => { root.pick-screen(); } }
+                        Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; Tooltip { text: @markdown("Color Picker"); } clicked => { root.pick-screen(); } }
                     }
                     Text { text: root.primary-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
-                    Text { text: "ADJUST ACTIVE SHAPE"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    HorizontalLayout {
-                        Button { text: "←"; enabled: root.has-shape; clicked => { root.action(5); } }
-                        Button { text: "→"; enabled: root.has-shape; clicked => { root.action(6); } }
-                        Button { text: "↑"; enabled: root.has-shape; clicked => { root.action(7); } }
-                        Button { text: "↓"; enabled: root.has-shape; clicked => { root.action(8); } }
-                    }
-                    HorizontalLayout {
-                        Button { text: "Smaller"; enabled: root.has-shape; clicked => { root.action(9); } }
-                        Button { text: "Larger"; enabled: root.has-shape; clicked => { root.action(10); } }
-                    }
                     Rectangle { vertical-stretch: 1; }
                     Text { text: "Drag handles to resize.\nRound handle rotates.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
                 }
                 viewport := Rectangle {
-                    horizontal-stretch: 1;
+                    x: 204px + root.dock-left-width;
+                    y: root.dock-top-height;
+                    width: parent.width - 204px - root.dock-left-width - root.dock-right-width;
+                    height: parent.height - root.dock-top-height - root.dock-bottom-height;
                     background: #dce2eb;
                     clip: true;
                     border-width: 1px;
@@ -202,12 +252,22 @@ slint::slint! {
                         width: parent.width;
                         height: parent.height;
                         focus-lost(reason) => {
-                            if reason == FocusReason.window-activation { root.pointer-cancel(); }
+                            root.navigation-space = false;
+                            if reason == FocusReason.window-activation || root.navigation-panning { root.pointer-cancel(); }
                         }
                         key-pressed(event) => {
+                            if event.text == Key.Space && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                                root.navigation-space = true; return accept;
+                            }
                             if event.text == Key.Shift { root.shift-modifier(true); return accept; }
                             if event.text == Key.Return { root.action(2); return accept; }
-                            if event.text == Key.Escape { root.action(3); return accept; }
+                            if event.text == Key.Escape {
+                                if root.navigation-panning {
+                                    root.end-pan(touch.mouse-x / 1px, touch.mouse-y / 1px);
+                                    root.clear-navigation-state();
+                                } else { root.action(3); }
+                                return accept;
+                            }
                             if event.modifiers.control || event.modifiers.meta {
                                 if event.text == "z" { root.action(event.modifiers.shift ? 1 : 0); return accept; }
                                 if event.text == "y" { root.action(1); return accept; }
@@ -215,6 +275,14 @@ slint::slint! {
                             reject
                         }
                         key-released(event) => {
+                            if event.text == Key.Space {
+                                root.navigation-space = false;
+                                if root.navigation-space-pan && root.navigation-owner == PointerEventButton.left {
+                                    root.end-pan(touch.mouse-x / 1px, touch.mouse-y / 1px);
+                                    root.clear-navigation-state();
+                                }
+                                return accept;
+                            }
                             if event.text == Key.Shift { root.shift-modifier(false); return accept; }
                             reject
                         }
@@ -222,28 +290,58 @@ slint::slint! {
                             enabled: !root.about-open;
                             mouse-cursor: root.screen-picking ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
                             pointer-event(event) => {
-                                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                                    canvas-focus.focus();
-                                    root.shift-modifier(event.modifiers.shift);
-                                    root.pointer-down(self.mouse-x / 1px, self.mouse-y / 1px);
-                                } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
-                                    root.shift-modifier(event.modifiers.shift);
-                                    root.pointer-up(self.mouse-x / 1px, self.mouse-y / 1px);
-                                } else if event.kind == PointerEventKind.cancel { root.pointer-cancel(); }
+                                if event.kind == PointerEventKind.cancel {
+                                    root.pointer-cancel();
+                                } else if event.kind == PointerEventKind.down && root.navigation-owner == PointerEventButton.other {
+                                    if event.button == PointerEventButton.left || event.button == PointerEventButton.middle || event.button == PointerEventButton.right {
+                                        canvas-focus.focus();
+                                        root.navigation-owner = event.button;
+                                        root.navigation-space-pan = event.button == PointerEventButton.left && root.navigation-space;
+                                        root.navigation-panning = event.button != PointerEventButton.left || root.navigation-space || root.selected-tool == 2;
+                                        if root.navigation-panning {
+                                            root.begin-pan(self.mouse-x / 1px, self.mouse-y / 1px);
+                                        } else {
+                                            root.shift-modifier(event.modifiers.shift);
+                                            root.pointer-down(self.mouse-x / 1px, self.mouse-y / 1px);
+                                        }
+                                    }
+                                } else if event.kind == PointerEventKind.move && root.navigation-owner != PointerEventButton.other {
+                                    root.pointer-move(self.mouse-x / 1px, self.mouse-y / 1px);
+                                } else if event.kind == PointerEventKind.up && event.button == root.navigation-owner {
+                                    if root.navigation-panning {
+                                        root.end-pan(self.mouse-x / 1px, self.mouse-y / 1px);
+                                    } else {
+                                        root.shift-modifier(event.modifiers.shift);
+                                        root.pointer-up(self.mouse-x / 1px, self.mouse-y / 1px);
+                                    }
+                                    root.navigation-owner = PointerEventButton.other;
+                                    root.navigation-panning = false;
+                                    root.navigation-space-pan = false;
+                                }
                             }
-                            moved => { if self.pressed { root.pointer-move(self.mouse-x / 1px, self.mouse-y / 1px); } }
                             scroll-event(event) => {
-                                root.zoom-at(self.mouse-x / 1px, self.mouse-y / 1px, event.delta-y / 1px / 120);
+                                if event.modifiers.control || event.modifiers.meta {
+                                    root.zoom-at(self.mouse-x / 1px, self.mouse-y / 1px, event.delta-y / 1px / 120);
+                                } else if event.modifiers.shift {
+                                    root.pan-by((event.delta-x + event.delta-y) / 1px, 0);
+                                } else {
+                                    root.pan-by(event.delta-x / 1px, event.delta-y / 1px);
+                                }
                                 accept
                             }
                         }
                     }
                 }
                 docked-colors := ColorPanel {
-                    visible: root.colors-docked && root.colors-visible;
-                    width: self.visible ? 420px : 0px;
-                    horizontal-stretch: 0;
+                    visible: root.color-host-visible;
+                    x: root.colors-placement == 2 ? parent.width - 420px : 204px;
+                    y: root.colors-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.colors-placement == 3 ? 0px : root.dock-top-height);
+                    width: (root.colors-placement == 3 || root.colors-placement == 4) ? ((parent.width - 204px) - (root.history-host-visible && root.history-placement == root.colors-placement ? 14px : 0px)) / (root.history-host-visible && root.history-placement == root.colors-placement ? 2 : 1) : 420px;
+                    height: (root.colors-placement == 3 || root.colors-placement == 4) ? root.dock-row-height - 14px : parent.height - root.dock-top-height - root.dock-bottom-height;
                     docked: true;
+                    placement: root.colors-placement;
+                    placement-selected(value) => { root.set-colors-placement(value); }
+                    swatches: root.color-swatches;
                     red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
                     hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                     hex-value: root.color-hex; error: root.color-error;
@@ -255,6 +353,26 @@ slint::slint! {
                     pick-screen => { root.pick-screen(); }
                     toggle-dock => { root.toggle-color-dock(); }
                     close-picker => { root.close-colors(); }
+                }
+                docked-history := HistoryPanel {
+                    visible: root.history-host-visible;
+                    x: root.history-placement == 2 ? parent.width - 300px - (root.color-host-visible && root.colors-placement == 2 ? 434px : 0px) : 204px + (root.color-host-visible && root.colors-placement == root.history-placement ? docked-colors.width + 14px : 0px);
+                    y: root.history-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.history-placement == 3 ? 0px : root.dock-top-height);
+                    width: (root.history-placement == 3 || root.history-placement == 4) ? ((parent.width - 204px) - (root.color-host-visible && root.colors-placement == root.history-placement ? 14px : 0px)) / (root.color-host-visible && root.colors-placement == root.history-placement ? 2 : 1) : 300px;
+                    height: (root.history-placement == 3 || root.history-placement == 4) ? root.dock-row-height - 14px : parent.height - root.dock-top-height - root.dock-bottom-height;
+                    placement: root.history-placement;
+                    rows: root.history-rows;
+                    current-index: root.history-position;
+                    can-jump: root.history-can-jump;
+                    status-text: root.history-status;
+                    can-undo: root.can-undo || root.has-shape;
+                    can-redo: root.can-redo && !root.has-shape;
+                    has-shape: root.has-shape;
+                    placement-selected(value) => { root.set-history-placement(value); }
+                    close-panel => { root.close-history(); }
+                    jump(value) => { root.history-jump(value); }
+                    undo => { root.history-undo(); }
+                    redo => { root.history-redo(); }
                 }
             }
             Text { height: 22px; text: root.status; color: #526079; font-size: 12px; }
@@ -287,7 +405,7 @@ slint::slint! {
                         spacing: 16px;
                         Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
                         Text { text: "A study in drawing, shapes, and simple workflows."; wrap: word-wrap; color: #526079; }
-                        Text { text: "Eye-dropper icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
+                        Text { text: "Icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
                     }
@@ -329,6 +447,7 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         Tool::Pan => 2,
         Tool::Eyedropper => 3,
     });
+    history::refresh(ui, controller);
     let color = controller.primary_color();
     ui.set_primary_color(slint::Color::from_argb_u8(
         color.a, color.r, color.g, color.b,
@@ -391,6 +510,19 @@ pub fn create_app() -> Result<(AppWindow, SharedController), slint::PlatformErro
 
 pub fn create_app_with_colors()
 -> Result<(AppWindow, SharedController, Rc<ColorPickerWindow>), slint::PlatformError> {
+    let (ui, controller, colors, _) = create_app_with_panels()?;
+    Ok((ui, controller, colors))
+}
+
+pub fn create_app_with_panels() -> Result<
+    (
+        AppWindow,
+        SharedController,
+        Rc<ColorPickerWindow>,
+        Rc<HistoryWindow>,
+    ),
+    slint::PlatformError,
+> {
     let ui = AppWindow::new()?;
     let controller = Rc::new(RefCell::new(Controller::default()));
     refresh(&ui, &controller.borrow());
@@ -415,6 +547,9 @@ pub fn create_app_with_colors()
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_pointer_cancel(move || {
+        if let Some(ui) = weak.upgrade() {
+            ui.invoke_clear_navigation_state();
+        }
         update(&weak, &state, |c| {
             if c.is_dragging() {
                 c.cancel_pointer();
@@ -422,6 +557,20 @@ pub fn create_app_with_colors()
             c.set_aspect_lock(false)
         })
     });
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_begin_pan(move |x, y| {
+        update(&weak, &state, |c| c.begin_temporary_pan(x.into(), y.into()))
+    });
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_end_pan(move |x, y| {
+        update(&weak, &state, |c| {
+            let movement = c.pointer_move(x.into(), y.into());
+            let release = c.end_temporary_pan();
+            movement.and(release)
+        })
+    });
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_pan_by(move |dx, dy| update(&weak, &state, |c| c.pan(dx.into(), dy.into())));
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
         if tool == 3 {
@@ -493,5 +642,6 @@ pub fn create_app_with_colors()
         })
     });
     let picker = colors::bind_picker(&ui, controller.clone())?;
-    Ok((ui, controller, picker))
+    let history = history::bind_window(&ui, controller.clone())?;
+    Ok((ui, controller, picker, history))
 }

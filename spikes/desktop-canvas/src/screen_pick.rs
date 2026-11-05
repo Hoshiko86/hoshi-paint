@@ -61,7 +61,7 @@ fn from_rgb(rgb: (f64, f64, f64)) -> PickResult {
         .iter()
         .any(|c| !c.is_finite() || !(0.0..=1.0).contains(c))
     {
-        return Err("Screen picker returned an invalid color.".into());
+        return Err("Color Picker returned an invalid color.".into());
     }
     let byte = |c: f64| (c * 255.0).round() as u8;
     Ok(Some(Color::rgba(byte(r), byte(g), byte(b), 255)))
@@ -81,7 +81,7 @@ mod linux {
     };
 
     pub fn pick(cancelled: Arc<AtomicBool>) -> PickResult {
-        future::block_on(run(cancelled)).map_err(|e| format!("Screen picker: {e}. A desktop portal with PickColor support is required (GNOME/KDE)."))
+        future::block_on(run(cancelled)).map_err(|e| format!("Color Picker: {e}. A desktop portal with PickColor support is required (GNOME/KDE)."))
     }
 
     async fn wait_for_cancel(cancelled: &AtomicBool, deadline: Instant) {
@@ -226,7 +226,7 @@ mod macos {
     ) -> Option<objc2::rc::Retained<NSColorSampler>> {
         if MainThreadMarker::new().is_none() {
             let _ = sender.send(Err(
-                "The macOS screen picker must start on the main thread.".into(),
+                "The macOS Color Picker must start on the main thread.".into(),
             ));
             return None;
         }
@@ -381,7 +381,7 @@ mod windows {
             };
             if RegisterClassW(&class) == 0 {
                 DestroyCursor(cursor);
-                return Err("Unable to register screen picker window.".into());
+                return Err("Unable to register Color Picker window.".into());
             }
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
@@ -400,7 +400,7 @@ mod windows {
             if hwnd.is_null() {
                 UnregisterClassW(name.as_ptr(), instance);
                 DestroyCursor(cursor);
-                return Err("Unable to open screen picker overlay.".into());
+                return Err("Unable to open Color Picker overlay.".into());
             }
             // Nonzero alpha keeps the overlay hit-testable. It is destroyed
             // before reading the desktop pixel, so its tint is never sampled.
