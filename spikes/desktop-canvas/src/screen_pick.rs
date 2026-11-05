@@ -226,7 +226,7 @@ mod macos {
     ) -> Option<objc2::rc::Retained<NSColorSampler>> {
         if MainThreadMarker::new().is_none() {
             let _ = sender.send(Err(
-                "The macOS Color Picker must start on the main thread.".into(),
+                "The macOS Color Picker must start on the main thread.".into()
             ));
             return None;
         }
