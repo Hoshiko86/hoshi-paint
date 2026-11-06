@@ -4,7 +4,12 @@ use hoshi_controller::{
     color::{self, Hsv},
 };
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc, sync::mpsc::TryRecvError, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    sync::mpsc::TryRecvError,
+    time::Duration,
+};
 
 fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hsv>) {
     let mut hsv = override_hsv.unwrap_or_else(|| color::color_to_hsv(value));
@@ -42,6 +47,8 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
     picker.set_saturation(hsv.saturation as f32);
     picker.set_brightness(hsv.value as f32);
     picker.set_hex_value(color::format_hex(value).into());
+    picker
+        .set_current_description(format!("Current color\n{}", describe_swatch(value, None)).into());
     picker.set_current_color(slint::Color::from_argb_u8(
         value.a, value.r, value.g, value.b,
     ));
@@ -52,6 +59,25 @@ pub(super) fn bind_picker(
     controller: SharedController,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
+    let original = Rc::new(Cell::new(controller.borrow().primary_color()));
+    let (weak, reference) = (picker.as_weak(), original.clone());
+    picker.on_restore_original(move || {
+        if let Some(picker) = weak.upgrade() {
+            let color = reference.get();
+            picker.invoke_set_rgba(
+                color.r.into(),
+                color.g.into(),
+                color.b.into(),
+                color.a.into(),
+            );
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_restore_original_color(move || {
+        if let Some(picker) = weak.upgrade() {
+            picker.invoke_restore_original();
+        }
+    });
     let swatches = [
         (72, 136, 240, "Blue"),
         (232, 104, 92, "Coral"),
@@ -116,6 +142,7 @@ pub(super) fn bind_picker(
         }
     });
     let (main, weak, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
+    let reference = original.clone();
     ui.on_set_colors_placement(move |placement| {
         if let (Some(ui), Some(p)) = (main.upgrade(), weak.upgrade()) {
             if ui.get_modal_visible() {
@@ -125,6 +152,9 @@ pub(super) fn bind_picker(
                 let mut c = state.borrow_mut();
                 c.pointer_up().expect("finish gesture before docking");
                 c.set_aspect_lock(false).expect("gesture ended");
+            }
+            if !ui.get_colors_visible() {
+                begin_comparison(&ui, &p, &reference, state.borrow().primary_color());
             }
             let placement = placement.clamp(0, 4);
             ui.set_colors_placement(placement);
@@ -160,7 +190,7 @@ pub(super) fn bind_picker(
     });
     synchronize(&picker, controller.borrow().primary_color(), None);
     picker.set_has_active_shape(controller.borrow().document().active_shape().is_some());
-    sync_docked(ui, &picker);
+    begin_comparison(ui, &picker, &original, original.get());
     let weak = picker.as_weak();
     ui.on_hide_colors(move || {
         if let Some(p) = weak.upgrade() {
@@ -196,10 +226,14 @@ pub(super) fn bind_picker(
         }
     });
     let (colors, main, state) = (picker.clone(), ui.as_weak(), controller.clone());
+    let reference = original.clone();
     ui.on_show_colors(move || {
         if let Some(ui) = main.upgrade() {
             if ui.get_modal_visible() {
                 return;
+            }
+            if !ui.get_colors_visible() {
+                begin_comparison(&ui, &colors, &reference, state.borrow().primary_color());
             }
             // Switching to our color window must preserve the editable preview,
             // even if native pointer release/capture has not settled yet.
@@ -429,7 +463,29 @@ fn describe_swatch(value: Color, name: Option<&str>) -> String {
     )
 }
 
+fn begin_comparison(
+    ui: &AppWindow,
+    picker: &ColorPickerWindow,
+    original: &Cell<Color>,
+    value: Color,
+) {
+    original.set(value);
+    // A new comparison also discards any hex draft that was never accepted.
+    synchronize(picker, value, None);
+    picker.set_error("".into());
+    picker.set_original_color(slint::Color::from_argb_u8(
+        value.a, value.r, value.g, value.b,
+    ));
+    picker.set_original_description(
+        format!("Original color\n{}", describe_swatch(value, None)).into(),
+    );
+    sync_docked(ui, picker);
+}
+
 fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
+    ui.set_color_original(picker.get_original_color());
+    ui.set_color_original_description(picker.get_original_description());
+    ui.set_color_current_description(picker.get_current_description());
     ui.set_color_r(picker.get_red());
     ui.set_color_g(picker.get_green());
     ui.set_color_b(picker.get_blue());

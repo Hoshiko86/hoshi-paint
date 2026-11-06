@@ -29,11 +29,6 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
             .next()
             .is_some()
     );
-    assert!(
-        ElementHandle::find_by_accessible_label(&ui, "Color Picker")
-            .next()
-            .is_some()
-    );
     let tooltip_count =
         || ElementHandle::find_by_accessible_label(picker.as_ref(), &swatch.description).count();
     assert_eq!(tooltip_count(), 0);

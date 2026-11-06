@@ -42,6 +42,19 @@ export component ColorSwatch inherits Rectangle {
     }
     Tooltip { SwatchDetails { text: root.description; } }
 }
+component ColorPreview inherits Rectangle {
+    in property <color> value;
+    in property <string> label;
+    in property <string> description;
+    width: 32px; height: 32px; clip: true;
+    background: #e0e0e0;
+    accessible-role: image; accessible-label: root.label;
+    Rectangle { x: 16px; width: 16px; height: 16px; background: #c0c0c0; }
+    Rectangle { y: 16px; width: 16px; height: 16px; background: #c0c0c0; }
+    Rectangle { background: root.value; }
+    Rectangle { border-width: 1px; border-color: #526079; background: transparent; }
+    Tooltip { SwatchDetails { text: root.description; } }
+}
 export component ToolPanelFrame inherits Rectangle {
     in property <string> title;
     // 0 floating; 1 left; 2 right; 3 top; 4 bottom.
@@ -104,8 +117,15 @@ export component ColorPanel inherits Rectangle {
     in property <string> error;
     in property <image> sv-image;
     in property <color> current-color;
+    in property <color> original-color;
+    in property <string> original-description;
+    in property <string> current-description;
     in property <bool> has-active-shape;
     in property <bool> screen-picking;
+    out property <float> green-slider-left: green-channel.slider-left;
+    out property <float> green-slider-width: green-channel.slider-width;
+    out property <float> blue-slider-left: blue-channel.slider-left;
+    out property <float> blue-slider-width: blue-channel.slider-width;
     out property <float> red-slider-left: red-channel.slider-left;
     out property <float> red-slider-top: red-channel.slider-top;
     out property <float> red-slider-width: red-channel.slider-width;
@@ -119,15 +139,17 @@ export component ColorPanel inherits Rectangle {
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback set-hex(string);
+    callback restore-original();
     callback pick-screen();
     callback close-picker();
     callback toggle-dock();
     callback placement-selected(int);
     in property <int> placement;
     in property <bool> docked;
-    preferred-height: 680px;
+    preferred-height: 720px;
     ToolPanelFrame {
         title: "Colors"; docked: root.docked; placement: root.placement;
+        body-height: root.width < 560px ? 808px : 656px;
         placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
@@ -135,12 +157,23 @@ export component ColorPanel inherits Rectangle {
             padding: 8px;
             spacing: 8px;
             HorizontalLayout {
-                height: 24px;
-                Text { text: "SATURATION / VALUE"; font-size: 11px; color: #526079; vertical-alignment: center; }
+                height: 40px; spacing: 6px;
+                Text { text: "Original"; color: #526079; vertical-alignment: center; }
+                Rectangle { width: 32px; height: 40px;
+                    ColorPreview { y: 4px; value: root.original-color; label: "Original color"; description: root.original-description; }
+                }
+                Text { text: "Current"; color: #526079; vertical-alignment: center; }
+                Rectangle { width: 32px; height: 40px;
+                    ColorPreview { y: 4px; value: root.current-color; label: "Current color"; description: root.current-description; }
+                }
                 Rectangle { horizontal-stretch: 1; }
-                Rectangle { width: 24px; background: white; border-width: 1px; border-color: #526079;
-                    Rectangle { background: root.current-color; }
-                    accessible-role: image; accessible-label: "Current color";
+                Button { text: "Restore"; accessible-label: "Restore original color"; enabled: root.current-color != root.original-color;
+                    Tooltip { text: @markdown("Restore original color"); }
+                    clicked => { root.restore-original(); }
+                }
+                Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
+                    Tooltip { text: @markdown("Color Picker"); }
+                    clicked => { root.pick-screen(); }
                 }
             }
             sv := Rectangle {
@@ -164,15 +197,22 @@ export component ColorPanel inherits Rectangle {
                 accessible-label: "Saturation and value. Numeric controls below provide keyboard access.";
             }
             Channel { label: "Hue"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
-            HorizontalLayout {
-                spacing: 16px;
+            Rectangle {
+                height: root.width < 560px ? 288px : 136px;
                 VerticalLayout {
+                    x: 0px; y: 0px;
+                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
+                    height: 136px;
                     Text { text: "RGB · 0–255"; color: #526079; }
                     red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
-                    Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
-                    Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
+                    green-channel := Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
+                    blue-channel := Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
                 }
                 VerticalLayout {
+                    x: root.width < 560px ? 0px : (parent.width + 16px) / 2;
+                    y: root.width < 560px ? 152px : 0px;
+                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
+                    height: 136px;
                     Text { text: "HSV · ° / % / %"; color: #526079; }
                     Channel { label: "H"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
                     Channel { label: "S"; maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
@@ -182,8 +222,7 @@ export component ColorPanel inherits Rectangle {
             Channel { label: "Alpha"; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
             HorizontalLayout {
                 Text { text: "Hex"; width: 32px; vertical-alignment: center; color: #273650; }
-                hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accepted(text) => { root.set-hex(text); } }
-                Button { text: "Apply hex"; clicked => { root.set-hex(hex-entry.text); } }
+                hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accessible-description: "Press Enter to apply the hex value"; Tooltip { text: @markdown("Press Enter to apply the hex value"); } accepted(text) => { root.set-hex(text); } }
             }
             Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
                 color: root.error == "" ? #526079 : #a12828; height: 36px; wrap: word-wrap; }
@@ -201,10 +240,6 @@ export component ColorPanel inherits Rectangle {
                 }
             }
             HorizontalLayout {
-                Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
-                    Tooltip { text: @markdown("Color Picker"); }
-                    clicked => { root.pick-screen(); }
-                }
                 Button { text: "Close"; clicked => { root.close-picker(); } }
             }
         }
@@ -212,7 +247,7 @@ export component ColorPanel inherits Rectangle {
 }
 export component ColorPickerWindow inherits Window {
     title: "Colors · Hoshi Paint";
-    preferred-width: 640px; preferred-height: 680px;
+    preferred-width: 640px; preferred-height: 720px;
     min-width: 380px; min-height: 680px;
     background: #f2f4f8; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.light; }
@@ -228,8 +263,15 @@ export component ColorPickerWindow inherits Window {
     in property <string> error <=> panel.error;
     in property <image> sv-image <=> panel.sv-image;
     in property <color> current-color <=> panel.current-color;
+    in property <color> original-color <=> panel.original-color;
+    in property <string> original-description <=> panel.original-description;
+    in property <string> current-description <=> panel.current-description;
     in property <bool> has-active-shape <=> panel.has-active-shape;
     in property <bool> screen-picking <=> panel.screen-picking;
+    out property <float> green-slider-left: panel.green-slider-left;
+    out property <float> green-slider-width: panel.green-slider-width;
+    out property <float> blue-slider-left: panel.blue-slider-left;
+    out property <float> blue-slider-width: panel.blue-slider-width;
     out property <float> red-slider-left: panel.red-slider-left;
     out property <float> red-slider-top: panel.red-slider-top;
     out property <float> red-slider-width: panel.red-slider-width;
@@ -246,6 +288,7 @@ export component ColorPickerWindow inherits Window {
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback set-hex(string);
+    callback restore-original();
     callback pick-screen();
     callback close-picker();
     callback toggle-dock();
@@ -254,6 +297,7 @@ export component ColorPickerWindow inherits Window {
         set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }
         set-hex(text) => { root.set-hex(text); }
+        restore-original => { root.restore-original(); }
         pick-screen => { root.pick-screen(); }
         close-picker => { root.close-picker(); }
         toggle-dock => { root.toggle-dock(); }

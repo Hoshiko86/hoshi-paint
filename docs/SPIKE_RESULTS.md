@@ -79,8 +79,8 @@ does not complete UI-1 or the v0.0.0 release acceptance scenario.
 
 ## Shift scaling and color controls
 
-The current revision passes 66 Rust tests locally (22 core integration, 1 core reference unit,
-30 controller, 9 rendered UI scenarios, 4 adapter/result unit tests), formatting and Clippy. Shift locks corner
+The current revision passes 67 Rust tests locally (22 core integration, 1 core reference unit,
+30 controller, 10 rendered UI scenarios, 4 adapter/result unit tests), formatting and Clippy. Shift locks corner
 scaling to the drag-start aspect ratio, including rotated/zoomed shapes; edge
 handles remain free. The modeless Colors panel provides RGB, HSV, SV area, hue,
 alpha, hex and square swatches, with live preview. One native Color Picker
@@ -141,3 +141,20 @@ measurements, not physical pointer-to-photon latency or a platform FPS guarantee
 ![Floating History with redo](images/history.png)
 
 ![Rich swatch tooltip](images/swatch-tooltip.png)
+
+## Original color comparison and narrow panels
+
+Apply hex is removed; Enter still accepts a typed hex value. Colors now shows
+Original/Current RGBA previews on transparency checkerboards and a Restore
+action. Original is captured on opening Colors, remains stable during live RGB,
+HSV, hex and sampling edits and Dock/Float transitions, and is refreshed only
+when a new panel session opens. Restoring preserves the editable shape and its
+geometry/history state. A rendered regression exercises a real slider and
+Restore click, alpha preservation, docking, reopening, unapplied hex drafts, and
+Enter acceptance.
+
+The duplicate main-window sampling button is removed: Colors… opens the panel;
+Color Picker remains inside it. At narrow widths RGB/HSV groups stack vertically
+with full-width aligned tracks, avoiding the collapsed slider handles that
+looked like misaligned radio buttons. Tests cover narrow track geometry and
+scrolling the body to select palette swatches without panning the canvas.

@@ -87,6 +87,10 @@ slint::slint! {
         in property <float> color-h;
         in property <float> color-s;
         in property <float> color-v;
+        in property <color> color-original;
+        in property <string> color-original-description;
+        in property <string> color-current-description;
+        callback restore-original-color();
         in property <string> color-hex;
         in property <string> color-error;
         in property <image> color-sv;
@@ -194,7 +198,6 @@ slint::slint! {
                             Rectangle { background: root.primary-color; }
                         }
                         Button { text: "Colors…"; clicked => { root.show-colors(); } }
-                        Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; Tooltip { text: @markdown("Color Picker"); } clicked => { root.pick-screen(); } }
                     }
                     Text { text: root.primary-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
@@ -346,6 +349,10 @@ slint::slint! {
                     hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                     hex-value: root.color-hex; error: root.color-error;
                     sv-image: root.color-sv; current-color: root.primary-color;
+                    original-color: root.color-original;
+                    original-description: root.color-original-description;
+                    current-description: root.color-current-description;
+                    restore-original => { root.restore-original-color(); }
                     has-active-shape: root.has-shape; screen-picking: root.screen-picking;
                     set-rgba(r,g,b,a) => { root.edit-rgba(r,g,b,a); }
                     set-hsv(h,s,v) => { root.edit-hsv(h,s,v); }

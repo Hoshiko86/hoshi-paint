@@ -51,12 +51,20 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Open Colors… before drawing or while a shape is active. The picker supplies
   RGB (0–255), HSV (degrees/percentages), a saturation/value area, hue slider,
   alpha (0 transparent,255 opaque), square color swatches, and hex RGB/RGBA. Changes apply live.
-  Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter or Apply.
+  Hex uses #RGB,#RGBA,#RRGGBB or #RRGGBBAA; press Enter to apply a typed hex value.
+- **Original / Current** swatches compare the starting RGBA color with live edits,
+  including transparency on a checkerboard. **Restore** returns to the original
+  color without committing/cancelling the shape or adding history. The reference
+  is captured when Colors opens, survives Dock/Float/location changes, and starts
+  fresh after closing/reopening. Unaccepted hex drafts are discarded on reopening.
+- Narrow Colors panels stack RGB and HSV vertically, preserving full-width slider
+  tracks and aligned labels/numeric fields. Wide panels retain two columns.
+  The scrolling body keeps all channels, alpha, hex and palette controls reachable.
 - The picker says **Editing the active shape** while resize handles are visible.
   After Enter or starting another shape it says **Next drawing color**: existing
   pixels remain unchanged, and the chosen color applies to the next drawing.
-- **Color Picker** (eyedropper icon) in the main window or Colors start the same native
-  screen sampler. Select a pixel anywhere the desktop allows, including the
+- **Colors…** is the single main-window entry to the color panel. Its **Color
+  Picker** icon starts the native screen sampler. Select a pixel anywhere the desktop allows, including the
   canvas. The result is opaque RGB; Escape cancels without changing the color.
   Picking is one-shot and keeps the current drawing tool and editable shape.
   RGB/HSV/hex edits can immediately refine the result, repeatedly.

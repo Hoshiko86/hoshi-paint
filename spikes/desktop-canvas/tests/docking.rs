@@ -37,7 +37,10 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
     assert!(ui.get_colors_docked() && ui.get_colors_visible());
     assert!(!picker.window().is_visible());
     ui.window().take_snapshot().unwrap();
-    assert!(ui.get_docked_red_width() > 10.0);
+    assert!(
+        ui.get_docked_red_width() > 170.0,
+        "narrow dock must have a readable full-width slider"
+    );
     click(
         ui.window(),
         ui.get_docked_red_left() + ui.get_docked_red_width() * 0.9,
@@ -47,7 +50,26 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
     assert_ne!(selected.r, 12, "docked slider must route actual input");
     assert_eq!(state.borrow().composite()[60 * 512 + 60], selected);
     assert_eq!(picker.get_red(), i32::from(selected.r));
+    // Narrow panels stack channels; scroll their body to the palette instead
+    // of assuming every control fits in the visible height.
+    let viewport = state.borrow().viewport();
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(
+                ui.get_colors_host_left() + ui.get_colors_host_width() - 10.0,
+                ui.get_colors_host_top() + 100.0,
+            ),
+            delta_x: 0.0,
+            delta_y: -500.0,
+        });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
+    assert_eq!(
+        state.borrow().viewport(),
+        viewport,
+        "panel scrolling must not pan the canvas"
+    );
     let snapshot = ui.window().take_snapshot().unwrap();
+    assert!(ui.get_docked_swatches_top() + 40.0 < snapshot.height() as f32);
     let x = ui.get_docked_swatches_left() as u32 + 20;
     let y = ui.get_docked_swatches_top() as u32 + 20;
     let pixel = snapshot.as_slice()[(y * snapshot.width() + x) as usize];
