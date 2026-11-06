@@ -1,0 +1,360 @@
+import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
+component Channel inherits Rectangle {
+    preferred-height: 34px;
+    in property <string> label;
+    in property <float> value;
+    in property <int> maximum: 255;
+    out property <float> slider-left: slider.absolute-position.x / 1px;
+    out property <float> slider-top: slider.absolute-position.y / 1px;
+    out property <float> slider-width: slider.width / 1px;
+    out property <float> slider-height: slider.height / 1px;
+    callback edited(float);
+    changed value => { slider.value = root.value; spin.value = round(root.value); }
+    HorizontalLayout {
+        spacing: 4px;
+        Text { text: root.label; width: 40px; color: #273650; vertical-alignment: center; }
+        slider := Slider { minimum: 0; maximum: root.maximum; value: root.value; accessible-label: root.label;
+            changed(v) => { root.edited(v); }
+        }
+        spin := SpinBox { minimum: 0; maximum: root.maximum; value: round(root.value); width: 112px; accessible-label: root.label;
+            edited(v) => { root.edited(v); }
+        }
+    }
+}
+export struct PaletteSwatch { red: int, green: int, blue: int, label: string, description: string }
+component SwatchDetails inherits Rectangle {
+    in property <string> text;
+    background: Palette.alternate-background;
+    border-width: 1px; border-color: Palette.border; border-radius: 4px;
+    accessible-role: AccessibleRole.text; accessible-label: root.text;
+    VerticalLayout { padding: 8px; Text { text: root.text; color: Palette.foreground; } }
+}
+export component ColorSwatch inherits Rectangle {
+    in property <color> value;
+    in property <string> label;
+    in property <string> description;
+    width: 40px; height: 40px;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    border-width: root.selected ? 2px : 0px; border-color: #315cae;
+    callback clicked();
+    Button { enabled: root.enabled; width: parent.width; height: parent.height; accessible-label: root.label; accessible-description: root.description; clicked => { root.clicked(); } }
+    Rectangle {
+        x: 8px; y: 8px; width: 24px; height: 24px;
+        background: root.value; border-width: 1px; border-color: #526079;
+    }
+    Rectangle { border-width: root.selected ? 2px : 0px; border-color: #315cae; background: transparent; }
+    Tooltip { SwatchDetails { text: root.description; } }
+}
+export component WorkspaceColors inherits HorizontalLayout {
+    in property <color> primary;
+    in property <color> secondary;
+    in property <string> primary-description;
+    in property <string> secondary-description;
+    in property <int> slot;
+    in property <bool> picking;
+    callback select(int);
+    callback swap();
+    callback reset();
+    height: 40px; spacing: 6px;
+    ColorSwatch { value: root.primary; label: "Primary color"; description: root.primary-description;
+        selected: root.slot == 0; enabled: !root.picking; clicked => { root.select(0); } }
+    ColorSwatch { value: root.secondary; label: "Secondary color"; description: root.secondary-description;
+        selected: root.slot == 1; enabled: !root.picking; clicked => { root.select(1); } }
+    Button { width: 32px; icon: @image-url("../icons/swap-colors.svg"); enabled: !root.picking;
+        accessible-label: "Swap Primary and Secondary colors";
+        Tooltip { text: @markdown("Swap Primary and Secondary colors · X"); }
+        clicked => { root.swap(); } }
+    Button { width: 32px; icon: @image-url("../icons/reset-colors.svg"); enabled: !root.picking;
+        accessible-label: "Reset colors to black and white";
+        Tooltip { text: @markdown("Reset colors to black and white · D"); }
+        clicked => { root.reset(); } }
+    Rectangle { horizontal-stretch: 1; }
+}
+component ColorPreview inherits Rectangle {
+    in property <color> value;
+    in property <string> label;
+    in property <string> description;
+    width: 32px; height: 32px; clip: true;
+    background: #e0e0e0;
+    accessible-role: image; accessible-label: root.label;
+    Rectangle { x: 16px; width: 16px; height: 16px; background: #c0c0c0; }
+    Rectangle { y: 16px; width: 16px; height: 16px; background: #c0c0c0; }
+    Rectangle { background: root.value; }
+    Rectangle { border-width: 1px; border-color: #526079; background: transparent; }
+    Tooltip { SwatchDetails { text: root.description; } }
+}
+export component ToolPanelFrame inherits Rectangle {
+    in property <string> title;
+    // 0 floating; 1 left; 2 right; 3 top; 4 bottom.
+    in property <int> placement;
+    callback placement-selected(int);
+    in property <length> body-height: 624px;
+    in property <bool> docked;
+    callback toggle-dock();
+    callback close-panel();
+    // A selection can replace the ComboBox's initial binding. Keep later
+    // Float/Dock shortcut changes reflected in its displayed location too.
+    private property <int> last-nonzero-placement: 2;
+    changed placement => {
+        if root.placement > 0 { root.last-nonzero-placement = root.placement; }
+        placement-choice.current-index = root.placement;
+    }
+    background: #f2f4f8;
+    VerticalLayout {
+        padding: 8px; spacing: 8px;
+        HorizontalLayout {
+            height: 32px; spacing: 8px;
+            Text { text: root.title; font-size: 20px; font-weight: 700; color: #18253c; }
+            Rectangle { horizontal-stretch: 1; }
+            placement-choice := ComboBox {
+                width: 92px;
+                model: ["Float", "Left", "Right", "Top", "Bottom"];
+                current-index: root.placement;
+                accessible-label: root.title + " dock location";
+                selected(value) => { root.placement-selected(self.current-index); }
+            }
+            Button {
+                width: 48px;
+                text: root.docked ? "Float" : "Dock";
+                accessible-label: (root.docked ? "Float " : "Dock ") + root.title;
+                clicked => { root.placement-selected(root.placement == 0 ? root.last-nonzero-placement : 0); }
+            }
+            Button { width: 28px; text: "×"; accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
+        }
+        ScrollView {
+            content-width: self.width;
+            content-height: root.body-height;
+            @children
+        }
+    }
+}
+export component ColorPanel inherits Rectangle {
+    in property <color> workspace-primary;
+    in property <color> workspace-secondary;
+    in property <string> primary-description;
+    in property <string> secondary-description;
+    callback swap-colors();
+    callback reset-colors();
+    in property <int> color-slot;
+    callback select-color-slot(int);
+    in property <[PaletteSwatch]> swatches: [
+        { red: 72, green: 136, blue: 240, label: "#4888F0", description: "" },
+        { red: 232, green: 104, blue: 92, label: "#E8685C", description: "" },
+        { red: 54, green: 167, blue: 140, label: "#36A78C", description: "" },
+    ];
+    in property <int> red;
+    in property <int> green;
+    in property <int> blue;
+    in property <int> alpha: 255;
+    in property <float> hue;
+    in property <float> saturation;
+    in property <float> brightness;
+    in-out property <string> hex-value;
+    in property <string> error;
+    in property <image> sv-image;
+    in property <color> current-color;
+    in property <color> original-color;
+    in property <string> original-description;
+    in property <string> current-description;
+    in property <bool> has-active-shape;
+    in property <bool> screen-picking;
+    out property <float> green-slider-left: green-channel.slider-left;
+    out property <float> green-slider-width: green-channel.slider-width;
+    out property <float> blue-slider-left: blue-channel.slider-left;
+    out property <float> blue-slider-width: blue-channel.slider-width;
+    out property <float> red-slider-left: red-channel.slider-left;
+    out property <float> red-slider-top: red-channel.slider-top;
+    out property <float> red-slider-width: red-channel.slider-width;
+    out property <float> red-slider-height: red-channel.slider-height;
+    out property <float> sv-left: sv.absolute-position.x / 1px;
+    out property <float> sv-top: sv.absolute-position.y / 1px;
+    out property <float> sv-width: sv.width / 1px;
+    out property <float> sv-height: sv.height / 1px;
+    out property <float> swatches-left: swatch-strip.absolute-position.x / 1px;
+    out property <float> swatches-top: swatch-strip.absolute-position.y / 1px;
+    callback set-rgba(int, int, int, int);
+    callback set-hsv(float, float, float);
+    callback set-hex(string);
+    callback restore-original();
+    callback pick-screen();
+    callback close-picker();
+    callback toggle-dock();
+    callback placement-selected(int);
+    in property <int> placement;
+    in property <bool> docked;
+    preferred-height: 720px;
+    ToolPanelFrame {
+        title: "Colors"; docked: root.docked; placement: root.placement;
+        body-height: root.width < 560px ? 880px : 728px;
+        placement-selected(value) => { root.placement-selected(value); }
+        toggle-dock => { root.toggle-dock(); }
+        close-panel => { root.close-picker(); }
+        VerticalLayout {
+            padding: 8px;
+            spacing: 8px;
+            WorkspaceColors {
+                primary: root.workspace-primary; secondary: root.workspace-secondary;
+                primary-description: root.primary-description; secondary-description: root.secondary-description;
+                slot: root.color-slot; picking: root.screen-picking;
+                select(value) => { root.select-color-slot(value); }
+                swap => { root.swap-colors(); } reset => { root.reset-colors(); }
+            }
+            Text { text: root.color-slot == 0 ? "Editing Primary" : "Editing Secondary"; color: #526079; height: 20px; }
+            HorizontalLayout {
+                height: 40px; spacing: 6px;
+                Text { text: "Original"; color: #526079; vertical-alignment: center; }
+                Rectangle { width: 32px; height: 40px;
+                    ColorPreview { y: 4px; value: root.original-color; label: "Original color"; description: root.original-description; }
+                }
+                Text { text: "Current"; color: #526079; vertical-alignment: center; }
+                Rectangle { width: 32px; height: 40px;
+                    ColorPreview { y: 4px; value: root.current-color; label: "Current color"; description: root.current-description; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Button { text: "Restore"; accessible-label: "Restore original color"; enabled: root.current-color != root.original-color;
+                    Tooltip { text: @markdown("Restore original color"); }
+                    clicked => { root.restore-original(); }
+                }
+                Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
+                    Tooltip { text: @markdown("Color Picker"); }
+                    clicked => { root.pick-screen(); }
+                }
+            }
+            swatch-strip := Rectangle {
+                height: 40px;
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 6px;
+                    for swatch in root.swatches : ColorSwatch {
+                        value: rgb(swatch.red, swatch.green, swatch.blue);
+                        label: swatch.label;
+                        description: swatch.description;
+                        clicked => { root.set-rgba(swatch.red, swatch.green, swatch.blue, root.alpha); }
+                    }
+                }
+            }
+            sv := Rectangle {
+                height: 180px;
+                clip: true;
+                Image { source: root.sv-image; width: parent.width; height: parent.height; image-fit: fill; }
+                Rectangle {
+                    x: parent.width * root.saturation / 100 - 6px;
+                    y: parent.height * (1 - root.brightness / 100) - 6px;
+                    width: 12px; height: 12px; border-radius: 6px;
+                    border-width: 2px; border-color: white; background: transparent;
+                    Rectangle { x: 2px; y: 2px; width: 8px; height: 8px; border-radius: 4px; border-width: 1px; border-color: #18253c; background: transparent; }
+                }
+                area := TouchArea {
+                    pointer-event(event) => { if event.kind == PointerEventKind.down {
+                        root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100);
+                    } }
+                    moved => { if self.pressed { root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100); } }
+                }
+                accessible-role: image;
+                accessible-label: "Saturation and value. Numeric controls below provide keyboard access.";
+            }
+            Channel { label: "Hue"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
+            Rectangle {
+                height: root.width < 560px ? 288px : 136px;
+                VerticalLayout {
+                    x: 0px; y: 0px;
+                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
+                    height: 136px;
+                    Text { text: "RGB · 0–255"; color: #526079; }
+                    red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
+                    green-channel := Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
+                    blue-channel := Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
+                }
+                VerticalLayout {
+                    x: root.width < 560px ? 0px : (parent.width + 16px) / 2;
+                    y: root.width < 560px ? 152px : 0px;
+                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
+                    height: 136px;
+                    Text { text: "HSV · ° / % / %"; color: #526079; }
+                    Channel { label: "H"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
+                    Channel { label: "S"; maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
+                    Channel { label: "V"; maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
+                }
+            }
+            Channel { label: "Alpha"; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
+            HorizontalLayout {
+                Text { text: "Hex"; width: 32px; vertical-alignment: center; color: #273650; }
+                hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accessible-description: "Press Enter to apply the hex value"; Tooltip { text: @markdown("Press Enter to apply the hex value"); } accepted(text) => { root.set-hex(text); } }
+            }
+            Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
+                color: root.error == "" ? #526079 : #a12828; height: 36px; wrap: word-wrap; }
+            HorizontalLayout {
+                Button { text: "Close"; clicked => { root.close-picker(); } }
+            }
+        }
+    }
+}
+export component ColorPickerWindow inherits Window {
+    in property <color> workspace-primary <=> panel.workspace-primary;
+    in property <color> workspace-secondary <=> panel.workspace-secondary;
+    in property <string> primary-description <=> panel.primary-description;
+    in property <string> secondary-description <=> panel.secondary-description;
+    callback swap-colors();
+    callback reset-colors();
+    in property <int> color-slot <=> panel.color-slot;
+    callback select-color-slot(int);
+    title: (root.color-slot == 0 ? "Primary color" : "Secondary color") + " · Hoshi Paint";
+    preferred-width: 640px; preferred-height: 720px;
+    min-width: 380px; min-height: 680px;
+    background: #f2f4f8; default-font-size: 13px;
+    init => { Palette.color-scheme = ColorScheme.light; }
+    in property <[PaletteSwatch]> swatches <=> panel.swatches;
+    in property <int> red <=> panel.red;
+    in property <int> green <=> panel.green;
+    in property <int> blue <=> panel.blue;
+    in property <int> alpha <=> panel.alpha;
+    in property <float> hue <=> panel.hue;
+    in property <float> saturation <=> panel.saturation;
+    in property <float> brightness <=> panel.brightness;
+    in-out property <string> hex-value <=> panel.hex-value;
+    in property <string> error <=> panel.error;
+    in property <image> sv-image <=> panel.sv-image;
+    in property <color> current-color <=> panel.current-color;
+    in property <color> original-color <=> panel.original-color;
+    in property <string> original-description <=> panel.original-description;
+    in property <string> current-description <=> panel.current-description;
+    in property <bool> has-active-shape <=> panel.has-active-shape;
+    in property <bool> screen-picking <=> panel.screen-picking;
+    out property <float> green-slider-left: panel.green-slider-left;
+    out property <float> green-slider-width: panel.green-slider-width;
+    out property <float> blue-slider-left: panel.blue-slider-left;
+    out property <float> blue-slider-width: panel.blue-slider-width;
+    out property <float> red-slider-left: panel.red-slider-left;
+    out property <float> red-slider-top: panel.red-slider-top;
+    out property <float> red-slider-width: panel.red-slider-width;
+    out property <float> red-slider-height: panel.red-slider-height;
+    out property <float> sv-left: panel.sv-left;
+    out property <float> sv-top: panel.sv-top;
+    out property <float> sv-width: panel.sv-width;
+    out property <float> sv-height: panel.sv-height;
+    out property <float> swatches-left: panel.swatches-left;
+    out property <float> swatches-top: panel.swatches-top;
+    in property <bool> docked <=> panel.docked;
+    in property <int> placement <=> panel.placement;
+    callback placement-selected(int);
+    callback set-rgba(int, int, int, int);
+    callback set-hsv(float, float, float);
+    callback set-hex(string);
+    callback restore-original();
+    callback pick-screen();
+    callback close-picker();
+    callback toggle-dock();
+    panel := ColorPanel {
+        swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }
+        select-color-slot(value) => { root.select-color-slot(value); }
+        placement-selected(value) => { root.placement-selected(value); }
+        set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
+        set-hsv(h,s,v) => { root.set-hsv(h,s,v); }
+        set-hex(text) => { root.set-hex(text); }
+        restore-original => { root.restore-original(); }
+        pick-screen => { root.pick-screen(); }
+        close-picker => { root.close-picker(); }
+        toggle-dock => { root.toggle-dock(); }
+    }
+}

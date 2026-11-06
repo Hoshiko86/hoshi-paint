@@ -3,6 +3,91 @@ use hoshi_core::{Color, Document, Error, MAX_LAYERS, Shape, ShapeKind, ShapeStyl
 const RED: Color = Color::rgba(255, 0, 0, 255);
 const BLUE: Color = Color::rgba(0, 0, 255, 255);
 
+#[test]
+fn quarter_turn_rotates_nonsquare_rectangle_about_its_center() {
+    let mut doc = Document::new(8, 8).unwrap();
+    let mut shape = rectangle(2, 3, 4, 2, RED);
+    shape.rotation_degrees = 90;
+    doc.begin_shape(shape).unwrap();
+    let pixels = doc.composite(true);
+    for y in 0..8 {
+        for x in 0..8 {
+            let expected = if (3..5).contains(&x) && (2..6).contains(&y) {
+                RED
+            } else {
+                Color::TRANSPARENT
+            };
+            assert_eq!(pixels[y * 8 + x], expected, "pixel {x},{y}");
+        }
+    }
+    assert_eq!(doc.undo_len(), 0);
+    assert!(doc.layers()[0].pixels().iter().all(|pixel| pixel.a == 0));
+}
+
+#[test]
+fn arbitrary_rotation_preview_commit_and_history_match_exactly() {
+    let mut doc = Document::new(12, 12).unwrap();
+    let mut shape = rectangle(3, 4, 6, 3, RED);
+    shape.rotation_degrees = 37;
+    doc.begin_shape(shape).unwrap();
+    let preview = doc.composite(true);
+    assert!(preview.contains(&RED));
+    doc.commit_shape().unwrap();
+    assert_eq!(doc.composite(false), preview);
+    assert_eq!(doc.undo_len(), 1);
+    doc.undo().unwrap();
+    assert!(doc.composite(false).iter().all(|pixel| pixel.a == 0));
+    doc.redo().unwrap();
+    assert_eq!(doc.composite(false), preview);
+}
+
+#[test]
+fn rotated_shape_clips_to_canvas_and_normalizes_signed_angles() {
+    let mut doc = Document::new(4, 4).unwrap();
+    let mut shape = rectangle(0, 0, 4, 2, RED);
+    shape.rotation_degrees = -270;
+    doc.begin_shape(shape).unwrap();
+    let pixels = doc.composite(true);
+    for y in 0..4 {
+        for x in 0..4 {
+            let expected = if (1..3).contains(&x) && y < 3 {
+                RED
+            } else {
+                Color::TRANSPARENT
+            };
+            assert_eq!(pixels[y * 4 + x], expected, "pixel {x},{y}");
+        }
+    }
+    shape.rotation_degrees = 450;
+    doc.adjust_shape(shape).unwrap();
+    assert_eq!(doc.composite(true), pixels);
+}
+
+#[test]
+fn rotation_preserves_outline_fill_and_ellipse_geometry() {
+    let mut doc = Document::new(9, 9).unwrap();
+    let mut shape = rectangle(2, 3, 5, 3, RED);
+    shape.rotation_degrees = 90;
+    shape.style = ShapeStyle::Both {
+        fill: RED,
+        outline: BLUE,
+        width: 1,
+    };
+    doc.begin_shape(shape).unwrap();
+    let pixels = doc.composite(true);
+    assert_eq!(pixels.iter().filter(|&&pixel| pixel == RED).count(), 3);
+    assert_eq!(pixels.iter().filter(|&&pixel| pixel == BLUE).count(), 12);
+    assert_eq!(pixels[4 * 9 + 4], RED);
+    shape.kind = ShapeKind::Ellipse;
+    shape.style = ShapeStyle::Fill(RED);
+    doc.adjust_shape(shape).unwrap();
+    let ellipse = doc.composite(true);
+    assert_eq!(ellipse[4 * 9 + 4], RED);
+    assert_eq!(ellipse[2 * 9 + 3], Color::TRANSPARENT);
+    doc.commit_shape().unwrap();
+    assert_eq!(doc.composite(false), ellipse);
+}
+
 fn rectangle(x: i32, y: i32, width: u32, height: u32, color: Color) -> Shape {
     Shape {
         kind: ShapeKind::Rectangle,
@@ -10,6 +95,7 @@ fn rectangle(x: i32, y: i32, width: u32, height: u32, color: Color) -> Shape {
         y,
         width,
         height,
+        rotation_degrees: 0,
         style: ShapeStyle::Fill(color),
     }
 }

@@ -10,11 +10,11 @@ integration permissions (`createProjectV2`: resource not accessible).
 | PLAN-1 | Release/interaction/architecture specifications | P0 | — | Written; user review pending |
 | CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Completed; core checks pass on desktop CI |
 | CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Completed; core checks pass on desktop CI |
-| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research delivered; integration spike and iOS evidence pending |
-| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | Backlog |
+| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research and first desktop spike delivered; hardware/GPU/iOS evidence pending |
+| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | First rectangle/canvas shell implemented; remaining UI scope open |
 | DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
 | LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | Backlog |
-| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Backlog |
+| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Rectangle handles/rotation/Shift square creation and resize aspect lock implemented; fill/outline/both controls, stroke width and Primary/Secondary workspace colors with swap/reset implemented; remaining shapes and advanced styles open |
 | FILE-1 | Specify and implement versioned layered project format and safe saves | P0 | CORE-1 | Backlog |
 | FILE-2 | PNG import/export with decode/allocation limits | P0 | CORE-1 | Backlog |
 | UX-1 | Dirty tracking, prompts, keyboard/event routing and save-active-shape behavior | P0 | FILE-1, SHAPE-1 | Backlog |
@@ -50,7 +50,9 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 ## Remaining issue acceptance templates
 
 - UI-1: open a window, pan/zoom anchored to pointer, preserve input coordinates at
-  high DPI, expose primary/secondary color and tool settings accessibly.
+  high DPI, expose primary/secondary color and tool settings accessibly. Each
+  adjustment panel must independently support Dock/Float without resetting
+  its state or committing the active drawing.
 - DRAW-1: a complete stroke is one undo; pointer capture handles leaving canvas;
   eraser removes alpha; eyedropper samples the documented source.
 - LAYER-1: every listed layer action has undo; active-shape transitions follow spec.
@@ -84,8 +86,21 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 
 ## Current validation
 
+See [SPIKE_RESULTS.md](SPIKE_RESULTS.md) for the newer Rust 1.99.1 desktop
+experiment: 67 Rust tests pass locally, including ten rendered UI
+scenarios; real Linux desktop software-rendering smoke passes. The earlier core
+baseline below is retained as historical cross-platform evidence.
+
 The reviewed core passes 15 integration tests, formatting, and Clippy locally on
 Linux with pinned Rust 1.85.1. The same checks passed on GitHub-hosted Windows,
 macOS and Ubuntu in [foundation CI](https://github.com/Hoshiko86/hoshi-paint/actions/runs/41249496579).
 This validates the core, not graphical application behavior or iOS. CORE-1 and
 CORE-2 are complete; remaining release work is open.
+
+## Palette follow-up
+
+The Colors panel now uses reusable square swatches backed by palette entries,
+with accessible hex labels. Future palette work should add favorite-color
+saving/removal, persistence and palette files while keeping the same selection
+behavior in floating and docked hosts. Those capabilities are not implemented
+by the current preset-swatch foundation.

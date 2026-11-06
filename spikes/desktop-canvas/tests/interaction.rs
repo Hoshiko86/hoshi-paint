@@ -1,0 +1,199 @@
+use hoshi_canvas_spike::create_app;
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+use slint::{ComponentHandle, LogicalPosition, LogicalSize};
+
+#[test]
+fn software_rendered_canvas_accepts_real_input_events() {
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, state) = create_app().unwrap();
+    ui.window().set_size(LogicalSize::new(1120.0, 760.0));
+    ui.show().unwrap();
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(true));
+    let initial = ui.window().take_snapshot().unwrap();
+    assert_eq!((initial.width(), initial.height()), (1120, 760));
+    // Inspect actual enabled button text, excluding its border. This also runs
+    // with Windows' Fluent widgets in CI and with SLINT_STYLE=fluent locally.
+    let left = ui.get_rectangle_tool_left() as usize + 8;
+    let top = ui.get_rectangle_tool_top() as usize + 5;
+    let right = (ui.get_rectangle_tool_left() + ui.get_rectangle_tool_width()) as usize - 8;
+    let bottom = (ui.get_rectangle_tool_top() + ui.get_rectangle_tool_height()) as usize - 5;
+    let dark_text_pixels = (top..bottom)
+        .flat_map(|y| (left..right).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let p = initial.as_slice()[y * initial.width() as usize + x];
+            p.r < 120 && p.g < 120 && p.b < 120
+        })
+        .count();
+    assert!(
+        dark_text_pixels > 30,
+        "enabled labels must remain dark and readable on light surfaces"
+    );
+    let x = ui.get_canvas_left();
+    let y = ui.get_canvas_top();
+    let pointer = |dx, dy| LogicalPosition::new(x + dx, y + dy);
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(20.0, 20.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(100.0, 80.0),
+    });
+    ui.window().dispatch_event(WindowEvent::PointerReleased {
+        position: pointer(100.0, 80.0),
+        button: PointerEventButton::Left,
+    });
+    assert!(ui.get_has_shape());
+    assert_eq!(state.borrow().document().undo_len(), 0);
+    assert!(
+        state.borrow().document().layers()[0]
+            .pixels()
+            .iter()
+            .all(|p| p.a == 0)
+    );
+    let preview = ui.window().take_snapshot().unwrap();
+    let sample =
+        preview.as_slice()[((y as usize + 40) * preview.width() as usize) + x as usize + 40];
+    assert_eq!((sample.r, sample.g, sample.b, sample.a), (0, 0, 0, 255));
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(false));
+    assert!(
+        ui.get_has_shape(),
+        "a settled editable shape survives window deactivation"
+    );
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(true));
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Return.into(),
+    });
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Return.into(),
+    });
+    assert!(!ui.get_has_shape());
+    assert_eq!(state.borrow().document().undo_len(), 1);
+    let committed = state.borrow().composite();
+    ui.invoke_action(0);
+    assert!(state.borrow().composite().iter().all(|p| p.a == 0));
+    ui.invoke_action(1);
+    assert_eq!(state.borrow().composite(), committed);
+
+    let text_point = LogicalPosition::new(
+        ui.get_layer_input_left() + 20.0,
+        ui.get_layer_input_top() + 15.0,
+    );
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: text_point,
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerReleased {
+        position: text_point,
+        button: PointerEventButton::Left,
+    });
+    ui.window()
+        .dispatch_event(WindowEvent::KeyPressed { text: "z".into() });
+    ui.window()
+        .dispatch_event(WindowEvent::KeyReleased { text: "z".into() });
+    assert!(state.borrow().document().layers()[0].name().contains('z'));
+    assert_eq!(
+        state.borrow().composite(),
+        committed,
+        "text editing must not modify canvas pixels"
+    );
+    let accepted_name = state.borrow().document().layers()[0].name().to_string();
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: "a".repeat(512).into(),
+    });
+    assert_eq!(ui.get_layer_edit_text(), accepted_name);
+    assert_eq!(state.borrow().document().layers()[0].name(), accepted_name);
+
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(150.0, 150.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(200.0, 200.0),
+    });
+    ui.window().dispatch_event(WindowEvent::PointerReleased {
+        position: pointer(200.0, 200.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Escape.into(),
+    });
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Escape.into(),
+    });
+    assert!(!ui.get_has_shape());
+    assert_eq!(state.borrow().composite(), committed);
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(210.0, 210.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(250.0, 250.0),
+    });
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(false));
+    assert!(!state.borrow().is_dragging());
+    assert!(!ui.get_has_shape());
+    assert_eq!(state.borrow().composite(), committed);
+
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(true));
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(30.0, 30.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(90.0, 90.0),
+    });
+    assert!(state.borrow().is_dragging());
+    ui.invoke_show_about();
+    assert!(
+        !state.borrow().is_dragging(),
+        "opening a modal cancels an unfinished gesture before blocking callbacks"
+    );
+    assert!(!ui.get_has_shape());
+    ui.window().dispatch_event(WindowEvent::PointerPressed {
+        position: pointer(30.0, 30.0),
+        button: PointerEventButton::Left,
+    });
+    ui.window().dispatch_event(WindowEvent::PointerMoved {
+        position: pointer(90.0, 90.0),
+    });
+    ui.window().dispatch_event(WindowEvent::PointerReleased {
+        position: pointer(90.0, 90.0),
+        button: PointerEventButton::Left,
+    });
+    assert!(
+        !ui.get_has_shape(),
+        "modal backdrop must not leak drawing input"
+    );
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Escape.into(),
+    });
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Escape.into(),
+    });
+    assert_eq!(state.borrow().composite(), committed);
+
+    if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
+        let snapshot = ui.window().take_snapshot().unwrap();
+        image::save_buffer(
+            path,
+            snapshot.as_bytes(),
+            snapshot.width(),
+            snapshot.height(),
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
+    }
+    ui.hide().unwrap();
+}

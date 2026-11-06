@@ -3,9 +3,15 @@
 A Rust raster editor inspired by the everyday drawing workflow of Paint.NET.
 Targets: Windows, macOS, Ubuntu Linux, and eventually iOS/iPadOS.
 
-**Status:** implementation has started; there is no graphical editor yet.
-The first slice is a UI-independent document engine with layers, compositing,
-shape preview/commit/cancel, and undo/redo. This is not a completed v0.0.0 release.
+**Status:** an experimental desktop canvas shell now sits above the UI-independent
+document engine and input controller. It supports rectangle preview/adjust/commit,
+undo/redo, Shift-constrained scaling, canvas navigation and RGB/HSV/hex/alpha
+color selection and history in floating/docked panels, rich color swatches,
+Paint.NET-style canvas navigation and a native Color Picker. This is not a completed v0.0.0 release.
+
+Run `cargo run --package hoshi-canvas-spike --locked`. See the
+[spike guide](spikes/desktop-canvas/README.md) for platform prerequisites,
+controls, validation, and remaining evaluation gates.
 
 ## Development
 
@@ -18,7 +24,8 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-No services, secrets, or external Rust dependencies are required for this slice.
+No services or secrets are required for the application. The graphical spike
+uses Slint and platform runtime libraries; the core/controller stay UI-independent.
 Use the existing checkout; cloud tasks are already isolated and do not need a
 separate worktree.
 
@@ -29,6 +36,17 @@ separate worktree.
 - [Architecture decisions](docs/ARCHITECTURE.md)
 - [UI framework evaluation and next spike](docs/UI_EVALUATION.md)
 - [Issue-ready backlog](docs/BACKLOG.md)
+- [Apple-host validation checklist](docs/IOS_SPIKE_CHECKLIST.md)
 
 Native shapes follow **draw → adjust → commit to pixels**. They remain editable
 only while active; committed shapes are raster pixels, with one undo entry.
+
+## License
+
+Copyright 2026 Hoshi Paint contributors. Licensed under GNU GPL version 3 only
+(`GPL-3.0-only`); see [LICENSE](LICENSE). Third-party code and assets retain their
+own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Earlier MIT
+distributions retain their existing grants.
+
+Development binary artifacts include the license and a corresponding source
+archive with the locked Rust dependencies and build instructions.

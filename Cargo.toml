@@ -1,9 +1,26 @@
 [workspace]
-members = ["crates/hoshi-core"]
-resolver = "2"
+members = ["crates/hoshi-core", "crates/hoshi-controller", "spikes/desktop-canvas"]
+resolver = "3"
 
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.85"
-license = "MIT"
+rust-version = "1.99"
+license = "GPL-3.0-only"
+
+# Keep debug symbols and checks in development artifacts, but optimize the
+# per-pixel hot paths so interactive resizing does not run at opt-level 0.
+[profile.dev.package.hoshi-core]
+opt-level = 3
+
+[profile.dev.package.hoshi-controller]
+opt-level = 3
+
+[profile.dev.package.i-slint-renderer-software]
+opt-level = 3
+
+[profile.dev.package.i-slint-core]
+opt-level = 3
+
+[profile.dev.package.hoshi-canvas-spike]
+opt-level = 2
