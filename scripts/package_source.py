@@ -2,6 +2,7 @@
 """Bundle the checked-out source and locked Rust dependencies beside binaries."""
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -9,10 +10,15 @@ import tempfile
 import zipfile
 
 
+def capture_utf8(arguments: list[str], cwd: Path | None = None) -> str:
+    # Git/Cargo emit UTF-8 to pipes, even when Windows Python defaults to cp1252.
+    return subprocess.check_output(arguments, cwd=cwd, encoding="utf-8")
+
+
 def package_source(output: Path) -> Path:
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    revision = capture_utf8(["git", "rev-parse", "HEAD"]).strip()
     with tempfile.TemporaryDirectory(prefix="hoshi-source-") as temporary:
         staging = Path(temporary)
         tree = staging / "hoshi-paint-source"
@@ -21,17 +27,16 @@ def package_source(output: Path) -> Path:
         subprocess.run(["git", "archive", "--format=zip", "--output", str(archive), revision], check=True)
         with zipfile.ZipFile(archive) as source:
             source.extractall(tree)
-        vendored = subprocess.run(
-            ["cargo", "vendor", "--locked", "--versioned-dirs", "vendor"],
-            cwd=tree, check=True, stdout=subprocess.PIPE, text=True,
-        ).stdout
+        vendored = capture_utf8(
+            ["cargo", "vendor", "--locked", "--versioned-dirs", "vendor"], cwd=tree,
+        )
         config = tree / ".cargo" / "config.toml"
         config.parent.mkdir(exist_ok=True)
         with config.open("a", encoding="utf-8") as handle:
             handle.write("\n" + vendored)
-        metadata = json.loads(subprocess.check_output(
+        metadata = json.loads(capture_utf8(
             ["cargo", "metadata", "--offline", "--locked", "--format-version", "1"],
-            cwd=tree, text=True,
+            cwd=tree,
         ))
         vendor = (tree / "vendor").resolve()
         for package in metadata["packages"]:
@@ -62,4 +67,10 @@ def package_source(output: Path) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    print(package_source(parser.parse_args().output))
+    try:
+        print(package_source(parser.parse_args().output))
+    except Exception as error:
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            message = f"{type(error).__name__}: {error}".replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            print(f"::error title=Source packaging failed::{message}")
+        raise
