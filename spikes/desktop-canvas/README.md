@@ -35,6 +35,8 @@ is already isolated; use the existing checkout rather than creating a worktree.
 ## Try the interaction
 
 - Drag on the checkerboard to draw a filled rectangle. Release keeps it editable.
+  Hold Shift while drawing to create a square; press/release Shift during the drag
+  to toggle the constraint live. Squares stop at the canvas boundary.
 - Drag any of the eight square control points: corners resize both dimensions;
   edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
   rounding, even after rotation. Crossed edges clamp at one pixel.

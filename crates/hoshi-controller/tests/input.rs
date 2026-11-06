@@ -521,3 +521,57 @@ fn rectangle_interior_moves_rotated_shape_under_zoom_and_outside_starts_new_shap
     assert_eq!((next.x, next.y, next.width, next.height), (8, 8, 23, 19));
     assert_eq!(next.rotation_degrees, 0);
 }
+
+#[test]
+fn shift_creation_is_square_in_all_directions_and_at_clipped_edges() {
+    for (anchor, end, expected_size) in [
+        ((80.0, 80.0), (140.0, 100.0), 60),
+        ((80.0, 80.0), (20.0, 100.0), 60),
+        ((80.0, 80.0), (140.0, 60.0), 60),
+        ((80.0, 80.0), (20.0, 60.0), 60),
+        ((80.25, 80.75), (140.1, 100.1), 61),
+        ((80.25, 80.75), (20.1, 60.1), 61),
+        ((240.0, 80.0), (400.0, 100.0), 16),
+        ((10.0, 10.0), (-100.0, -20.0), 10),
+        ((80.0, 80.0), (120.0, 80.0), 40),
+    ] {
+        let mut c = Controller::new(256, 192).unwrap();
+        c.set_aspect_lock(true).unwrap();
+        c.pointer_down(anchor.0, anchor.1).unwrap();
+        c.pointer_move(end.0, end.1).unwrap();
+        c.pointer_up().unwrap();
+        let s = c.document().active_shape().unwrap();
+        assert_eq!(
+            (s.width, s.height),
+            (expected_size, expected_size),
+            "{anchor:?} -> {end:?}"
+        );
+        assert!(s.x >= 0 && s.y >= 0);
+        assert!(s.x as u32 + s.width <= 256 && s.y as u32 + s.height <= 192);
+        assert_eq!(c.document().undo_len(), 0);
+        let preview = c.composite();
+        c.commit().unwrap();
+        assert_eq!(c.document().undo_len(), 1);
+        c.undo().unwrap();
+        c.redo().unwrap();
+        assert_eq!(c.composite(), preview);
+    }
+}
+
+#[test]
+fn shift_creation_toggles_live_without_moving_and_click_creates_nothing() {
+    let mut c = Controller::new(256, 256).unwrap();
+    c.pointer_down(40.0, 40.0).unwrap();
+    c.pointer_move(120.0, 80.0).unwrap();
+    c.set_aspect_lock(true).unwrap();
+    let s = c.document().active_shape().unwrap();
+    assert_eq!((s.x, s.y, s.width, s.height), (40, 40, 80, 80));
+    c.set_aspect_lock(false).unwrap();
+    let s = c.document().active_shape().unwrap();
+    assert_eq!((s.width, s.height), (80, 40));
+    c.pointer_move(40.0, 40.0).unwrap();
+    c.set_aspect_lock(true).unwrap();
+    c.pointer_up().unwrap();
+    assert!(c.document().active_shape().is_none());
+    assert_eq!(c.document().undo_len(), 0);
+}

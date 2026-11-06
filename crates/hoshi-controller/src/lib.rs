@@ -217,14 +217,16 @@ impl Controller {
         self.aspect_lock
     }
 
-    /// Shift can be pressed/released during a corner drag, without moving again.
+    /// Shift can be toggled during creation or corner resizing without moving again.
     pub fn set_aspect_lock(&mut self, pressed: bool) -> Result<(), ControllerError> {
         if self.aspect_lock == pressed {
             return Ok(());
         }
         self.aspect_lock = pressed;
-        if matches!(self.gesture, Some(Gesture::Resize { .. }))
-            && let Some((x, y)) = self.last_pointer
+        if matches!(
+            self.gesture,
+            Some(Gesture::Resize { .. } | Gesture::Rectangle { .. })
+        ) && let Some((x, y)) = self.last_pointer
         {
             self.pointer_move(x, y)?;
         }
@@ -391,7 +393,7 @@ impl Controller {
 
     fn rectangle(&self, anchor: (f64, f64), point: (f64, f64)) -> Shape {
         // Bounds stay inside this small document. The gesture handler only calls
-        // this for a nonzero-area drag; a click alone creates no shape.
+        // this for a drag with nonzero extent; a click alone creates no shape.
         let left = anchor
             .0
             .min(point.0)
@@ -404,12 +406,49 @@ impl Controller {
             .min(f64::from(self.document.height() - 1));
         let right = anchor.0.max(point.0).ceil();
         let bottom = anchor.1.max(point.1).ceil();
+        let (left, top, width, height) = if self.aspect_lock {
+            // Snap the fixed corner outward once, then use equal integer extents.
+            // Limit both axes together so clipping cannot turn a square into a rectangle.
+            let ax = if point.0 < anchor.0 {
+                anchor.0.ceil()
+            } else {
+                anchor.0.floor()
+            };
+            let ay = if point.1 < anchor.1 {
+                anchor.1.ceil()
+            } else {
+                anchor.1.floor()
+            };
+            let available_x = if point.0 < anchor.0 {
+                ax
+            } else {
+                f64::from(self.document.width()) - ax
+            };
+            let available_y = if point.1 < anchor.1 {
+                ay
+            } else {
+                f64::from(self.document.height()) - ay
+            };
+            let size = (right - left)
+                .max(bottom - top)
+                .min(available_x)
+                .min(available_y)
+                .max(1.0);
+            (
+                if point.0 < anchor.0 { ax - size } else { ax },
+                if point.1 < anchor.1 { ay - size } else { ay },
+                size,
+                size,
+            )
+        } else {
+            (left, top, right - left, bottom - top)
+        };
         Shape {
             kind: ShapeKind::Rectangle,
             x: left as i32,
             y: top as i32,
-            width: ((right - left) as u32).max(1),
-            height: ((bottom - top) as u32).max(1),
+            width: (width as u32).max(1),
+            height: (height as u32).max(1),
             rotation_degrees: 0,
             style: ShapeStyle::Fill(self.primary_color),
         }
@@ -422,7 +461,9 @@ impl Controller {
             Some(Gesture::Sample) => self.sample_color(point)?,
             Some(Gesture::Rectangle { anchor }) => {
                 let point = self.clip_point(point);
-                if point.0 == anchor.0 || point.1 == anchor.1 {
+                if (point.0 == anchor.0 && point.1 == anchor.1)
+                    || (!self.aspect_lock && (point.0 == anchor.0 || point.1 == anchor.1))
+                {
                     self.document.cancel_shape();
                 } else {
                     let shape = self.rectangle(anchor, point);

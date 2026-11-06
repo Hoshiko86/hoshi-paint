@@ -34,6 +34,29 @@ fn shift_events_constrain_and_release_corner_resizing_live() {
             button: PointerEventButton::Left,
         })
     };
+    // Real keyboard events update the initial drag immediately, even while still.
+    press(200.0, 200.0);
+    move_to(280.0, 240.0);
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Shift.into(),
+    });
+    let shape = state.borrow().document().active_shape().unwrap();
+    assert_eq!((shape.width, shape.height), (80, 80));
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+    });
+    let shape = state.borrow().document().active_shape().unwrap();
+    assert_eq!((shape.width, shape.height), (80, 40));
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Shift.into(),
+    });
+    release(280.0, 240.0);
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+    });
+    let shape = state.borrow().document().active_shape().unwrap();
+    assert_eq!((shape.width, shape.height), (80, 80));
+    ui.invoke_action(3); // Cancel before testing existing-ratio resizing.
     press(40.0, 40.0);
     move_to(120.0, 80.0);
     release(120.0, 80.0);
