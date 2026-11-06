@@ -94,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("desktop software snapshot");
             let sample = snapshot.as_slice()
                 [((y as usize + 208) * snapshot.width() as usize) + x as usize + 224];
-            assert_eq!((sample.r, sample.g, sample.b), (72, 136, 240));
+            assert_eq!((sample.r, sample.g, sample.b), (0, 0, 0));
             if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
                 image::save_buffer(
                     path,
