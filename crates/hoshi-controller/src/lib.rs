@@ -6,8 +6,21 @@
 
 pub mod color;
 
-pub use hoshi_core::{Color, HistoryStep};
-use hoshi_core::{Document, Error, Shape, ShapeKind, ShapeStyle};
+pub use hoshi_core::{Color, HistoryStep, ShapeStyle};
+use hoshi_core::{Document, Error, Shape, ShapeKind};
+
+/// Drawing style retained for the next shape as well as the active preview.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShapeMode {
+    Fill,
+    Outline,
+    Both,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ColorTarget {
+    Fill,
+    Outline,
+}
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
 const MAX_VIEW_OFFSET: f64 = 1_000_000_000.0;
@@ -153,6 +166,10 @@ pub struct Controller {
     tool: Tool,
     gesture: Option<Gesture>,
     primary_color: Color,
+    outline_color: Color,
+    color_target: ColorTarget,
+    shape_mode: ShapeMode,
+    stroke_width: u32,
     aspect_lock: bool,
     last_pointer: Option<(f64, f64)>,
     sample_snapshot: Option<Vec<Color>>,
@@ -172,6 +189,10 @@ impl Controller {
             tool: Tool::Rectangle,
             gesture: None,
             primary_color: Color::rgba(72, 136, 240, 255),
+            outline_color: Color::rgba(32, 40, 56, 255),
+            color_target: ColorTarget::Fill,
+            shape_mode: ShapeMode::Fill,
+            stroke_width: 2,
             aspect_lock: false,
             last_pointer: None,
             sample_snapshot: None,
@@ -207,7 +228,10 @@ impl Controller {
         self.tool
     }
     pub fn primary_color(&self) -> Color {
-        self.primary_color
+        match self.color_target {
+            ColorTarget::Fill => self.primary_color,
+            ColorTarget::Outline => self.outline_color,
+        }
     }
     pub fn is_dragging(&self) -> bool {
         self.gesture.is_some()
@@ -450,7 +474,7 @@ impl Controller {
             width: (width as u32).max(1),
             height: (height as u32).max(1),
             rotation_degrees: 0,
-            style: ShapeStyle::Fill(self.primary_color),
+            style: self.drawing_style(),
         }
     }
 
@@ -722,21 +746,69 @@ impl Controller {
         Ok(())
     }
 
-    pub fn set_primary_color(&mut self, color: Color) -> Result<(), ControllerError> {
+    pub fn color_target(&self) -> ColorTarget {
+        self.color_target
+    }
+    pub fn fill_color(&self) -> Color {
+        self.primary_color
+    }
+    pub fn outline_color(&self) -> Color {
+        self.outline_color
+    }
+    pub fn shape_mode(&self) -> ShapeMode {
+        self.shape_mode
+    }
+    pub fn stroke_width(&self) -> u32 {
+        self.stroke_width
+    }
+    pub fn set_color_target(&mut self, target: ColorTarget) {
+        self.color_target = target;
+    }
+
+    fn drawing_style(&self) -> ShapeStyle {
+        match self.shape_mode {
+            ShapeMode::Fill => ShapeStyle::Fill(self.primary_color),
+            ShapeMode::Outline => ShapeStyle::Outline {
+                color: self.outline_color,
+                width: self.stroke_width,
+            },
+            ShapeMode::Both => ShapeStyle::Both {
+                fill: self.primary_color,
+                outline: self.outline_color,
+                width: self.stroke_width,
+            },
+        }
+    }
+
+    fn refresh_shape_style(&mut self) -> Result<(), ControllerError> {
         if let Some(mut shape) = self.document.active_shape() {
-            shape.style = match shape.style {
-                ShapeStyle::Fill(_) => ShapeStyle::Fill(color),
-                ShapeStyle::Outline { width, .. } => ShapeStyle::Outline { color, width },
-                ShapeStyle::Both { outline, width, .. } => ShapeStyle::Both {
-                    fill: color,
-                    outline,
-                    width,
-                },
-            };
+            shape.style = self.drawing_style();
             self.document.adjust_shape(shape)?;
         }
-        self.primary_color = color;
         Ok(())
+    }
+
+    pub fn set_shape_mode(&mut self, mode: ShapeMode) -> Result<(), ControllerError> {
+        self.shape_mode = mode;
+        self.refresh_shape_style()
+    }
+
+    /// Outlines are inset inside the shape bounds; wider strokes may consume the fill.
+    pub fn set_stroke_width(&mut self, width: u32) -> Result<(), ControllerError> {
+        if width == 0 || width > 65_536 {
+            return Err(Error::InvalidShape.into());
+        }
+        self.stroke_width = width;
+        self.refresh_shape_style()
+    }
+
+    /// Edit the selected fill/outline channel through every color input, including sampling.
+    pub fn set_primary_color(&mut self, color: Color) -> Result<(), ControllerError> {
+        match self.color_target {
+            ColorTarget::Fill => self.primary_color = color,
+            ColorTarget::Outline => self.outline_color = color,
+        }
+        self.refresh_shape_style()
     }
 
     pub fn rename_layer(&mut self, name: &str) -> Result<(), ControllerError> {

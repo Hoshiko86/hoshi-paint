@@ -64,6 +64,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             state.borrow().composite()[128 * 512 + 128],
             Color::rgba(80, 140, 200, 255)
         );
+        ui.invoke_select_shape_mode(2);
+        ui.invoke_edit_stroke_width(8);
+        ui.invoke_select_color_target(1);
+        ui.invoke_edit_rgba(210, 60, 70, 255);
+        let shape = state.borrow().document().active_shape().unwrap();
+        let edge = shape.y as usize * 512 + shape.x as usize;
+        assert_eq!(
+            state.borrow().composite()[edge],
+            Color::rgba(210, 60, 70, 255)
+        );
+        assert_eq!(
+            state.borrow().composite()[128 * 512 + 128],
+            Color::rgba(80, 140, 200, 255)
+        );
         if let Some(path) = std::env::var_os("HOSHI_DOCK_SNAPSHOT") {
             let snapshot = ui.window().take_snapshot().unwrap();
             image::save_buffer(
@@ -96,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .dispatch_event(slint::platform::WindowEvent::CloseRequested);
             assert!(!picker.window().is_visible());
             println!(
-                "PASS: desktop color picker rendered, HSV/hex edits and floating/docked color editing succeeded."
+                "PASS: desktop color picker rendered, HSV/hex edits and floating/docked fill and outline editing succeeded."
             );
         });
     });

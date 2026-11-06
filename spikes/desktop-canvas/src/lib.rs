@@ -1,6 +1,6 @@
 //! Disposable Slint adapter around the UI-independent controller.
 
-use hoshi_controller::{Controller, ControllerError, Tool};
+use hoshi_controller::{ColorTarget, Controller, ControllerError, ShapeMode, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
@@ -12,7 +12,7 @@ slint::slint! {
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
-    import { Button, LineEdit, AboutSlint, Palette } from "std-widgets.slint";
+    import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox } from "std-widgets.slint";
     export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
         title: "Hoshi Paint · Canvas study";
@@ -36,6 +36,14 @@ slint::slint! {
         in property <bool> can-undo;
         in property <bool> can-redo;
         in property <int> selected-tool;
+        in property <int> shape-mode;
+        in property <int> stroke-width: 2;
+        in property <int> color-target;
+        changed color-target => { color-target-choice.current-index = root.color-target; }
+        changed shape-mode => { shape-mode-choice.current-index = root.shape-mode; }
+        callback select-shape-mode(int);
+        callback edit-stroke-width(int);
+        callback select-color-target(int);
         in property <color> primary-color;
         in property <string> primary-hex;
         private property <bool> about-open;
@@ -192,7 +200,18 @@ slint::slint! {
                     Button { text: root.selected-tool == 1 ? "● Move shape" : "Move shape"; enabled: root.has-shape; clicked => { root.choose-tool(1); } }
                     Button { text: root.selected-tool == 2 ? "● Pan canvas" : "Pan canvas"; clicked => { root.choose-tool(2); } }
                     Rectangle { height: 12px; }
-                    Text { text: "PRIMARY COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
+                    Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
+                    shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;
+                        accessible-label: "Shape style";
+                        selected(value) => { root.select-shape-mode(self.current-index); } }
+                    Text { text: "Outline width (px)"; color: #526079; font-size: 12px; }
+                    SpinBox { minimum: 1; maximum: 65536; value: root.stroke-width; enabled: root.shape-mode != 0;
+                        accessible-label: "Outline width in canvas pixels";
+                        edited(value) => { root.edit-stroke-width(value); } }
+                    Text { text: "COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
+                    color-target-choice := ComboBox { enabled: !root.screen-picking; model: ["Fill color", "Outline color"]; current-index: root.color-target;
+                        accessible-label: "Color editing target";
+                        selected(value) => { root.select-color-target(self.current-index); } }
                     HorizontalLayout {
                         Rectangle { width: 26px; background: white;
                             Rectangle { background: root.primary-color; }
@@ -336,6 +355,8 @@ slint::slint! {
                     }
                 }
                 docked-colors := ColorPanel {
+                    color-target: root.color-target;
+                    select-color-target(value) => { root.select-color-target(value); }
                     visible: root.color-host-visible;
                     x: root.colors-placement == 2 ? parent.width - 420px : 204px;
                     y: root.colors-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.colors-placement == 3 ? 0px : root.dock-top-height);
@@ -455,6 +476,17 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         Tool::Eyedropper => 3,
     });
     history::refresh(ui, controller);
+    ui.set_shape_mode(match controller.shape_mode() {
+        ShapeMode::Fill => 0,
+        ShapeMode::Outline => 1,
+        ShapeMode::Both => 2,
+    });
+    ui.set_stroke_width(controller.stroke_width() as i32);
+    ui.set_color_target(if controller.color_target() == ColorTarget::Fill {
+        0
+    } else {
+        1
+    });
     let color = controller.primary_color();
     ui.set_primary_color(slint::Color::from_argb_u8(
         color.a, color.r, color.g, color.b,
@@ -607,6 +639,26 @@ pub fn create_app_with_panels() -> Result<
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_rename(move |name| update(&weak, &state, |c| c.rename_layer(&name)));
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_select_shape_mode(move |mode| {
+        update(&weak, &state, |c| {
+            c.set_shape_mode(match mode {
+                1 => ShapeMode::Outline,
+                2 => ShapeMode::Both,
+                _ => ShapeMode::Fill,
+            })
+        });
+        if mode != 2
+            && let Some(ui) = weak.upgrade()
+        {
+            ui.invoke_select_color_target(if mode == 1 { 1 } else { 0 });
+        }
+    });
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_edit_stroke_width(move |width| {
+        update(&weak, &state, |c| c.set_stroke_width(width.max(0) as u32))
+    });
+
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_zoom_at(move |x, y, delta| {
         update(&weak, &state, |c| {

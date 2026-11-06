@@ -34,9 +34,17 @@ is already isolated; use the existing checkout rather than creating a worktree.
 
 ## Try the interaction
 
-- Drag on the checkerboard to draw a filled rectangle. Release keeps it editable.
+- Drag on the checkerboard to draw a rectangle. Release keeps it editable.
   Hold Shift while drawing to create a square; press/release Shift during the drag
   to toggle the constraint live. Squares stop at the canvas boundary.
+- Choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
+  canvas pixels (1–65,536), inset inside the bounds; a wide stroke can consume
+  the interior. Settings apply live to the active preview and to future shapes.
+- Choose Fill color or Outline color beside Colors… or inside the Colors panel.
+  RGB, HSV, hex, palette swatches, alpha, Restore and Color Picker edit only that
+  channel. Each channel keeps its original comparison color until the panel closes;
+  switching channels or docking does not reset it. Fill/Outline modes select their
+  corresponding color automatically. Cancel discards the preview, retaining settings.
 - Drag any of the eight square control points: corners resize both dimensions;
   edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
   rounding, even after rotation. Crossed edges clamp at one pixel.
@@ -98,7 +106,7 @@ is already isolated; use the existing checkout rather than creating a worktree.
   survives. Clicks and zero-area drags do not paint stray edge pixels.
 
 Only one layer is exposed in this shell. There is no brush, file import/save,
-outline styling, rounded rectangle, ellipse tool or selection UI
+dash/pattern styles, antialiasing controls, rounded rectangle, ellipse tool or selection UI
 yet. Core support does not imply that a corresponding UI has shipped.
 
 ## Validation commands

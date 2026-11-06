@@ -14,7 +14,7 @@ integration permissions (`createProjectV2`: resource not accessible).
 | UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | First rectangle/canvas shell implemented; remaining UI scope open |
 | DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
 | LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | Backlog |
-| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Rectangle handles/rotation/Shift square creation and resize aspect lock implemented; remaining shapes/styles open |
+| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Rectangle handles/rotation/Shift square creation and resize aspect lock implemented; fill/outline/both controls, stroke width and independent colors implemented; remaining shapes and advanced styles open |
 | FILE-1 | Specify and implement versioned layered project format and safe saves | P0 | CORE-1 | Backlog |
 | FILE-2 | PNG import/export with decode/allocation limits | P0 | CORE-1 | Backlog |
 | UX-1 | Dirty tracking, prompts, keyboard/event routing and save-active-shape behavior | P0 | FILE-1, SHAPE-1 | Backlog |

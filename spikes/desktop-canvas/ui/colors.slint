@@ -101,6 +101,9 @@ export component ToolPanelFrame inherits Rectangle {
     }
 }
 export component ColorPanel inherits Rectangle {
+    in property <int> color-target;
+    callback select-color-target(int);
+    changed color-target => { target-choice.current-index = root.color-target; }
     in property <[PaletteSwatch]> swatches: [
         { red: 72, green: 136, blue: 240, label: "#4888F0", description: "" },
         { red: 232, green: 104, blue: 92, label: "#E8685C", description: "" },
@@ -149,13 +152,16 @@ export component ColorPanel inherits Rectangle {
     preferred-height: 720px;
     ToolPanelFrame {
         title: "Colors"; docked: root.docked; placement: root.placement;
-        body-height: root.width < 560px ? 808px : 656px;
+        body-height: root.width < 560px ? 848px : 696px;
         placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
         VerticalLayout {
             padding: 8px;
             spacing: 8px;
+            target-choice := ComboBox { enabled: !root.screen-picking; model: ["Fill color", "Outline color"]; current-index: root.color-target;
+                accessible-label: "Color editing target";
+                selected(value) => { root.select-color-target(self.current-index); } }
             HorizontalLayout {
                 height: 40px; spacing: 6px;
                 Text { text: "Original"; color: #526079; vertical-alignment: center; }
@@ -246,7 +252,9 @@ export component ColorPanel inherits Rectangle {
     }
 }
 export component ColorPickerWindow inherits Window {
-    title: "Colors · Hoshi Paint";
+    in property <int> color-target <=> panel.color-target;
+    callback select-color-target(int);
+    title: (root.color-target == 0 ? "Fill color" : "Outline color") + " · Hoshi Paint";
     preferred-width: 640px; preferred-height: 720px;
     min-width: 380px; min-height: 680px;
     background: #f2f4f8; default-font-size: 13px;
@@ -293,6 +301,7 @@ export component ColorPickerWindow inherits Window {
     callback close-picker();
     callback toggle-dock();
     panel := ColorPanel {
+        select-color-target(value) => { root.select-color-target(value); }
         placement-selected(value) => { root.placement-selected(value); }
         set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }

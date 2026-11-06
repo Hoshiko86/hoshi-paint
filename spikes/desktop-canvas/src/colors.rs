@@ -60,6 +60,10 @@ pub(super) fn bind_picker(
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
     let original = Rc::new(Cell::new(controller.borrow().primary_color()));
+    let originals = Rc::new(Cell::new([
+        controller.borrow().fill_color(),
+        controller.borrow().outline_color(),
+    ]));
     let (weak, reference) = (picker.as_weak(), original.clone());
     picker.on_restore_original(move || {
         if let Some(picker) = weak.upgrade() {
@@ -76,6 +80,47 @@ pub(super) fn bind_picker(
     ui.on_restore_original_color(move || {
         if let Some(picker) = weak.upgrade() {
             picker.invoke_restore_original();
+        }
+    });
+    let (main, colors, state, reference) = (
+        ui.as_weak(),
+        picker.as_weak(),
+        controller.clone(),
+        original.clone(),
+    );
+    let baselines = originals.clone();
+    ui.on_select_color_target(move |target| {
+        if let (Some(ui), Some(picker)) = (main.upgrade(), colors.upgrade()) {
+            let target = if target == 1 {
+                hoshi_controller::ColorTarget::Outline
+            } else {
+                hoshi_controller::ColorTarget::Fill
+            };
+            if state.borrow().color_target() == target || ui.get_screen_picking() {
+                return;
+            }
+            state.borrow_mut().set_color_target(target);
+            picker.set_color_target(if target == hoshi_controller::ColorTarget::Fill {
+                0
+            } else {
+                1
+            });
+            let current = state.borrow().primary_color();
+            let baseline = baselines.get()[if target == hoshi_controller::ColorTarget::Fill {
+                0
+            } else {
+                1
+            }];
+            begin_comparison(&ui, &picker, &reference, baseline);
+            synchronize(&picker, current, None);
+            sync_docked(&ui, &picker);
+            refresh(&ui, &state.borrow());
+        }
+    });
+    let main = ui.as_weak();
+    picker.on_select_color_target(move |target| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_select_color_target(target);
         }
     });
     let swatches = [
@@ -143,6 +188,7 @@ pub(super) fn bind_picker(
     });
     let (main, weak, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
     let reference = original.clone();
+    let baselines = originals.clone();
     ui.on_set_colors_placement(move |placement| {
         if let (Some(ui), Some(p)) = (main.upgrade(), weak.upgrade()) {
             if ui.get_modal_visible() {
@@ -154,6 +200,7 @@ pub(super) fn bind_picker(
                 c.set_aspect_lock(false).expect("gesture ended");
             }
             if !ui.get_colors_visible() {
+                baselines.set([state.borrow().fill_color(), state.borrow().outline_color()]);
                 begin_comparison(&ui, &p, &reference, state.borrow().primary_color());
             }
             let placement = placement.clamp(0, 4);
@@ -227,12 +274,14 @@ pub(super) fn bind_picker(
     });
     let (colors, main, state) = (picker.clone(), ui.as_weak(), controller.clone());
     let reference = original.clone();
+    let baselines = originals.clone();
     ui.on_show_colors(move || {
         if let Some(ui) = main.upgrade() {
             if ui.get_modal_visible() {
                 return;
             }
             if !ui.get_colors_visible() {
+                baselines.set([state.borrow().fill_color(), state.borrow().outline_color()]);
                 begin_comparison(&ui, &colors, &reference, state.borrow().primary_color());
             }
             // Switching to our color window must preserve the editable preview,
