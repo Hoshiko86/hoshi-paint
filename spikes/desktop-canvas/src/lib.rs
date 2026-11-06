@@ -202,8 +202,6 @@ slint::slint! {
                     spacing: 8px;
                     Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     rectangle-tool := Button { text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
-                    Button { text: root.selected-tool == 1 ? "● Move shape" : "Move shape"; enabled: root.has-shape; clicked => { root.choose-tool(1); } }
-                    Button { text: root.selected-tool == 2 ? "● Pan canvas" : "Pan canvas"; clicked => { root.choose-tool(2); } }
                     Rectangle { height: 12px; }
                     Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;

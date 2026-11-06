@@ -61,7 +61,9 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Drag the round control point above the top edge to rotate about the center
   in one-degree increments. Handles keep their screen size when zoomed.
 - Drag inside the active rectangle to move it, including after rotation.
-  Handles take precedence. Move shape also remains available. The redundant nudge/size buttons have been removed.
+  Handles take precedence. Shape movement is direct; canvas panning uses the
+  shortcuts below. Separate Move shape, Pan canvas and nudge/size buttons are no
+  longer needed.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
 - Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
   Shortcuts apply only when the canvas has keyboard focus.
