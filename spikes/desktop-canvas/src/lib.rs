@@ -1,6 +1,6 @@
 //! Disposable Slint adapter around the UI-independent controller.
 
-use hoshi_controller::{ColorTarget, Controller, ControllerError, ShapeMode, Tool};
+use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
@@ -8,7 +8,7 @@ mod history;
 mod screen_pick;
 
 slint::slint! {
-    import { ColorPanel, PaletteSwatch } from "../ui/colors.slint";
+    import { ColorPanel, PaletteSwatch, WorkspaceColors } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
@@ -38,14 +38,19 @@ slint::slint! {
         in property <int> selected-tool;
         in property <int> shape-mode;
         in property <int> stroke-width: 2;
-        in property <int> color-target;
-        changed color-target => { color-target-choice.current-index = root.color-target; }
+        in property <color> workspace-primary;
+        in property <color> workspace-secondary;
+        in property <string> workspace-primary-description;
+        in property <string> workspace-secondary-description;
+        callback swap-colors();
+        callback reset-colors();
+        in property <int> color-slot;
         changed shape-mode => { shape-mode-choice.current-index = root.shape-mode; }
         callback select-shape-mode(int);
         callback edit-stroke-width(int);
-        callback select-color-target(int);
-        in property <color> primary-color;
-        in property <string> primary-hex;
+        callback select-color-slot(int);
+        in property <color> selected-color;
+        in property <string> selected-hex;
         private property <bool> about-open;
         out property <bool> modal-visible: root.about-open;
         out property <float> canvas-left: viewport.absolute-position.x / 1px;
@@ -203,22 +208,22 @@ slint::slint! {
                     Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;
                         accessible-label: "Shape style";
+                        Tooltip { text: @markdown("Fill or outline alone uses Primary. Both uses Primary outline and Secondary fill."); }
                         selected(value) => { root.select-shape-mode(self.current-index); } }
                     Text { text: "Outline width (px)"; color: #526079; font-size: 12px; }
                     SpinBox { minimum: 1; maximum: 65536; value: root.stroke-width; enabled: root.shape-mode != 0;
                         accessible-label: "Outline width in canvas pixels";
                         edited(value) => { root.edit-stroke-width(value); } }
                     Text { text: "COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    color-target-choice := ComboBox { enabled: !root.screen-picking; model: ["Fill color", "Outline color"]; current-index: root.color-target;
-                        accessible-label: "Color editing target";
-                        selected(value) => { root.select-color-target(self.current-index); } }
-                    HorizontalLayout {
-                        Rectangle { width: 26px; background: white;
-                            Rectangle { background: root.primary-color; }
-                        }
-                        Button { text: "Colors…"; clicked => { root.show-colors(); } }
+                    WorkspaceColors {
+                        primary: root.workspace-primary; secondary: root.workspace-secondary;
+                        primary-description: root.workspace-primary-description; secondary-description: root.workspace-secondary-description;
+                        slot: root.color-slot; picking: root.screen-picking;
+                        select(value) => { root.select-color-slot(value); }
+                        swap => { root.swap-colors(); } reset => { root.reset-colors(); }
                     }
-                    Text { text: root.primary-hex; color: #526079; font-size: 12px; }
+                    Button { text: root.color-slot == 0 ? "Primary · Colors…" : "Secondary · Colors…"; clicked => { root.show-colors(); } }
+                    Text { text: root.selected-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
@@ -280,6 +285,10 @@ slint::slint! {
                         key-pressed(event) => {
                             if event.text == Key.Space && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
                                 root.navigation-space = true; return accept;
+                            }
+                            if !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                                if event.text == "x" || event.text == "X" { root.swap-colors(); return accept; }
+                                if event.text == "d" || event.text == "D" { root.reset-colors(); return accept; }
                             }
                             if event.text == Key.Shift { root.shift-modifier(true); return accept; }
                             if event.text == Key.Return { root.action(2); return accept; }
@@ -355,8 +364,11 @@ slint::slint! {
                     }
                 }
                 docked-colors := ColorPanel {
-                    color-target: root.color-target;
-                    select-color-target(value) => { root.select-color-target(value); }
+                    workspace-primary: root.workspace-primary; workspace-secondary: root.workspace-secondary;
+                    primary-description: root.workspace-primary-description; secondary-description: root.workspace-secondary-description;
+                    swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }
+                    color-slot: root.color-slot;
+                    select-color-slot(value) => { root.select-color-slot(value); }
                     visible: root.color-host-visible;
                     x: root.colors-placement == 2 ? parent.width - 420px : 204px;
                     y: root.colors-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.colors-placement == 3 ? 0px : root.dock-top-height);
@@ -369,7 +381,7 @@ slint::slint! {
                     red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
                     hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                     hex-value: root.color-hex; error: root.color-error;
-                    sv-image: root.color-sv; current-color: root.primary-color;
+                    sv-image: root.color-sv; current-color: root.selected-color;
                     original-color: root.color-original;
                     original-description: root.color-original-description;
                     current-description: root.color-current-description;
@@ -432,7 +444,7 @@ slint::slint! {
                         padding: 24px;
                         spacing: 16px;
                         Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
-                        Text { text: "A study in drawing, shapes, and simple workflows."; wrap: word-wrap; color: #526079; }
+                        Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #526079; }
                         Text { text: "Icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
@@ -482,16 +494,33 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         ShapeMode::Both => 2,
     });
     ui.set_stroke_width(controller.stroke_width() as i32);
-    ui.set_color_target(if controller.color_target() == ColorTarget::Fill {
+    ui.set_color_slot(if controller.color_slot() == ColorSlot::Primary {
         0
     } else {
         1
     });
-    let color = controller.primary_color();
-    ui.set_primary_color(slint::Color::from_argb_u8(
+    let primary = controller.primary_color();
+    let secondary = controller.secondary_color();
+    let primary_ui = slint::Color::from_argb_u8(primary.a, primary.r, primary.g, primary.b);
+    let secondary_ui =
+        slint::Color::from_argb_u8(secondary.a, secondary.r, secondary.g, secondary.b);
+    if ui.get_workspace_primary() != primary_ui {
+        ui.set_workspace_primary(primary_ui);
+        ui.set_workspace_primary_description(
+            colors::describe_workspace_color(primary, "Primary").into(),
+        );
+    }
+    if ui.get_workspace_secondary() != secondary_ui {
+        ui.set_workspace_secondary(secondary_ui);
+        ui.set_workspace_secondary_description(
+            colors::describe_workspace_color(secondary, "Secondary").into(),
+        );
+    }
+    let color = controller.selected_color();
+    ui.set_selected_color(slint::Color::from_argb_u8(
         color.a, color.r, color.g, color.b,
     ));
-    ui.set_primary_hex(hoshi_controller::color::format_hex(color).into());
+    ui.set_selected_hex(hoshi_controller::color::format_hex(color).into());
     ui.invoke_sync_color(
         color.r.into(),
         color.g.into(),
@@ -630,7 +659,7 @@ pub fn create_app_with_panels() -> Result<
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_color(move |color| {
         update(&weak, &state, |c| {
-            c.set_primary_color(match color {
+            c.set_selected_color(match color {
                 1 => hoshi_controller::Color::rgba(232, 104, 92, 255),
                 2 => hoshi_controller::Color::rgba(54, 167, 140, 255),
                 _ => hoshi_controller::Color::rgba(72, 136, 240, 255),
@@ -648,11 +677,6 @@ pub fn create_app_with_panels() -> Result<
                 _ => ShapeMode::Fill,
             })
         });
-        if mode != 2
-            && let Some(ui) = weak.upgrade()
-        {
-            ui.invoke_select_color_target(if mode == 1 { 1 } else { 0 });
-        }
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_edit_stroke_width(move |width| {

@@ -61,10 +61,7 @@ fn software_rendered_canvas_accepts_real_input_events() {
     let preview = ui.window().take_snapshot().unwrap();
     let sample =
         preview.as_slice()[((y as usize + 40) * preview.width() as usize) + x as usize + 40];
-    assert_eq!(
-        (sample.r, sample.g, sample.b, sample.a),
-        (72, 136, 240, 255)
-    );
+    assert_eq!((sample.r, sample.g, sample.b, sample.a), (0, 0, 0, 255));
     ui.window()
         .dispatch_event(WindowEvent::WindowActiveChanged(false));
     assert!(

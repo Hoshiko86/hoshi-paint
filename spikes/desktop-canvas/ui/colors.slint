@@ -34,13 +34,42 @@ export component ColorSwatch inherits Rectangle {
     in property <string> label;
     in property <string> description;
     width: 40px; height: 40px;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    border-width: root.selected ? 2px : 0px; border-color: #315cae;
     callback clicked();
-    Button { width: parent.width; height: parent.height; accessible-label: root.label; accessible-description: root.description; clicked => { root.clicked(); } }
+    Button { enabled: root.enabled; width: parent.width; height: parent.height; accessible-label: root.label; accessible-description: root.description; clicked => { root.clicked(); } }
     Rectangle {
         x: 8px; y: 8px; width: 24px; height: 24px;
         background: root.value; border-width: 1px; border-color: #526079;
     }
+    Rectangle { border-width: root.selected ? 2px : 0px; border-color: #315cae; background: transparent; }
     Tooltip { SwatchDetails { text: root.description; } }
+}
+export component WorkspaceColors inherits HorizontalLayout {
+    in property <color> primary;
+    in property <color> secondary;
+    in property <string> primary-description;
+    in property <string> secondary-description;
+    in property <int> slot;
+    in property <bool> picking;
+    callback select(int);
+    callback swap();
+    callback reset();
+    height: 40px; spacing: 6px;
+    ColorSwatch { value: root.primary; label: "Primary color"; description: root.primary-description;
+        selected: root.slot == 0; enabled: !root.picking; clicked => { root.select(0); } }
+    ColorSwatch { value: root.secondary; label: "Secondary color"; description: root.secondary-description;
+        selected: root.slot == 1; enabled: !root.picking; clicked => { root.select(1); } }
+    Button { width: 32px; icon: @image-url("../icons/swap-colors.svg"); enabled: !root.picking;
+        accessible-label: "Swap Primary and Secondary colors";
+        Tooltip { text: @markdown("Swap Primary and Secondary colors · X"); }
+        clicked => { root.swap(); } }
+    Button { width: 32px; icon: @image-url("../icons/reset-colors.svg"); enabled: !root.picking;
+        accessible-label: "Reset colors to black and white";
+        Tooltip { text: @markdown("Reset colors to black and white · D"); }
+        clicked => { root.reset(); } }
+    Rectangle { horizontal-stretch: 1; }
 }
 component ColorPreview inherits Rectangle {
     in property <color> value;
@@ -101,9 +130,14 @@ export component ToolPanelFrame inherits Rectangle {
     }
 }
 export component ColorPanel inherits Rectangle {
-    in property <int> color-target;
-    callback select-color-target(int);
-    changed color-target => { target-choice.current-index = root.color-target; }
+    in property <color> workspace-primary;
+    in property <color> workspace-secondary;
+    in property <string> primary-description;
+    in property <string> secondary-description;
+    callback swap-colors();
+    callback reset-colors();
+    in property <int> color-slot;
+    callback select-color-slot(int);
     in property <[PaletteSwatch]> swatches: [
         { red: 72, green: 136, blue: 240, label: "#4888F0", description: "" },
         { red: 232, green: 104, blue: 92, label: "#E8685C", description: "" },
@@ -152,16 +186,21 @@ export component ColorPanel inherits Rectangle {
     preferred-height: 720px;
     ToolPanelFrame {
         title: "Colors"; docked: root.docked; placement: root.placement;
-        body-height: root.width < 560px ? 848px : 696px;
+        body-height: root.width < 560px ? 880px : 728px;
         placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
         VerticalLayout {
             padding: 8px;
             spacing: 8px;
-            target-choice := ComboBox { enabled: !root.screen-picking; model: ["Fill color", "Outline color"]; current-index: root.color-target;
-                accessible-label: "Color editing target";
-                selected(value) => { root.select-color-target(self.current-index); } }
+            WorkspaceColors {
+                primary: root.workspace-primary; secondary: root.workspace-secondary;
+                primary-description: root.primary-description; secondary-description: root.secondary-description;
+                slot: root.color-slot; picking: root.screen-picking;
+                select(value) => { root.select-color-slot(value); }
+                swap => { root.swap-colors(); } reset => { root.reset-colors(); }
+            }
+            Text { text: root.color-slot == 0 ? "Editing Primary" : "Editing Secondary"; color: #526079; height: 20px; }
             HorizontalLayout {
                 height: 40px; spacing: 6px;
                 Text { text: "Original"; color: #526079; vertical-alignment: center; }
@@ -180,6 +219,19 @@ export component ColorPanel inherits Rectangle {
                 Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
                     Tooltip { text: @markdown("Color Picker"); }
                     clicked => { root.pick-screen(); }
+                }
+            }
+            swatch-strip := Rectangle {
+                height: 40px;
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 6px;
+                    for swatch in root.swatches : ColorSwatch {
+                        value: rgb(swatch.red, swatch.green, swatch.blue);
+                        label: swatch.label;
+                        description: swatch.description;
+                        clicked => { root.set-rgba(swatch.red, swatch.green, swatch.blue, root.alpha); }
+                    }
                 }
             }
             sv := Rectangle {
@@ -232,19 +284,6 @@ export component ColorPanel inherits Rectangle {
             }
             Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
                 color: root.error == "" ? #526079 : #a12828; height: 36px; wrap: word-wrap; }
-            swatch-strip := Rectangle {
-                height: 40px;
-                HorizontalLayout {
-                    alignment: start;
-                    spacing: 6px;
-                    for swatch in root.swatches : ColorSwatch {
-                        value: rgb(swatch.red, swatch.green, swatch.blue);
-                        label: swatch.label;
-                        description: swatch.description;
-                        clicked => { root.set-rgba(swatch.red, swatch.green, swatch.blue, root.alpha); }
-                    }
-                }
-            }
             HorizontalLayout {
                 Button { text: "Close"; clicked => { root.close-picker(); } }
             }
@@ -252,9 +291,15 @@ export component ColorPanel inherits Rectangle {
     }
 }
 export component ColorPickerWindow inherits Window {
-    in property <int> color-target <=> panel.color-target;
-    callback select-color-target(int);
-    title: (root.color-target == 0 ? "Fill color" : "Outline color") + " · Hoshi Paint";
+    in property <color> workspace-primary <=> panel.workspace-primary;
+    in property <color> workspace-secondary <=> panel.workspace-secondary;
+    in property <string> primary-description <=> panel.primary-description;
+    in property <string> secondary-description <=> panel.secondary-description;
+    callback swap-colors();
+    callback reset-colors();
+    in property <int> color-slot <=> panel.color-slot;
+    callback select-color-slot(int);
+    title: (root.color-slot == 0 ? "Primary color" : "Secondary color") + " · Hoshi Paint";
     preferred-width: 640px; preferred-height: 720px;
     min-width: 380px; min-height: 680px;
     background: #f2f4f8; default-font-size: 13px;
@@ -301,7 +346,8 @@ export component ColorPickerWindow inherits Window {
     callback close-picker();
     callback toggle-dock();
     panel := ColorPanel {
-        select-color-target(value) => { root.select-color-target(value); }
+        swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }
+        select-color-slot(value) => { root.select-color-slot(value); }
         placement-selected(value) => { root.placement-selected(value); }
         set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }

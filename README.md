@@ -40,3 +40,13 @@ separate worktree.
 
 Native shapes follow **draw → adjust → commit to pixels**. They remain editable
 only while active; committed shapes are raster pixels, with one undo entry.
+
+## License
+
+Copyright 2026 Hoshi Paint contributors. Licensed under GNU GPL version 3 only
+(`GPL-3.0-only`); see [LICENSE](LICENSE). Third-party code and assets retain their
+own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Earlier MIT
+distributions retain their existing grants.
+
+Development binary artifacts include the license and a corresponding source
+archive with the locked Rust dependencies and build instructions.

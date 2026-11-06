@@ -49,8 +49,8 @@ machine. The software renderer still draws and its pixel checks pass.
 - Click/no-drag produces no pixels. Lost activation cancels an unfinished drag;
   released editable shapes survive. Text editing does not run canvas shortcuts.
 
-The experiment selects Slint's royalty-free 2.0 license with the required About
-widget. Hoshi source remains MIT; dependency notices are separate. The initial
+Hoshi source and the selected Slint license option are GPL-3.0-only. The About
+widget remains for attribution; dependency and asset notices are separate. The initial
 Rust 1.85.1 pin was upgraded deliberately: Slint requires at least 1.92 and the
 current stable 1.99.1 resolves the locked graph. The small core Clippy change is
 the new compiler's equivalent let-chain suggestion, not a behavior change.

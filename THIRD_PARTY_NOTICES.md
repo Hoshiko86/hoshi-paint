@@ -1,14 +1,17 @@
 # Third-party notices for the canvas spike
 
-Hoshi Paint's own source remains MIT licensed. Dependency licenses apply to
-their respective code; this file does not relicense any dependency.
+Hoshi Paint's own source is licensed under **GNU GPL version 3 only**
+(`GPL-3.0-only`), copyright 2026 Hoshi Paint contributors. See [LICENSE](LICENSE).
+Dependency and asset licenses apply to their respective code and resources.
 
-The experimental desktop shell uses **Slint 1.18.1** under the Slint Royalty-free
-Desktop, Mobile, and Web Applications License, version 2.0. The unmodified license
-is included at [licenses/Slint-Royalty-free-2.0.md](licenses/Slint-Royalty-free-2.0.md).
-The top-level Help → About Hoshi Paint screen displays the toolkit's `AboutSlint`
-widget for attribution. Retain it when distributing the spike. The framework's
-other license alternatives have not been selected for this experiment.
+The experimental desktop shell selects the **GPL-3.0-only** option offered by
+**Slint 1.18.1**. The Help → About Hoshi Paint screen retains `AboutSlint` for
+attribution. Slint's alternative royalty-free and commercial terms are not the
+selected basis for current distributions.
+
+Earlier Hoshi Paint versions were distributed under MIT. Their existing grants
+remain valid; the original notice is preserved in
+[licenses/Hoshi-Paint-legacy-MIT.txt](licenses/Hoshi-Paint-legacy-MIT.txt).
 
 Cargo.lock records transitive dependencies and versions. A complete distributable
 license inventory remains a release gate; this spike is not a packaged release.
@@ -27,4 +30,7 @@ The cursor derivative adds a 32px viewport and a dark fill/white outline for
 contrast; path geometry is unchanged. Attribution comments remain in both SVGs. The Windows `.cur` is a rasterized
 32×32 derivative with the same tip hotspot (3,29).
 Only Free SVGs are bundled, not Pro assets or font files. Hoshi Paint source
-remains MIT licensed; the icon retains its own CC BY 4.0 terms.
+is GPL-3.0-only; the icon retains its own CC BY 4.0 terms.
+
+The swap-colors and reset-colors SVGs are original Hoshi Paint artwork covered
+by GPL-3.0-only.

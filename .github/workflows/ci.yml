@@ -70,11 +70,13 @@ jobs:
           for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
                          "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
                          "target/spike-colors-docked.png", "target/spike-panels.png", "target/spike-history.png",
-                         "THIRD_PARTY_NOTICES.md"]:
+                         "LICENSE", "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)
               if path.is_file():
                   shutil.copy2(path, package / path.name)
           shutil.copytree("licenses", package / "licenses", dirs_exist_ok=True)
+      - name: Bundle corresponding source and locked dependencies
+        run: python3 scripts/package_source.py target/spike-package/hoshi-paint-source.tar.gz
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}

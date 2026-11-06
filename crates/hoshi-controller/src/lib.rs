@@ -17,9 +17,9 @@ pub enum ShapeMode {
     Both,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ColorTarget {
-    Fill,
-    Outline,
+pub enum ColorSlot {
+    Primary,
+    Secondary,
 }
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
@@ -166,8 +166,8 @@ pub struct Controller {
     tool: Tool,
     gesture: Option<Gesture>,
     primary_color: Color,
-    outline_color: Color,
-    color_target: ColorTarget,
+    secondary_color: Color,
+    color_slot: ColorSlot,
     shape_mode: ShapeMode,
     stroke_width: u32,
     aspect_lock: bool,
@@ -188,9 +188,9 @@ impl Controller {
             viewport: Viewport::default(),
             tool: Tool::Rectangle,
             gesture: None,
-            primary_color: Color::rgba(72, 136, 240, 255),
-            outline_color: Color::rgba(32, 40, 56, 255),
-            color_target: ColorTarget::Fill,
+            primary_color: Color::rgba(0, 0, 0, 255),
+            secondary_color: Color::rgba(255, 255, 255, 255),
+            color_slot: ColorSlot::Primary,
             shape_mode: ShapeMode::Fill,
             stroke_width: 2,
             aspect_lock: false,
@@ -228,9 +228,12 @@ impl Controller {
         self.tool
     }
     pub fn primary_color(&self) -> Color {
-        match self.color_target {
-            ColorTarget::Fill => self.primary_color,
-            ColorTarget::Outline => self.outline_color,
+        self.primary_color
+    }
+    pub fn selected_color(&self) -> Color {
+        match self.color_slot {
+            ColorSlot::Primary => self.primary_color,
+            ColorSlot::Secondary => self.secondary_color,
         }
     }
     pub fn is_dragging(&self) -> bool {
@@ -409,7 +412,7 @@ impl Controller {
             let index = point.1.floor() as usize * self.document.width() as usize
                 + point.0.floor() as usize;
             if let Some(pixels) = &self.sample_snapshot {
-                self.set_primary_color(pixels[index])?;
+                self.set_selected_color(pixels[index])?;
             }
         }
         Ok(())
@@ -746,14 +749,11 @@ impl Controller {
         Ok(())
     }
 
-    pub fn color_target(&self) -> ColorTarget {
-        self.color_target
+    pub fn color_slot(&self) -> ColorSlot {
+        self.color_slot
     }
-    pub fn fill_color(&self) -> Color {
-        self.primary_color
-    }
-    pub fn outline_color(&self) -> Color {
-        self.outline_color
+    pub fn secondary_color(&self) -> Color {
+        self.secondary_color
     }
     pub fn shape_mode(&self) -> ShapeMode {
         self.shape_mode
@@ -761,20 +761,20 @@ impl Controller {
     pub fn stroke_width(&self) -> u32 {
         self.stroke_width
     }
-    pub fn set_color_target(&mut self, target: ColorTarget) {
-        self.color_target = target;
+    pub fn set_color_slot(&mut self, target: ColorSlot) {
+        self.color_slot = target;
     }
 
     fn drawing_style(&self) -> ShapeStyle {
         match self.shape_mode {
             ShapeMode::Fill => ShapeStyle::Fill(self.primary_color),
             ShapeMode::Outline => ShapeStyle::Outline {
-                color: self.outline_color,
+                color: self.primary_color,
                 width: self.stroke_width,
             },
             ShapeMode::Both => ShapeStyle::Both {
-                fill: self.primary_color,
-                outline: self.outline_color,
+                fill: self.secondary_color,
+                outline: self.primary_color,
                 width: self.stroke_width,
             },
         }
@@ -802,11 +802,29 @@ impl Controller {
         self.refresh_shape_style()
     }
 
-    /// Edit the selected fill/outline channel through every color input, including sampling.
+    /// Set Primary regardless of which workspace slot is selected.
     pub fn set_primary_color(&mut self, color: Color) -> Result<(), ControllerError> {
-        match self.color_target {
-            ColorTarget::Fill => self.primary_color = color,
-            ColorTarget::Outline => self.outline_color = color,
+        self.primary_color = color;
+        self.refresh_shape_style()
+    }
+    pub fn set_secondary_color(&mut self, color: Color) -> Result<(), ControllerError> {
+        self.secondary_color = color;
+        self.refresh_shape_style()
+    }
+    pub fn swap_colors(&mut self) -> Result<(), ControllerError> {
+        std::mem::swap(&mut self.primary_color, &mut self.secondary_color);
+        self.refresh_shape_style()
+    }
+    pub fn reset_colors(&mut self) -> Result<(), ControllerError> {
+        self.primary_color = Color::rgba(0, 0, 0, 255);
+        self.secondary_color = Color::rgba(255, 255, 255, 255);
+        self.refresh_shape_style()
+    }
+    /// Color inputs and sampling edit this slot without changing tool semantics.
+    pub fn set_selected_color(&mut self, color: Color) -> Result<(), ControllerError> {
+        match self.color_slot {
+            ColorSlot::Primary => self.primary_color = color,
+            ColorSlot::Secondary => self.secondary_color = color,
         }
         self.refresh_shape_style()
     }

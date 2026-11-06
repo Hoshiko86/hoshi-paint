@@ -68,12 +68,10 @@ lockfile, and run the entire core suite before adopting the change. Investigate
 transitive dependency minimums too. Do not silently use an older toolkit just
 to preserve the initial pin, or follow a development branch in production.
 
-Slint's reviewed license summary offers GPLv3, a royalty-free license with
-conditions including disclosure, or a commercial license. The application
-currently carries an MIT license; an MIT application license does not erase
-dependency obligations. Before adopting Slint, record which framework license
-will be used, its disclosure/distribution requirements, and the planned release
-notices. This research is not a legal conclusion or a license selection.
+Slint offers GPLv3, a royalty-free license with conditions, or a commercial
+license. Hoshi Paint now uses GPL-3.0-only and selects Slint's GPL-3.0-only
+option. Dependency and asset obligations remain separate; see
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ## Next deliverable: bounded canvas/integration spike
 

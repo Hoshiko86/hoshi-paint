@@ -136,3 +136,10 @@ bypass techniques to turn an unsuccessful device install into a passing result.
 - [ ] Separate unsupported features, failed checks and unavailable equipment from
       passed checks. Keep ARCH-1 open until required evidence or an explicit scope
       decision is recorded.
+
+## GPL distribution gate
+
+The application and selected Slint option are now GPL-3.0-only. Evaluate GPLv3
+source access, installation information where required, and compatibility with
+the intended iOS distribution channel before publishing an iOS build. The iOS
+App Store distribution path is not established by the desktop spike.

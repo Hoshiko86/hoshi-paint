@@ -68,6 +68,17 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
         viewport,
         "panel scrolling must not pan the canvas"
     );
+    // Workspace slots and palette swatches now live at the top of Colors.
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(
+                ui.get_colors_host_left() + ui.get_colors_host_width() - 10.0,
+                ui.get_colors_host_top() + 100.0,
+            ),
+            delta_x: 0.0,
+            delta_y: 500.0,
+        });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
     let snapshot = ui.window().take_snapshot().unwrap();
     assert!(ui.get_docked_swatches_top() + 40.0 < snapshot.height() as f32);
     let x = ui.get_docked_swatches_left() as u32 + 20;

@@ -64,9 +64,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             state.borrow().composite()[128 * 512 + 128],
             Color::rgba(80, 140, 200, 255)
         );
+        ui.invoke_select_color_slot(1);
+        ui.invoke_edit_rgba(80, 140, 200, 255);
         ui.invoke_select_shape_mode(2);
         ui.invoke_edit_stroke_width(8);
-        ui.invoke_select_color_target(1);
+        ui.invoke_select_color_slot(0);
         ui.invoke_edit_rgba(210, 60, 70, 255);
         let shape = state.borrow().document().active_shape().unwrap();
         let edge = shape.y as usize * 512 + shape.x as usize;

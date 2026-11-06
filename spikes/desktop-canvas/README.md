@@ -40,11 +40,18 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
   canvas pixels (1–65,536), inset inside the bounds; a wide stroke can consume
   the interior. Settings apply live to the active preview and to future shapes.
-- Choose Fill color or Outline color beside Colors… or inside the Colors panel.
-  RGB, HSV, hex, palette swatches, alpha, Restore and Color Picker edit only that
-  channel. Each channel keeps its original comparison color until the panel closes;
-  switching channels or docking does not reset it. Fill/Outline modes select their
-  corresponding color automatically. Cancel discards the preview, retaining settings.
+- Primary and Secondary are shared workspace colors, initially black and white.
+  Click either swatch in the sidebar or Colors panel to choose the slot being edited.
+  Fill-only and outline-only shapes use Primary. With both enabled, outlines use
+  Primary and fills use Secondary. Changing tools/styles does not select a slot.
+- RGB, HSV, hex, palette swatches, alpha, Restore and Color Picker edit the selected
+  slot. Each slot keeps its original comparison color until Colors closes;
+  switching slots, swapping colors, or docking does not reset it.
+- Swap colors with the arrow icon or X; reset to black/white with the overlapping
+  squares icon or D. Shortcuts apply while the canvas has focus, preserving text
+  input in color/layer fields. Active shapes update live; committed pixels stay fixed.
+  Right-drag remains canvas panning; reversed right-button painting is not implemented.
+- Cancel discards the active preview while retaining workspace colors and settings.
 - Drag any of the eight square control points: corners resize both dimensions;
   edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
   rounding, even after rotation. Crossed edges clamp at one pixel.
@@ -153,8 +160,8 @@ performance budgets, GPU texture integration/device loss, and iOS. See
 [the Apple-host checklist](../../docs/IOS_SPIKE_CHECKLIST.md). The software desktop
 renderer does not establish iOS support; the official iOS path requires Skia.
 
-Slint's royalty-free 2.0 license is selected for this experiment, with the
-top-level Help → About attribution. See THIRD_PARTY_NOTICES.md. A complete
+Hoshi Paint and the selected Slint license option are GPL-3.0-only, with
+the top-level Help → About attribution retained. See THIRD_PARTY_NOTICES.md. A complete
 transitive license inventory remains a packaged-release gate.
 
 The widget palette is explicitly light to match the fixed light shell, even on

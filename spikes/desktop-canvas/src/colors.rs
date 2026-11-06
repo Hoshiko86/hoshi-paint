@@ -59,10 +59,10 @@ pub(super) fn bind_picker(
     controller: SharedController,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
-    let original = Rc::new(Cell::new(controller.borrow().primary_color()));
+    let original = Rc::new(Cell::new(controller.borrow().selected_color()));
     let originals = Rc::new(Cell::new([
-        controller.borrow().fill_color(),
-        controller.borrow().outline_color(),
+        controller.borrow().primary_color(),
+        controller.borrow().secondary_color(),
     ]));
     let (weak, reference) = (picker.as_weak(), original.clone());
     picker.on_restore_original(move || {
@@ -89,24 +89,24 @@ pub(super) fn bind_picker(
         original.clone(),
     );
     let baselines = originals.clone();
-    ui.on_select_color_target(move |target| {
+    ui.on_select_color_slot(move |target| {
         if let (Some(ui), Some(picker)) = (main.upgrade(), colors.upgrade()) {
             let target = if target == 1 {
-                hoshi_controller::ColorTarget::Outline
+                hoshi_controller::ColorSlot::Secondary
             } else {
-                hoshi_controller::ColorTarget::Fill
+                hoshi_controller::ColorSlot::Primary
             };
-            if state.borrow().color_target() == target || ui.get_screen_picking() {
+            if state.borrow().color_slot() == target || ui.get_screen_picking() {
                 return;
             }
-            state.borrow_mut().set_color_target(target);
-            picker.set_color_target(if target == hoshi_controller::ColorTarget::Fill {
+            state.borrow_mut().set_color_slot(target);
+            picker.set_color_slot(if target == hoshi_controller::ColorSlot::Primary {
                 0
             } else {
                 1
             });
-            let current = state.borrow().primary_color();
-            let baseline = baselines.get()[if target == hoshi_controller::ColorTarget::Fill {
+            let current = state.borrow().selected_color();
+            let baseline = baselines.get()[if target == hoshi_controller::ColorSlot::Primary {
                 0
             } else {
                 1
@@ -118,9 +118,44 @@ pub(super) fn bind_picker(
         }
     });
     let main = ui.as_weak();
-    picker.on_select_color_target(move |target| {
+    picker.on_select_color_slot(move |target| {
         if let Some(ui) = main.upgrade() {
-            ui.invoke_select_color_target(target);
+            ui.invoke_select_color_slot(target);
+        }
+    });
+    for swap in [true, false] {
+        let (main, state) = (ui.as_weak(), controller.clone());
+        let action = move || {
+            if let Some(ui) = main.upgrade() {
+                if ui.get_screen_picking() {
+                    return;
+                }
+                update(&ui.as_weak(), &state, |c| {
+                    c.pointer_up()?;
+                    if swap {
+                        c.swap_colors()
+                    } else {
+                        c.reset_colors()
+                    }
+                });
+            }
+        };
+        if swap {
+            ui.on_swap_colors(action);
+        } else {
+            ui.on_reset_colors(action);
+        }
+    }
+    let main = ui.as_weak();
+    picker.on_swap_colors(move || {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_swap_colors();
+        }
+    });
+    let main = ui.as_weak();
+    picker.on_reset_colors(move || {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_reset_colors();
         }
     });
     let swatches = [
@@ -200,8 +235,11 @@ pub(super) fn bind_picker(
                 c.set_aspect_lock(false).expect("gesture ended");
             }
             if !ui.get_colors_visible() {
-                baselines.set([state.borrow().fill_color(), state.borrow().outline_color()]);
-                begin_comparison(&ui, &p, &reference, state.borrow().primary_color());
+                baselines.set([
+                    state.borrow().primary_color(),
+                    state.borrow().secondary_color(),
+                ]);
+                begin_comparison(&ui, &p, &reference, state.borrow().selected_color());
             }
             let placement = placement.clamp(0, 4);
             ui.set_colors_placement(placement);
@@ -235,7 +273,7 @@ pub(super) fn bind_picker(
         }
         slint::CloseRequestResponse::HideWindow
     });
-    synchronize(&picker, controller.borrow().primary_color(), None);
+    synchronize(&picker, controller.borrow().selected_color(), None);
     picker.set_has_active_shape(controller.borrow().document().active_shape().is_some());
     begin_comparison(ui, &picker, &original, original.get());
     let weak = picker.as_weak();
@@ -249,9 +287,16 @@ pub(super) fn bind_picker(
     ui.on_sync_color(move |r, g, b, a, active| {
         if let Some(picker) = weak.upgrade() {
             picker.set_has_active_shape(active);
+            if let Some(ui) = main.upgrade() {
+                picker.set_color_slot(ui.get_color_slot());
+                picker.set_workspace_primary(ui.get_workspace_primary());
+                picker.set_workspace_secondary(ui.get_workspace_secondary());
+                picker.set_primary_description(ui.get_workspace_primary_description());
+                picker.set_secondary_description(ui.get_workspace_secondary_description());
+            }
             // Geometry/viewport updates do not change the color controls. Avoid
             // HSV conversion, image/property syncing and layout invalidation on
-            // every resize event when the primary color is unchanged.
+            // every resize event when the selected color is unchanged.
             if (
                 picker.get_red(),
                 picker.get_green(),
@@ -281,8 +326,11 @@ pub(super) fn bind_picker(
                 return;
             }
             if !ui.get_colors_visible() {
-                baselines.set([state.borrow().fill_color(), state.borrow().outline_color()]);
-                begin_comparison(&ui, &colors, &reference, state.borrow().primary_color());
+                baselines.set([
+                    state.borrow().primary_color(),
+                    state.borrow().secondary_color(),
+                ]);
+                begin_comparison(&ui, &colors, &reference, state.borrow().selected_color());
             }
             // Switching to our color window must preserve the editable preview,
             // even if native pointer release/capture has not settled yet.
@@ -318,7 +366,7 @@ pub(super) fn bind_picker(
         );
         update(&main, &state, |c| {
             c.pointer_up()?;
-            c.set_primary_color(value)
+            c.set_selected_color(value)
         });
         if let Some(picker) = colors.upgrade() {
             picker.set_error("".into());
@@ -343,11 +391,11 @@ pub(super) fn bind_picker(
             saturation: f64::from(s.clamp(0.0, 100.0)),
             value: f64::from(v.clamp(0.0, 100.0)),
         };
-        let alpha = state.borrow().primary_color().a;
+        let alpha = state.borrow().selected_color().a;
         if let Ok(value) = color::color_from_hsv(hsv.hue, hsv.saturation, hsv.value, alpha) {
             update(&main, &state, |c| {
                 c.pointer_up()?;
-                c.set_primary_color(value)
+                c.set_selected_color(value)
             });
             if let Some(picker) = colors.upgrade() {
                 synchronize(&picker, value, Some(hsv));
@@ -370,7 +418,7 @@ pub(super) fn bind_picker(
             Ok(value) => {
                 update(&main, &state, |c| {
                     c.pointer_up()?;
-                    c.set_primary_color(value)
+                    c.set_selected_color(value)
                 });
                 if let Some(p) = colors.upgrade() {
                     p.set_error("".into());
@@ -474,7 +522,7 @@ fn finish_screen_pick(
         picker.set_screen_picking(false);
         match result {
             Ok(Some(value)) => {
-                update(main, state, |c| c.set_primary_color(value));
+                update(main, state, |c| c.set_selected_color(value));
                 picker.set_error("".into());
             }
             Ok(None) => picker.set_error("".into()),
@@ -548,6 +596,18 @@ fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
     ui.set_screen_picking(picker.get_screen_picking());
 }
 
+pub(super) fn describe_workspace_color(value: Color, slot: &str) -> String {
+    let name = match (value.r, value.g, value.b) {
+        (0, 0, 0) => Some("Black"),
+        (255, 255, 255) => Some("White"),
+        (72, 136, 240) => Some("Blue"),
+        (232, 104, 92) => Some("Coral"),
+        (54, 167, 140) => Some("Mint"),
+        _ => None,
+    };
+    format!("{slot} color\n{}", describe_swatch(value, name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -573,7 +633,7 @@ mod tests {
         let selected = Color::rgba(11, 123, 234, 255);
         picker.set_screen_picking(true);
         finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(Some(selected)));
-        assert_eq!(state.borrow().primary_color(), selected);
+        assert_eq!(state.borrow().selected_color(), selected);
         assert_eq!(state.borrow().composite()[50 * 512 + 50], selected);
         let shape = state.borrow().document().active_shape().unwrap();
         assert_eq!(
@@ -591,7 +651,7 @@ mod tests {
             Err("Permission denied".into()),
         );
         assert_eq!(state.borrow().document().active_shape(), Some(shape));
-        assert_eq!(state.borrow().primary_color(), selected);
+        assert_eq!(state.borrow().selected_color(), selected);
         assert_eq!(picker.get_error(), "Permission denied");
         assert_eq!(state.borrow().document().undo_len(), 0);
         picker.invoke_set_rgba(100, 80, 60, 255);

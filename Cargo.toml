@@ -6,7 +6,7 @@ resolver = "3"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
-license = "MIT"
+license = "GPL-3.0-only"
 
 # Keep debug symbols and checks in development artifacts, but optimize the
 # per-pixel hot paths so interactive resizing does not run at opt-level 0.
