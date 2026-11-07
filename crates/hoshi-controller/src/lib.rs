@@ -831,6 +831,21 @@ impl Controller {
         self.refresh_shape_style()
     }
 
+    pub fn flatten_for_export(&mut self, matte: Option<Color>) -> Result<(), ControllerError> {
+        self.pointer_up()?;
+        self.commit()?;
+        self.document.flatten_for_save(matte)?;
+        Ok(())
+    }
+    pub fn replace_document(&mut self, document: Document) {
+        self.document = document;
+        self.gesture = None;
+        self.sample_snapshot = None;
+        self.last_pointer = None;
+        self.aspect_lock = false;
+        self.tool = Tool::Rectangle;
+        self.reset_view();
+    }
     pub fn new_image(
         &mut self,
         width: u32,

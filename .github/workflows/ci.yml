@@ -43,6 +43,12 @@ jobs:
           HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
           HOSHI_DOCK_SNAPSHOT: target/spike-colors-docked.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
+      - name: Native document tabs and save prompts smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+          HOSHI_DOCUMENT_SNAPSHOT_DIR: target
+        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example documents_smoke --locked
       - name: Native image and canvas settings smoke test
         if: runner.os == 'Linux'
         env:
@@ -77,7 +83,8 @@ jobs:
           for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
                          "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
                          "target/spike-colors-docked.png", "target/spike-panels.png", "target/spike-history.png",
-                         "target/spike-image-new.png", "target/spike-image-resize.png",
+                         "target/spike-documents.png", "target/spike-save-prompt.png",
+                         "target/spike-save-configuration.png", "target/spike-image-new.png", "target/spike-image-resize.png",
                          "target/spike-canvas-size.png", "target/spike-image-edited.png",
                          "LICENSE", "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)

@@ -77,7 +77,10 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
     let (main, controller, data) = (ui.as_weak(), state.clone(), draft.clone());
     ui.on_show_image_settings(move |kind| {
         if let Some(ui) = main.upgrade() {
-            if ui.get_modal_visible() || !(0..=2).contains(&kind) {
+            if ui.get_modal_visible()
+                || !(0..=2).contains(&kind)
+                || (kind != 0 && !controller.borrow().has_document())
+            {
                 return;
             }
             {
@@ -215,6 +218,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
             let secondary = c.secondary_color();
             let result = match kind {
                 0 => {
+                    if c.tabs().len() >= crate::workspace::MAX_DOCUMENTS { return Err("Close a document before creating more (prototype limit: 32).".into()); }
                     let background = match ui.get_image_background() { 0 => Color::rgba(255,255,255,255), 1 => Color::rgba(0,0,0,0), 2 => secondary, _ => return Err("Choose a valid background.".into()) };
                     c.new_image(width, height, resolution, background)
                 }

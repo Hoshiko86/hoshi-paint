@@ -61,5 +61,8 @@ fn history_window_tracks_rows_navigates_redo_and_preserves_pending_shapes() {
     assert!(colors.window().is_visible() && history.window().is_visible());
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::CloseRequested);
+    while ui.get_file_prompt_visible() {
+        ui.invoke_file_prompt_response(1);
+    }
     assert!(!colors.window().is_visible() && !history.window().is_visible());
 }

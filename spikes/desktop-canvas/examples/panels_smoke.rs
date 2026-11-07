@@ -47,6 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 save(history.window(), "HOSHI_HISTORY_SNAPSHOT");
                 ui.window()
                     .dispatch_event(slint::platform::WindowEvent::CloseRequested);
+                while ui.get_file_prompt_visible() {
+                    ui.invoke_file_prompt_response(1);
+                }
                 assert!(!colors.window().is_visible() && !history.window().is_visible());
                 println!(
                     "PASS: native left/right dock hosts, history navigation, floating history and app-close lifecycle"

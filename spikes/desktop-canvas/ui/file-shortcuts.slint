@@ -1,0 +1,15 @@
+export component FileShortcuts inherits FocusScope {
+    init => { self.focus(); }
+    callback file-action(int);
+    callback cycle-document(bool);
+    key-pressed(event) => {
+        if event.modifiers.control || event.modifiers.meta {
+            if event.text == "o" || event.text == "O" { root.file-action(0); return accept; }
+            if event.text == "s" || event.text == "S" { root.file-action(event.modifiers.alt ? 3 : event.modifiers.shift ? 2 : 1); return accept; }
+            if event.text == "w" || event.text == "W" { root.file-action(event.modifiers.shift ? 5 : 4); return accept; }
+            if event.text == "n" || event.text == "N" { root.file-action(7); return accept; }
+            if event.text == Key.Tab { root.cycle-document(event.modifiers.shift); return accept; }
+        }
+        reject
+    }
+}
