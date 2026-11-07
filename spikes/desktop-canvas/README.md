@@ -114,6 +114,12 @@ is already isolated; use the existing checkout rather than creating a worktree.
 - Losing window activation cancels an unfinished drag; a released active shape
   survives. Clicks and zero-area drags do not paint stray edge pixels.
 
+Use **File → New…** to set up an image. The **Image** menu provides Resize,
+Canvas Size, horizontal/vertical flips, 90°/180° rotations and Flatten. Size dialogs
+support pixels/inches/centimeters and aspect locking; Resize also supports percentage
+scaling, resolution and resampling. Canvas Size uses a nine-point anchor and crops
+or pads without scaling pixels. [Behavior and remaining Paint.NET parity gaps](../../docs/IMAGE_MENU.md).
+
 Only one layer is exposed in this shell. There is no brush, file import/save,
 dash/pattern styles, antialiasing controls, rounded rectangle, ellipse tool or selection UI
 yet. Core support does not imply that a corresponding UI has shipped.

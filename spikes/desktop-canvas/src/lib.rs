@@ -5,9 +5,11 @@ use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
 mod history;
+mod image_settings;
 mod screen_pick;
 
 slint::slint! {
+    import { ImageSettings } from "../ui/image-settings.slint";
     import { ColorPanel, PaletteSwatch, WorkspaceColors } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
@@ -52,7 +54,32 @@ slint::slint! {
         in property <color> selected-color;
         in property <string> selected-hex;
         private property <bool> about-open;
-        out property <bool> modal-visible: root.about-open;
+        in property <int> image-width: 512;
+        in property <int> image-height: 512;
+        in property <bool> can-flatten;
+        in-out property <int> image-dialog-kind: -1;
+        in-out property <string> image-width-text;
+        in-out property <string> image-height-text;
+        in-out property <string> image-resolution-text;
+        in-out property <string> image-percent-text;
+        in-out property <int> image-units;
+        in-out property <bool> image-aspect;
+        in-out property <bool> image-percentage;
+        in-out property <int> image-anchor: 4;
+        in-out property <int> image-background;
+        in-out property <int> image-resampling: 2;
+        in property <string> image-summary;
+        in property <string> image-error;
+        callback show-image-settings(int);
+        callback edit-image-setting(int, string);
+        callback select-image-units(int);
+        callback select-image-aspect(bool);
+        callback select-image-percentage(bool);
+        callback apply-image-settings();
+        callback close-image-settings();
+        close-image-settings => { root.image-dialog-kind = -1; canvas-focus.focus(); }
+        callback image-command(int);
+        out property <bool> modal-visible: root.about-open || root.image-dialog-kind >= 0;
         out property <float> canvas-left: viewport.absolute-position.x / 1px;
         out property <float> canvas-top: viewport.absolute-position.y / 1px;
         out property <float> layer-input-left: layer-input.absolute-position.x / 1px;
@@ -158,9 +185,26 @@ slint::slint! {
         out property <float> history-host-width: docked-history.width / 1px;
         out property <float> history-host-height: docked-history.height / 1px;
         callback show-about();
-        show-about => { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); }
+        show-about => { if root.image-dialog-kind < 0 { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
+            Menu { title: "File";
+                MenuItem { title: "New…"; enabled: !root.modal-visible; activated => { root.show-image-settings(0); } }
+            }
+            Menu { title: "Image";
+                MenuItem { title: "Crop to Selection"; enabled: false; }
+                MenuSeparator { }
+                MenuItem { title: "Resize…"; enabled: !root.modal-visible; activated => { root.show-image-settings(1); } }
+                MenuItem { title: "Canvas Size…"; enabled: !root.modal-visible; activated => { root.show-image-settings(2); } }
+                MenuSeparator { }
+                MenuItem { title: "Flip Horizontal"; enabled: !root.modal-visible; activated => { root.image-command(0); } }
+                MenuItem { title: "Flip Vertical"; enabled: !root.modal-visible; activated => { root.image-command(1); } }
+                MenuItem { title: "Rotate 90° Clockwise"; enabled: !root.modal-visible; activated => { root.image-command(2); } }
+                MenuItem { title: "Rotate 90° Counter-Clockwise"; enabled: !root.modal-visible; activated => { root.image-command(3); } }
+                MenuItem { title: "Rotate 180°"; enabled: !root.modal-visible; activated => { root.image-command(4); } }
+                MenuSeparator { }
+                MenuItem { title: "Flatten"; enabled: !root.modal-visible && root.can-flatten; activated => { root.image-command(5); } }
+            }
             Menu {
                 title: "Help";
                 MenuItem {
@@ -191,9 +235,9 @@ slint::slint! {
                 Button { text: "Commit · Enter"; enabled: root.has-shape; clicked => { root.action(2); } }
                 Button { text: "Cancel · Esc"; enabled: root.has-shape; clicked => { root.action(3); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { text: "−"; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(256, 256, -1); } }
+                Button { text: "−"; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
                 Button { text: "Reset view"; clicked => { root.action(4); } }
-                Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(256, 256, 1); } }
+                Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
             workspace := Rectangle {
                 vertical-stretch: 1;
@@ -243,8 +287,8 @@ slint::slint! {
                         source: root.canvas-image;
                         x: root.offset-x * 1px;
                         y: root.offset-y * 1px;
-                        width: 512px * root.zoom;
-                        height: 512px * root.zoom;
+                        width: root.image-width * 1px * root.zoom;
+                        height: root.image-height * 1px * root.zoom;
                         image-fit: fill;
                     }
                     if root.has-shape : Path {
@@ -298,6 +342,9 @@ slint::slint! {
                                 return accept;
                             }
                             if event.modifiers.control || event.modifiers.meta {
+                                if event.text == "n" || event.text == "N" { root.show-image-settings(0); return accept; }
+                                if event.text == "r" || event.text == "R" { root.show-image-settings(event.modifiers.shift ? 2 : 1); return accept; }
+                                if (event.text == "f" || event.text == "F") && event.modifiers.shift { root.image-command(5); return accept; }
                                 if event.text == "z" { root.action(event.modifiers.shift ? 1 : 0); return accept; }
                                 if event.text == "y" { root.action(1); return accept; }
                             }
@@ -415,6 +462,25 @@ slint::slint! {
             }
             Text { height: 22px; text: root.status; color: #526079; font-size: 12px; }
         }
+        if root.image-dialog-kind >= 0: Rectangle {
+            background: #0008;
+            TouchArea { }
+            ImageSettings {
+                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                width: 560px; height: min(parent.height - 24px, root.image-dialog-kind == 0 ? 610px : root.image-dialog-kind == 1 ? 650px : 680px);
+                kind: root.image-dialog-kind;
+                width-text <=> root.image-width-text; height-text <=> root.image-height-text;
+                resolution-text <=> root.image-resolution-text; percent-text <=> root.image-percent-text;
+                units: root.image-units; aspect: root.image-aspect; percentage: root.image-percentage;
+                anchor <=> root.image-anchor; background-choice <=> root.image-background; resampling <=> root.image-resampling;
+                summary: root.image-summary; error: root.image-error;
+                edited(which, value) => { root.edit-image-setting(which, value); }
+                units-selected(value) => { root.select-image-units(value); }
+                aspect-selected(value) => { root.select-image-aspect(value); }
+                percentage-selected(value) => { root.select-image-percentage(value); }
+                apply => { root.apply-image-settings(); } cancel => { root.close-image-settings(); }
+            }
+        }
         Rectangle {
             visible: root.about-open;
             width: parent.width;
@@ -457,6 +523,13 @@ pub type SharedController = Rc<RefCell<Controller>>;
 
 fn refresh(ui: &AppWindow, controller: &Controller) {
     let document = controller.document();
+    ui.set_image_width(document.width() as i32);
+    ui.set_image_height(document.height() as i32);
+    ui.set_can_flatten(
+        document.layers().len() > 1
+            || !document.layers()[0].visible()
+            || document.layers()[0].opacity() != 255,
+    );
     let rgba = controller.preview_rgba();
     let mut pixels =
         slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(document.width(), document.height());
@@ -542,7 +615,9 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         .unwrap_or_default();
     ui.set_status(
         format!(
-            "512 × 512 · {:.0}% · Undo: {}{}",
+            "{} × {} · {:.0}% · Undo: {}{}",
+            document.width(),
+            document.height(),
             viewport.zoom * 100.0,
             document.undo_len(),
             shape
@@ -591,6 +666,7 @@ pub fn create_app_with_panels() -> Result<
 > {
     let ui = AppWindow::new()?;
     let controller = Rc::new(RefCell::new(Controller::default()));
+    image_settings::bind(&ui, controller.clone());
     refresh(&ui, &controller.borrow());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_shift_modifier(move |pressed| {
