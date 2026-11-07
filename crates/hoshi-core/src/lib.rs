@@ -219,6 +219,9 @@ pub enum Error {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct State {
+    width: u32,
+    height: u32,
+    resolution: u32,
     layers: Vec<Layer>,
     selected: usize,
 }
@@ -238,8 +241,6 @@ struct HistoryEntry {
 }
 
 pub struct Document {
-    width: u32,
-    height: u32,
     state: State,
     active: Option<Shape>,
     undo: VecDeque<HistoryEntry>,
@@ -253,9 +254,10 @@ impl Document {
         }
         let pixels = vec![Color::TRANSPARENT; (width * height) as usize];
         Ok(Self {
-            width,
-            height,
             state: State {
+                width,
+                height,
+                resolution: 96_000,
                 layers: vec![Layer {
                     name: "Background".into(),
                     visible: true,
@@ -271,10 +273,10 @@ impl Document {
     }
 
     pub fn width(&self) -> u32 {
-        self.width
+        self.state.width
     }
     pub fn height(&self) -> u32 {
-        self.height
+        self.state.height
     }
     /// Layers are ordered bottom to top.
     pub fn layers(&self) -> &[Layer] {
@@ -381,7 +383,7 @@ impl Document {
             opacity: 255,
             pixels: Arc::new(vec![
                 Color::TRANSPARENT;
-                (self.width * self.height) as usize
+                (self.state.width * self.state.height) as usize
             ]),
         });
         self.state.selected = index;
@@ -483,10 +485,10 @@ impl Document {
         };
         let shape = RasterShape::new(shape);
         let mut changed = false;
-        for y in 0..self.height {
-            for x in 0..self.width {
+        for y in 0..self.state.height {
+            for x in 0..self.state.width {
                 if let Some(color) = shape.color_at(x, y) {
-                    let index = (y * self.width + x) as usize;
+                    let index = (y * self.state.width + x) as usize;
                     let result = color.over(layer.pixels[index], 255);
                     if result != layer.pixels[index] {
                         Arc::make_mut(&mut layer.pixels)[index] = result;
@@ -501,15 +503,15 @@ impl Document {
 
     /// Preview blends the active shape into its layer before layer opacity.
     pub fn composite(&self, include_preview: bool) -> Vec<Color> {
-        let mut output = vec![Color::TRANSPARENT; (self.width * self.height) as usize];
+        let mut output = vec![Color::TRANSPARENT; (self.state.width * self.state.height) as usize];
         let active = self.active.map(RasterShape::new);
         for (layer_index, layer) in self.state.layers.iter().enumerate() {
             if !layer.visible {
                 continue;
             }
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    let index = (y * self.width + x) as usize;
+            for y in 0..self.state.height {
+                for x in 0..self.state.width {
+                    let index = (y * self.state.width + x) as usize;
                     let mut color = layer.pixels[index];
                     if include_preview
                         && layer_index == self.state.selected
@@ -553,3 +555,7 @@ impl Document {
 
 #[cfg(test)]
 mod color_tests;
+
+mod canvas;
+pub use canvas::{Anchor, ImageTransform, Resampling, ResizeOptions};
+mod resampling;
