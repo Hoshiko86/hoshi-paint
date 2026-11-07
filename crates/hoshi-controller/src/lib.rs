@@ -884,6 +884,10 @@ impl Controller {
         Ok(())
     }
     pub fn flatten(&mut self) -> Result<(), ControllerError> {
+        let layers = self.document.layers();
+        if layers.len() == 1 && layers[0].visible() && layers[0].opacity() == 255 {
+            return Ok(());
+        }
         self.pointer_up()?;
         self.commit()?;
         self.document.flatten()?;

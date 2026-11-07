@@ -66,3 +66,15 @@ fn creating_an_image_clears_document_history_but_preserves_workspace_colors() {
             .all(|c| *c == Color::rgba(255, 255, 255, 255))
     );
 }
+
+#[test]
+fn unavailable_flatten_does_not_commit_an_editable_shape() {
+    let mut c = Controller::new(40, 40).unwrap();
+    c.pointer_down(5., 5.).unwrap();
+    c.pointer_move(20., 20.).unwrap();
+    c.pointer_up().unwrap();
+    let shape = c.document().active_shape();
+    c.flatten().unwrap();
+    assert_eq!(c.document().active_shape(), shape);
+    assert_eq!(c.document().undo_len(), 0);
+}
