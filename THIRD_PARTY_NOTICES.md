@@ -35,9 +35,17 @@ is GPL-3.0-only; the icon retains its own CC BY 4.0 terms.
 The swap-colors and reset-colors SVGs are original Hoshi Paint artwork covered
 by GPL-3.0-only.
 
-## Development screenshot helpers
+## Image files and native dialogs
 
-Development examples use **image 0.25.10** for screenshot encoding, selecting its
+The desktop adapter and development examples use **image 0.25.10** for image codecs and screenshot encoding, selecting its
 MIT license option (upstream offers MIT OR Apache-2.0). Its source and upstream
 license texts are included in the matching source archive under `vendor/image-0.25.10/`.
 The raster core implements resampling directly and does not depend on this library.
+
+The desktop adapter uses **png 0.18.1** (MIT OR Apache-2.0; selecting MIT),
+**rfd 0.17.2** (MIT) for native file dialogs, **tempfile 3.27.0**
+(MIT OR Apache-2.0; selecting MIT), and **serde_json 1.0.154**
+(MIT OR Apache-2.0; selecting MIT). Project checksums use **crc32fast 1.5.3**
+(MIT OR Apache-2.0; selecting MIT). Their sources and license texts, together
+with locked transitive dependencies, are included under `vendor/` in the matching
+source archive.

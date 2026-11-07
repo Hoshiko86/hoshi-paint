@@ -89,7 +89,7 @@ export component ImageSettings inherits Rectangle {
         }
         Text { text: root.summary; wrap: word-wrap; color: #526079; }
         Text { text: root.error; wrap: word-wrap; color: #a12828; min-height: 36px; }
-        Text { text: root.kind == 0 ? "Create replaces the current image and clears its undo history." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #526079; font-size: 12px; }
+        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #526079; font-size: 12px; }
         HorizontalLayout {
             spacing: 8px;
             Rectangle { horizontal-stretch: 1; }

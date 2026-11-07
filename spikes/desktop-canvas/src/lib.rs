@@ -4,20 +4,27 @@ use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod colors;
+pub mod documents;
+pub mod files;
 mod history;
 mod image_settings;
 mod screen_pick;
+pub mod workspace;
 
 slint::slint! {
+    import { FileShortcuts } from "../ui/file-shortcuts.slint";
+    import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
-    import { ColorPanel, PaletteSwatch, WorkspaceColors } from "../ui/colors.slint";
+    import { ColorPanel, PaletteSwatch, WorkspaceColors, SwatchDetails } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
-    import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox } from "std-widgets.slint";
+    import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox, ScrollView } from "std-widgets.slint";
+    export struct DocumentTabRow { id: int, title: string, detail: string, thumbnail: image, active: bool, dirty: bool, generation: int }
     export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
-        title: "Hoshi Paint · Canvas study";
+        in property <string> document-title: "Untitled · Hoshi Paint";
+        title: root.document-title;
         preferred-width: 1120px;
         preferred-height: 760px;
         min-width: max(960px, 236px + root.dock-left-width + root.dock-right-width + 240px);
@@ -54,6 +61,32 @@ slint::slint! {
         in property <color> selected-color;
         in property <string> selected-hex;
         private property <bool> about-open;
+        in property <bool> has-document: true;
+        in property <bool> any-dirty;
+        in property <[DocumentTabRow]> document-tabs;
+        in property <[string]> recent-files;
+        in property <bool> file-prompt-visible;
+        in property <string> file-prompt-name;
+        in property <bool> save-config-visible;
+        in property <bool> save-config-jpeg;
+        in property <string> save-config-warning;
+        in-out property <int> save-quality: 95;
+        in-out property <string> file-error;
+        in property <bool> file-busy;
+        callback file-action(int);
+        callback activate-document(int);
+        callback close-document(int);
+        callback cycle-document(bool);
+        callback open-recent(int);
+        callback clear-recent();
+        callback open-document(string);
+        callback save-document-as(string);
+        callback file-prompt-response(int);
+        callback confirm-save-configuration(bool);
+        callback focus-canvas();
+        focus-canvas => { canvas-focus.focus(); }
+        callback dismiss-file-error();
+        dismiss-file-error => { root.file-error = ""; canvas-focus.focus(); }
         in property <int> image-width: 512;
         in property <int> image-height: 512;
         in property <bool> can-flatten;
@@ -80,7 +113,7 @@ slint::slint! {
         callback close-image-settings();
         close-image-settings => { root.image-dialog-kind = -1; canvas-focus.focus(); }
         callback image-command(int);
-        out property <bool> modal-visible: root.about-open || root.image-dialog-kind >= 0;
+        out property <bool> modal-visible: root.about-open || root.image-dialog-kind >= 0 || root.file-prompt-visible || root.save-config-visible || root.file-error != "" || root.file-busy;
         out property <float> canvas-left: viewport.absolute-position.x / 1px;
         out property <float> canvas-top: viewport.absolute-position.y / 1px;
         out property <float> layer-input-left: layer-input.absolute-position.x / 1px;
@@ -186,25 +219,39 @@ slint::slint! {
         out property <float> history-host-width: docked-history.width / 1px;
         out property <float> history-host-height: docked-history.height / 1px;
         callback show-about();
-        show-about => { if root.image-dialog-kind < 0 { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
+        show-about => { if !root.modal-visible { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
             Menu { title: "File";
-                MenuItem { title: "New…"; enabled: !root.modal-visible; activated => { root.show-image-settings(0); } }
+                MenuItem { title: "New…"; enabled: !root.modal-visible; activated => { root.file-action(7); } }
+                MenuItem { title: "Open…"; enabled: !root.modal-visible; activated => { root.file-action(0); } }
+                Menu { title: "Open Recent";
+                    for path[index] in root.recent-files: MenuItem { title: path; enabled: !root.modal-visible; activated => { root.open-recent(index); } }
+                    MenuSeparator { }
+                    MenuItem { title: "Clear this list"; enabled: !root.modal-visible; activated => { root.clear-recent(); } }
+                }
+                MenuSeparator { }
+                MenuItem { title: "Save"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(1); } }
+                MenuItem { title: "Save As…"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(2); } }
+                MenuItem { title: "Save All"; enabled: root.any-dirty && !root.modal-visible; activated => { root.file-action(3); } }
+                MenuSeparator { }
+                MenuItem { title: "Close"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(4); } }
+                MenuItem { title: "Close All"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(5); } }
+                MenuItem { title: "Exit"; enabled: !root.modal-visible; activated => { root.file-action(6); } }
             }
             Menu { title: "Image";
                 MenuItem { title: "Crop to Selection"; enabled: false; }
                 MenuSeparator { }
-                MenuItem { title: "Resize…"; enabled: !root.modal-visible; activated => { root.show-image-settings(1); } }
-                MenuItem { title: "Canvas Size…"; enabled: !root.modal-visible; activated => { root.show-image-settings(2); } }
+                MenuItem { title: "Resize…"; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(1); } }
+                MenuItem { title: "Canvas Size…"; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(2); } }
                 MenuSeparator { }
-                MenuItem { title: "Flip Horizontal"; enabled: !root.modal-visible; activated => { root.image-command(0); } }
-                MenuItem { title: "Flip Vertical"; enabled: !root.modal-visible; activated => { root.image-command(1); } }
-                MenuItem { title: "Rotate 90° Clockwise"; enabled: !root.modal-visible; activated => { root.image-command(2); } }
-                MenuItem { title: "Rotate 90° Counter-Clockwise"; enabled: !root.modal-visible; activated => { root.image-command(3); } }
-                MenuItem { title: "Rotate 180°"; enabled: !root.modal-visible; activated => { root.image-command(4); } }
+                MenuItem { title: "Flip Horizontal"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(0); } }
+                MenuItem { title: "Flip Vertical"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(1); } }
+                MenuItem { title: "Rotate 90° Clockwise"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(2); } }
+                MenuItem { title: "Rotate 90° Counter-Clockwise"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(3); } }
+                MenuItem { title: "Rotate 180°"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(4); } }
                 MenuSeparator { }
-                MenuItem { title: "Flatten"; enabled: !root.modal-visible && root.can-flatten; activated => { root.image-command(5); } }
+                MenuItem { title: "Flatten"; enabled: root.has-document && !root.modal-visible && root.can-flatten; activated => { root.image-command(5); } }
             }
             Menu {
                 title: "Help";
@@ -214,6 +261,10 @@ slint::slint! {
                 }
             }
         }
+        FileShortcuts {
+            width: parent.width; height: parent.height;
+            file-action(value) => { root.file-action(value); }
+            cycle-document(backward) => { root.cycle-document(backward); }
         VerticalLayout {
             padding: 16px;
             spacing: 12px;
@@ -232,7 +283,7 @@ slint::slint! {
                     Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
                 Button { icon: @image-url("../icons/redo.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { text: "History…"; clicked => { root.show-history(); } }
+                Button { text: "History…"; enabled: root.has-document; clicked => { root.show-history(); } }
                 Button { text: "Commit · Enter"; enabled: root.has-shape; clicked => { root.action(2); } }
                 Button { text: "Cancel · Esc"; enabled: root.has-shape; clicked => { root.action(3); } }
                 Rectangle { horizontal-stretch: 1; }
@@ -240,13 +291,31 @@ slint::slint! {
                 Button { text: "Reset view"; clicked => { root.action(4); } }
                 Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
+            ScrollView {
+                height: 54px; content-height: 50px; content-width: max(self.width, root.document-tabs.length * 210px);
+                HorizontalLayout { spacing: 6px; alignment: start;
+                    for tab in root.document-tabs: Rectangle {
+                        width: 204px; background: tab.active ? #dbe8ff : #e5e9f0;
+                        border-width: tab.active ? 2px : 1px; border-color: tab.active ? #315cae : #b7c2d2; border-radius: 4px;
+                        HorizontalLayout { padding: 5px; spacing: 5px;
+                            Button { text: tab.title + (tab.dirty ? " *" : ""); icon: tab.thumbnail;
+                                accessible-label: "Activate document " + tab.title;
+                                enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
+                                Tooltip { SwatchDetails { text: tab.detail; } }
+                            }
+                            Button { text: "×"; width: 26px; accessible-label: "Close document " + tab.title;
+                                enabled: !root.modal-visible; clicked => { root.close-document(tab.id); } }
+                        }
+                    }
+                }
+            }
             workspace := Rectangle {
                 vertical-stretch: 1;
                 VerticalLayout {
                     x: 0px; y: 0px; width: 190px; height: parent.height;
                     spacing: 8px;
                     Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    rectangle-tool := Button { text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
+                    rectangle-tool := Button { enabled: root.has-document; text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
                     Rectangle { height: 12px; }
                     Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;
@@ -269,7 +338,7 @@ slint::slint! {
                     Text { text: root.selected-hex; color: #526079; font-size: 12px; }
                     Rectangle { height: 12px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    layer-input := LineEdit { text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
+                    layer-input := LineEdit { enabled: root.has-document; text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
                     Rectangle { vertical-stretch: 1; }
                     Text { text: "Drag handles to resize.\nRound handle rotates.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
                 }
@@ -285,6 +354,7 @@ slint::slint! {
                     accessible-role: image;
                     accessible-label: "Drawing canvas. Drag to draw; Enter commits; Escape cancels.";
                     Image {
+                        visible: root.has-document;
                         source: root.canvas-image;
                         x: root.offset-x * 1px;
                         y: root.offset-y * 1px;
@@ -343,8 +413,7 @@ slint::slint! {
                                 return accept;
                             }
                             if event.modifiers.control || event.modifiers.meta {
-                                if event.text == "n" || event.text == "N" { root.show-image-settings(0); return accept; }
-                                if event.text == "r" || event.text == "R" { root.show-image-settings(event.modifiers.shift ? 2 : 1); return accept; }
+                                if root.has-document && (event.text == "r" || event.text == "R") { root.show-image-settings(event.modifiers.shift ? 2 : 1); return accept; }
                                 if (event.text == "f" || event.text == "F") && event.modifiers.shift { root.image-command(5); return accept; }
                                 if event.text == "z" { root.action(event.modifiers.shift ? 1 : 0); return accept; }
                                 if event.text == "y" { root.action(1); return accept; }
@@ -364,7 +433,7 @@ slint::slint! {
                             reject
                         }
                         touch := TouchArea {
-                            enabled: !root.about-open;
+                            enabled: root.has-document && !root.modal-visible;
                             mouse-cursor: root.screen-picking ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
                             pointer-event(event) => {
                                 if event.kind == PointerEventKind.cancel {
@@ -463,6 +532,23 @@ slint::slint! {
             }
             Text { height: 22px; text: root.status; color: #526079; font-size: 12px; }
         }
+        if root.file-prompt-visible: Rectangle {
+            background: #0008; TouchArea { }
+            SavePrompt { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: 540px; height: 240px;
+                name: root.file-prompt-name; response(value) => { root.file-prompt-response(value); } }
+        }
+        if root.save-config-visible: Rectangle {
+            background: #0008; TouchArea { }
+            SaveConfiguration { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: 540px; height: 330px;
+                jpeg: root.save-config-jpeg; warning: root.save-config-warning; quality <=> root.save-quality;
+                save => { root.confirm-save-configuration(true); } cancel => { root.confirm-save-configuration(false); } }
+        }
+        if root.file-error != "": Rectangle {
+            background: #0008; TouchArea { }
+            FileErrorPrompt { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: 540px; height: 300px;
+                message: root.file-error; dismiss => { root.dismiss-file-error(); }
+            }
+        }
         if root.image-dialog-kind >= 0: Rectangle {
             background: #0008;
             TouchArea { }
@@ -517,12 +603,18 @@ slint::slint! {
                 }
             }
         }
+        }
     }
 }
 
-pub type SharedController = Rc<RefCell<Controller>>;
+pub type SharedController = Rc<RefCell<workspace::Workspace>>;
 
-fn refresh(ui: &AppWindow, controller: &Controller) {
+pub fn refresh_workspace(ui: &AppWindow, state: &SharedController) {
+    refresh(ui, &state.borrow());
+}
+
+fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
+    ui.set_has_document(controller.has_document());
     let document = controller.document();
     ui.set_image_width(document.width() as i32);
     ui.set_image_height(document.height() as i32);
@@ -550,9 +642,9 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         })
         .collect::<Vec<_>>();
     ui.set_control_points(Rc::new(slint::VecModel::from(points)).into());
-    ui.set_has_shape(document.active_shape().is_some());
-    ui.set_can_undo(document.undo_len() > 0);
-    ui.set_can_redo(document.redo_len() > 0);
+    ui.set_has_shape(controller.has_document() && document.active_shape().is_some());
+    ui.set_can_undo(controller.has_document() && document.undo_len() > 0);
+    ui.set_can_redo(controller.has_document() && document.redo_len() > 0);
     ui.set_selected_tool(match controller.tool() {
         Tool::Rectangle => 0,
         Tool::MoveShape => 1,
@@ -625,6 +717,7 @@ fn refresh(ui: &AppWindow, controller: &Controller) {
         )
         .into(),
     );
+    documents::refresh(ui, controller);
 }
 
 fn update(
@@ -656,6 +749,12 @@ pub fn create_app_with_colors()
     Ok((ui, controller, colors))
 }
 
+pub fn create_app_with_dialogs(
+    dialogs: Rc<dyn documents::FileDialogs>,
+) -> Result<(AppWindow, SharedController), slint::PlatformError> {
+    let (ui, state, _, _) = create_panels(Some(dialogs))?;
+    Ok((ui, state))
+}
 pub fn create_app_with_panels() -> Result<
     (
         AppWindow,
@@ -665,8 +764,28 @@ pub fn create_app_with_panels() -> Result<
     ),
     slint::PlatformError,
 > {
+    create_panels(None)
+}
+fn create_panels(
+    dialogs: Option<Rc<dyn documents::FileDialogs>>,
+) -> Result<
+    (
+        AppWindow,
+        SharedController,
+        Rc<ColorPickerWindow>,
+        Rc<HistoryWindow>,
+    ),
+    slint::PlatformError,
+> {
     let ui = AppWindow::new()?;
-    let controller = Rc::new(RefCell::new(Controller::default()));
+    let recent_store = if dialogs.is_some() {
+        None
+    } else {
+        documents::recent_store_path()
+    };
+    let controller = Rc::new(RefCell::new(workspace::Workspace::with_recent_store(
+        recent_store,
+    )));
     image_settings::bind(&ui, controller.clone());
     refresh(&ui, &controller.borrow());
     let (weak, state) = (ui.as_weak(), controller.clone());
@@ -801,5 +920,31 @@ pub fn create_app_with_panels() -> Result<
     });
     let picker = colors::bind_picker(&ui, controller.clone())?;
     let history = history::bind_window(&ui, controller.clone())?;
+    documents::bind(&ui, controller.clone(), dialogs);
+    let main = ui.as_weak();
+    picker.on_file_action(move |action| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_file_action(action);
+        }
+    });
+    let main = ui.as_weak();
+    picker.on_cycle_document(move |backward| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_cycle_document(backward);
+        }
+    });
+    let main = ui.as_weak();
+    history.on_file_action(move |action| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_file_action(action);
+        }
+    });
+    let main = ui.as_weak();
+    history.on_cycle_document(move |backward| {
+        if let Some(ui) = main.upgrade() {
+            ui.invoke_cycle_document(backward);
+        }
+    });
+
     Ok((ui, controller, picker, history))
 }

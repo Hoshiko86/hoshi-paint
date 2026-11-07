@@ -6,7 +6,7 @@ The official documentation is now accessible; [resampling compatibility](RESAMPL
 
 | Command | Implemented behavior |
 | --- | --- |
-| File → New… | Pixel/inch/centimeter dimensions, aspect lock, resolution in pixels/inch, white/transparent/Secondary background; replaces this single-document spike's current image and clears its history after Create |
+| File → New… | Pixel/inch/centimeter dimensions, aspect lock, resolution in pixels/inch, white/transparent/Secondary background; opens a new document tab with its own history after Create |
 | Resize… | Absolute dimensions or percentage of the original image, aspect lock, physical units, resolution, all eight documented Paint.NET modes and gamma correction; resamples every layer |
 | Canvas Size… | Changes bounds without resampling; nine-point anchor, transparent padding or Secondary-color padding on the bottom layer, upper layers padded transparently; shrinking crops pixels |
 | Flip Horizontal / Vertical | Flips all layers without changing layer names, visibility, opacity, or selection |
@@ -20,7 +20,7 @@ Escape or Cancel dismisses settings without changing the document or committing 
 active shape. Dialogs block drawing and history commands. Opening a dialog ends a
 pointer gesture but retains the shape preview. Accepting settings validates first,
 then commits a shape before the image edit. That produces a shape history step and
-an image-edit history step. New clears history and preserves workspace colors.
+an image-edit history step. New starts its own history and preserves workspace colors and existing tabs.
 
 Resolution is stored to 0.001 pixels/inch. Editing resolution preserves pixel size
 and updates the physical-size display. Canvas Size preserves resolution. Dimensions,
@@ -33,7 +33,7 @@ to 512×512. The initial startup document remains 512×512 transparent.
 
 - Selection tools and crop-to-selection semantics, including nonrectangular masks.
 - Paint.NET-generated golden-image comparisons, especially its undocumented Adaptive (Sharp) policy and edge/rounding details.
-- New in another document tab, clipboard-based defaults, save/dirty prompts and file I/O.
+- Clipboard-based defaults; [document tabs and file I/O](DOCUMENT_MANAGEMENT.md) are now implemented.
 - Separate resolution unit selection (pixels/cm); physical width/height already support cm.
 - Global menu shortcuts outside canvas focus and persisted dialog defaults.
 - Larger documents and memory budgeting: this spike retains the 1,048,576-pixel limit,

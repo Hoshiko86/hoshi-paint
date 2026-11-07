@@ -32,6 +32,14 @@ prepares rootless packages using signed Debian indexes. Source
 local pkg-config sysroot, runtime libraries and four-job build limit. Each task
 is already isolated; use the existing checkout rather than creating a worktree.
 
+## Documents
+
+File offers New, Open, Save, Save As, Save All, Close, Close All and Exit.
+Open/new images have separate tabs and undo histories. Save .hoshi for layers,
+PNG for lossless transparency, or JPEG with quality/flattening confirmation.
+See [document management](../../docs/DOCUMENT_MANAGEMENT.md) for shortcuts and limits.
+Linux native file dialogs require an XDG desktop portal provider.
+
 ## Try the interaction
 
 - Drag on the checkerboard to draw a rectangle. Release keeps it editable.

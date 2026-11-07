@@ -559,3 +559,6 @@ mod color_tests;
 mod canvas;
 pub use canvas::{Anchor, ImageTransform, Resampling, ResizeOptions};
 mod resampling;
+
+mod project;
+pub use project::{DocumentSnapshot, MAX_PROJECT_BYTES, ProjectError};
