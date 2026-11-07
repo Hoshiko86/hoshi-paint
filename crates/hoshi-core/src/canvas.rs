@@ -14,7 +14,33 @@ pub enum Resampling {
     Nearest,
     Bilinear,
     Bicubic,
+    BicubicSmooth,
+    BilinearLowQuality,
+    AdaptiveSharp,
     Lanczos,
+    Fant,
+}
+/// GUI defaults match Paint.NET. A bare method retains the legacy encoded-RGB API.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResizeOptions {
+    pub method: Resampling,
+    pub gamma_correction: bool,
+}
+impl Default for ResizeOptions {
+    fn default() -> Self {
+        Self {
+            method: Resampling::Bicubic,
+            gamma_correction: true,
+        }
+    }
+}
+impl From<Resampling> for ResizeOptions {
+    fn from(method: Resampling) -> Self {
+        Self {
+            method,
+            gamma_correction: false,
+        }
+    }
 }
 /// The fixed point when extending or cropping a canvas (row-major 3 by 3 grid).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,49 +141,21 @@ impl Document {
         width: u32,
         height: u32,
         resolution: f64,
-        method: Resampling,
+        options: impl Into<ResizeOptions>,
     ) -> Result<(), Error> {
         Self::validate_image_size(width, height)?;
         Self::validate_resolution(resolution)?;
         self.image_editable()?;
         let before = self.state.clone();
         if (width, height) != (self.width(), self.height()) {
-            let filter = match method {
-                Resampling::Nearest => image::imageops::FilterType::Nearest,
-                Resampling::Bilinear => image::imageops::FilterType::Triangle,
-                Resampling::Bicubic => image::imageops::FilterType::CatmullRom,
-                Resampling::Lanczos => image::imageops::FilterType::Lanczos3,
-            };
+            let options = options.into();
             for layer in &mut self.state.layers {
-                let mut input = image::Rgba32FImage::new(before.width, before.height);
-                for (pixel, color) in input.pixels_mut().zip(layer.pixels.iter()) {
-                    let alpha = f32::from(color.a) / 255.0;
-                    *pixel = image::Rgba([
-                        f32::from(color.r) / 255.0 * alpha,
-                        f32::from(color.g) / 255.0 * alpha,
-                        f32::from(color.b) / 255.0 * alpha,
-                        alpha,
-                    ]);
-                }
-                let resized = image::imageops::resize(&input, width, height, filter);
-                let pixels = resized
-                    .pixels()
-                    .map(|p| {
-                        let alpha = p[3].clamp(0.0, 1.0);
-                        if alpha <= 0.0 {
-                            return Color::TRANSPARENT;
-                        }
-                        let channel =
-                            |value: f32| ((value / alpha).clamp(0.0, 1.0) * 255.0).round() as u8;
-                        Color::rgba(
-                            channel(p[0]),
-                            channel(p[1]),
-                            channel(p[2]),
-                            (alpha * 255.0).round() as u8,
-                        )
-                    })
-                    .collect();
-                layer.pixels = Arc::new(pixels);
+                layer.pixels = Arc::new(crate::resampling::resize(
+                    &layer.pixels,
+                    (before.width, before.height),
+                    (width, height),
+                    options,
+                ));
             }
         }
         self.state.width = width;

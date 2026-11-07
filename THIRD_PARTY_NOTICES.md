@@ -35,8 +35,9 @@ is GPL-3.0-only; the icon retains its own CC BY 4.0 terms.
 The swap-colors and reset-colors SVGs are original Hoshi Paint artwork covered
 by GPL-3.0-only.
 
-## Image resampling
+## Development screenshot helpers
 
-The raster core uses **image 0.25.10** for in-memory resampling, selecting its MIT
-license option (upstream offers MIT OR Apache-2.0). Its source and upstream license
-texts are included in the matching source archive under `vendor/image-0.25.10/`.
+Development examples use **image 0.25.10** for screenshot encoding, selecting its
+MIT license option (upstream offers MIT OR Apache-2.0). Its source and upstream
+license texts are included in the matching source archive under `vendor/image-0.25.10/`.
+The raster core implements resampling directly and does not depend on this library.

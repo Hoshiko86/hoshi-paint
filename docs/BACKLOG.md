@@ -110,3 +110,7 @@ by the current preset-swatch foundation.
 File New and Image Resize/Canvas Size/flip/rotate/flatten are implemented in the
 desktop spike with dimension/resolution history. Crop to Selection remains blocked
 on selections. See [IMAGE_MENU.md](IMAGE_MENU.md) for supported settings and parity gaps.
+
+Resize now exposes all eight documented Paint.NET resamplers and gamma correction.
+See [RESAMPLING.md](RESAMPLING.md): Paint.NET golden-image comparison and its exact
+Adaptive (Sharp) policy remain verification work.

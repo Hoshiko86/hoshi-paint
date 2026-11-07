@@ -10,7 +10,8 @@ export component ImageSettings inherits Rectangle {
     in property <bool> percentage;
     in-out property <int> anchor: 4;
     in-out property <int> background-choice;
-    in-out property <int> resampling: 2;
+    in-out property <int> resampling: 0;
+    in-out property <bool> gamma-correction: true;
     in property <string> summary;
     in property <string> error;
     callback edited(int, string);
@@ -23,7 +24,7 @@ export component ImageSettings inherits Rectangle {
     init => { width-entry.focus(); }
     ScrollView {
         content-width: self.width;
-        content-height: root.kind == 0 ? 610px : root.kind == 1 ? 650px : 680px;
+        content-height: root.kind == 0 ? 610px : root.kind == 1 ? 700px : 680px;
     FocusScope {
         width: parent.width; height: parent.height;
         key-pressed(event) => {
@@ -61,7 +62,15 @@ export component ImageSettings inherits Rectangle {
         }
         if root.kind == 1: HorizontalLayout {
             Text { text: "Resampling"; width: 100px; color: #273650; vertical-alignment: center; }
-            ComboBox { model: ["Nearest Neighbor", "Bilinear", "Bicubic", "Lanczos 3"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
+            ComboBox { model: ["Bicubic", "Bicubic (Smooth)", "Bilinear", "Bilinear (Low Quality)", "Adaptive (Sharp)", "Lanczos", "Fant", "Nearest Neighbor"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
+            Button { icon: @image-url("../icons/undo.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
+                Tooltip { text: @markdown("Reset resampling to Bicubic"); }
+                clicked => { root.resampling = 0; } }
+        }
+        if root.kind == 1: CheckBox {
+            text: "Use gamma correction"; accessible-label: "Use gamma correction";
+            checked <=> root.gamma-correction;
+            Tooltip { text: @markdown("Resample in linear light to preserve brightness. Alpha is always treated as coverage."); }
         }
         if root.kind == 2: HorizontalLayout {
             Text { text: "Anchor"; width: 100px; color: #273650; vertical-alignment: center; }

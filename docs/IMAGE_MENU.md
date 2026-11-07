@@ -2,12 +2,12 @@
 
 The desktop spike exposes File → New and an Image menu patterned after Paint.NET.
 This is an implementation milestone, not a claim of exact current Paint.NET parity.
-The official documentation could not be fetched under the environment's network policy.
+The official documentation is now accessible; [resampling compatibility](RESAMPLING.md) records the verified reference and remaining pixel-comparison work.
 
 | Command | Implemented behavior |
 | --- | --- |
 | File → New… | Pixel/inch/centimeter dimensions, aspect lock, resolution in pixels/inch, white/transparent/Secondary background; replaces this single-document spike's current image and clears its history after Create |
-| Resize… | Absolute dimensions or percentage of the original image, aspect lock, physical units, resolution, Nearest Neighbor/Bilinear/Bicubic/Lanczos 3; resamples every layer |
+| Resize… | Absolute dimensions or percentage of the original image, aspect lock, physical units, resolution, all eight documented Paint.NET modes and gamma correction; resamples every layer |
 | Canvas Size… | Changes bounds without resampling; nine-point anchor, transparent padding or Secondary-color padding on the bottom layer, upper layers padded transparently; shrinking crops pixels |
 | Flip Horizontal / Vertical | Flips all layers without changing layer names, visibility, opacity, or selection |
 | Rotate 90° Clockwise / Counter-Clockwise / 180° | Rotates all layers; quarter-turns swap document dimensions |
@@ -26,13 +26,13 @@ Resolution is stored to 0.001 pixels/inch. Editing resolution preserves pixel si
 and updates the physical-size display. Canvas Size preserves resolution. Dimensions,
 resolution, all layer pixels and properties participate in undo/redo and History
 navigation. Resampling uses premultiplied RGBA to avoid dark transparency fringes;
-it operates in encoded RGB space. Image dimensions and the view are no longer fixed
+gamma correction enables linear-light sRGB filtering and is on by default. Image dimensions and the view are no longer fixed
 to 512×512. The initial startup document remains 512×512 transparent.
 
 ## Remaining parity work
 
 - Selection tools and crop-to-selection semantics, including nonrectangular masks.
-- Additional Paint.NET resampling modes and pixel-level algorithm comparison.
+- Paint.NET-generated golden-image comparisons, especially its undocumented Adaptive (Sharp) policy and edge/rounding details.
 - New in another document tab, clipboard-based defaults, save/dirty prompts and file I/O.
 - Separate resolution unit selection (pixels/cm); physical width/height already support cm.
 - Global menu shortcuts outside canvas focus and persisted dialog defaults.

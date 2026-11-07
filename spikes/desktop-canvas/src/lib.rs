@@ -67,7 +67,8 @@ slint::slint! {
         in-out property <bool> image-percentage;
         in-out property <int> image-anchor: 4;
         in-out property <int> image-background;
-        in-out property <int> image-resampling: 2;
+        in-out property <int> image-resampling: 0;
+        in-out property <bool> image-gamma-correction: true;
         in property <string> image-summary;
         in property <string> image-error;
         callback show-image-settings(int);
@@ -467,12 +468,12 @@ slint::slint! {
             TouchArea { }
             ImageSettings {
                 x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-                width: 560px; height: min(parent.height - 24px, root.image-dialog-kind == 0 ? 610px : root.image-dialog-kind == 1 ? 650px : 680px);
+                width: 560px; height: min(parent.height - 24px, root.image-dialog-kind == 0 ? 610px : root.image-dialog-kind == 1 ? 700px : 680px);
                 kind: root.image-dialog-kind;
                 width-text <=> root.image-width-text; height-text <=> root.image-height-text;
                 resolution-text <=> root.image-resolution-text; percent-text <=> root.image-percent-text;
                 units: root.image-units; aspect: root.image-aspect; percentage: root.image-percentage;
-                anchor <=> root.image-anchor; background-choice <=> root.image-background; resampling <=> root.image-resampling;
+                anchor <=> root.image-anchor; background-choice <=> root.image-background; resampling <=> root.image-resampling; gamma-correction <=> root.image-gamma-correction;
                 summary: root.image-summary; error: root.image-error;
                 edited(which, value) => { root.edit-image-setting(which, value); }
                 units-selected(value) => { root.select-image-units(value); }

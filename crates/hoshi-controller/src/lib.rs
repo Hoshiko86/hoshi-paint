@@ -6,7 +6,9 @@
 
 pub mod color;
 
-pub use hoshi_core::{Anchor, Color, HistoryStep, ImageTransform, Resampling, ShapeStyle};
+pub use hoshi_core::{
+    Anchor, Color, HistoryStep, ImageTransform, Resampling, ResizeOptions, ShapeStyle,
+};
 use hoshi_core::{Document, Error, Shape, ShapeKind};
 
 /// Drawing style retained for the next shape as well as the active preview.
@@ -851,14 +853,14 @@ impl Controller {
         width: u32,
         height: u32,
         resolution: f64,
-        method: Resampling,
+        options: impl Into<ResizeOptions>,
     ) -> Result<(), ControllerError> {
         Document::validate_image_size(width, height)?;
         Document::validate_resolution(resolution)?;
         self.pointer_up()?;
         self.commit()?;
         self.document
-            .resize_image(width, height, resolution, method)?;
+            .resize_image(width, height, resolution, options)?;
         Ok(())
     }
     pub fn resize_canvas(

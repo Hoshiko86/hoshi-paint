@@ -557,4 +557,5 @@ impl Document {
 mod color_tests;
 
 mod canvas;
-pub use canvas::{Anchor, ImageTransform, Resampling};
+pub use canvas::{Anchor, ImageTransform, Resampling, ResizeOptions};
+mod resampling;

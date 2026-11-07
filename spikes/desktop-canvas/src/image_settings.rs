@@ -1,6 +1,6 @@
 //! Dialog drafts do not touch the document until Apply succeeds.
 use crate::{AppWindow, SharedController, refresh, update};
-use hoshi_controller::{Anchor, Color, ImageTransform, Resampling};
+use hoshi_controller::{Anchor, Color, ImageTransform, Resampling, ResizeOptions};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 
@@ -104,7 +104,8 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
             ui.set_image_percent_text("100".into());
             ui.set_image_anchor(4);
             ui.set_image_background(0);
-            ui.set_image_resampling(2);
+            ui.set_image_resampling(0);
+            ui.set_image_gamma_correction(true);
             ui.set_image_resolution_text(document.resolution().to_string().into());
             ui.set_image_error("".into());
             data.borrow().sync(&ui);
@@ -218,8 +219,8 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
                     c.new_image(width, height, resolution, background)
                 }
                 1 => {
-                    let method = match ui.get_image_resampling() { 0 => Resampling::Nearest, 1 => Resampling::Bilinear, 2 => Resampling::Bicubic, 3 => Resampling::Lanczos, _ => return Err("Choose a valid resampling method.".into()) };
-                    c.resize_image(width, height, resolution, method)
+                    let method = match ui.get_image_resampling() { 0 => Resampling::Bicubic, 1 => Resampling::BicubicSmooth, 2 => Resampling::Bilinear, 3 => Resampling::BilinearLowQuality, 4 => Resampling::AdaptiveSharp, 5 => Resampling::Lanczos, 6 => Resampling::Fant, 7 => Resampling::Nearest, _ => return Err("Choose a valid resampling method.".into()) };
+                    c.resize_image(width, height, resolution, ResizeOptions { method, gamma_correction: ui.get_image_gamma_correction() })
                 }
                 2 => {
                     let anchor = ui.get_image_anchor();

@@ -1614,9 +1614,6 @@ dependencies = [
 [[package]]
 name = "hoshi-core"
 version = "0.0.0"
-dependencies = [
- "image",
-]
 
 [[package]]
 name = "htmlparser"
