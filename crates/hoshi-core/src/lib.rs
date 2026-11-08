@@ -1,6 +1,5 @@
-//! UI-independent raster document operations. No filesystem or windowing required.
+//! UI-independent raster operations with private temporary disk-backed history.
 
-use std::collections::VecDeque;
 use std::sync::Arc;
 
 pub const MAX_DIMENSION: u32 = 262_144;
@@ -8,7 +7,9 @@ mod memory;
 mod pixels;
 pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
 pub use pixels::{PixelStore, TILE_SIZE};
-const HISTORY_LIMIT: usize = 16;
+mod history;
+mod history_store;
+use history::History;
 /// Maximum number of layers in a document, bounding dense pixel-buffer allocation.
 pub const MAX_LAYERS: usize = 32;
 
@@ -224,7 +225,21 @@ pub enum Error {
     LayerLimit,
     InvalidHistoryStep,
     MemoryLimit,
+    HistoryIo,
+    HistoryCorrupt,
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::HistoryIo=>f.write_str("Unable to write undo history. Check free disk space and scratch-folder access, then retry. Your image and existing history remain available."),
+            Self::HistoryCorrupt=>f.write_str("Unable to read this undo state: its stored data is damaged or unavailable. Your current image and history have not been discarded."),
+            Self::MemoryLimit=>f.write_str("The operation exceeds the shared image memory budget. Close other images or choose a smaller size."),
+            _=>write!(f,"{self:?}"),
+        }
+    }
+}
+impl std::error::Error for Error {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct State {
@@ -244,16 +259,10 @@ pub struct HistoryStep {
     pub is_redo: bool,
 }
 
-struct HistoryEntry {
-    state: State,
-    label: &'static str,
-}
-
 pub struct Document {
     state: State,
     active: Option<Shape>,
-    undo: VecDeque<HistoryEntry>,
-    redo: Vec<HistoryEntry>,
+    history: History,
 }
 
 impl Document {
@@ -274,8 +283,7 @@ impl Document {
                 selected: 0,
             },
             active: None,
-            undo: VecDeque::new(),
-            redo: Vec::new(),
+            history: History::default(),
         })
     }
 
@@ -296,63 +304,74 @@ impl Document {
         self.active
     }
     pub fn undo_len(&self) -> usize {
-        self.undo.len()
+        self.history.position()
     }
     pub fn redo_len(&self) -> usize {
-        self.redo.len()
+        self.history.redo_len()
     }
-
-    /// The index of the current committed state in `history_steps()`.
     pub fn history_position(&self) -> usize {
-        self.undo.len()
+        self.history.position()
     }
-
-    /// Includes retained undo states, the current committed state and redo states.
-    /// An active shape is a preview and has no history row until it is committed.
+    pub fn history_generation(&self) -> u64 {
+        self.history.generation()
+    }
+    pub fn history_structure_generation(&self) -> u64 {
+        self.history.structure_generation()
+    }
+    pub fn history_len(&self) -> usize {
+        self.history.len()
+    }
+    pub fn history_cleanup_pending(&self) -> bool {
+        self.history.cleanup_pending()
+    }
+    pub fn history_storage_bytes(&self) -> u64 {
+        self.history.bytes()
+    }
+    /// Set a scratch directory before the first successful edit. The directory
+    /// must already exist; an inaccessible path fails the edit without data loss.
+    pub fn set_history_directory(
+        &mut self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), Error> {
+        self.history.set_directory(path.as_ref())
+    }
+    pub fn history_step(&self, index: usize) -> Option<HistoryStep> {
+        Some(HistoryStep {
+            label: self.history.label(index)?,
+            is_current: index == self.history.position(),
+            is_redo: index > self.history.position(),
+        })
+    }
     pub fn history_steps(&self) -> Vec<HistoryStep> {
-        std::iter::once("Oldest available state")
-            .chain(self.undo.iter().map(|entry| entry.label))
-            .chain(self.redo.iter().rev().map(|entry| entry.label))
-            .enumerate()
-            .map(|(index, label)| HistoryStep {
-                label,
-                is_current: index == self.undo.len(),
-                is_redo: index > self.undo.len(),
-            })
+        (0..self.history_len())
+            .filter_map(|i| self.history_step(i))
             .collect()
     }
-
-    /// Navigate retained committed states. Callers must explicitly commit or
-    /// cancel a preview first, avoiding implicit commits evicting a clicked row.
+    /// Restore the requested state directly; distant jumps do not deserialize
+    /// every intervening edit or grow the redo stack by replaying operations.
     pub fn go_to_history_step(&mut self, index: usize) -> Result<bool, Error> {
-        if index > self.undo.len() + self.redo.len() {
+        if index >= self.history_len() {
             return Err(Error::InvalidHistoryStep);
         }
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
-        let changed = index != self.undo.len();
-        while self.undo.len() > index {
-            self.undo()?;
+        if let Some(state) = self.history.navigate(&self.state, index)? {
+            self.state = state;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        while self.undo.len() < index {
-            self.redo()?;
-        }
-        Ok(changed)
     }
-
-    fn checkpoint(&mut self, before: State, label: &'static str) {
+    fn checkpoint(&mut self, before: State, label: &'static str) -> Result<(), Error> {
         if before == self.state {
-            return;
+            return Ok(());
         }
-        if self.undo.len() == HISTORY_LIMIT {
-            self.undo.pop_front();
+        if let Err(error) = self.history.checkpoint(&before, &self.state, label) {
+            self.state = before;
+            return Err(error);
         }
-        self.undo.push_back(HistoryEntry {
-            state: before,
-            label,
-        });
-        self.redo.clear();
+        Ok(())
     }
 
     fn editable(&self, layer: usize) -> Result<(), Error> {
@@ -395,7 +414,7 @@ impl Document {
             )),
         });
         self.state.selected = index;
-        self.checkpoint(before, "Add layer");
+        self.checkpoint(before, "Add layer")?;
         Ok(index)
     }
 
@@ -410,7 +429,7 @@ impl Document {
             self.state.selected -= 1;
         }
         self.state.selected = self.state.selected.min(self.state.layers.len() - 1);
-        self.checkpoint(before, "Delete layer");
+        self.checkpoint(before, "Delete layer")?;
         Ok(())
     }
 
@@ -418,7 +437,7 @@ impl Document {
         self.editable(layer)?;
         let before = self.state.clone();
         self.state.layers[layer].name = name.into();
-        self.checkpoint(before, "Rename layer");
+        self.checkpoint(before, "Rename layer")?;
         Ok(())
     }
 
@@ -432,7 +451,7 @@ impl Document {
         let before = self.state.clone();
         self.state.layers[layer].visible = visible;
         self.state.layers[layer].opacity = opacity;
-        self.checkpoint(before, "Layer properties");
+        self.checkpoint(before, "Layer properties")?;
         Ok(())
     }
 
@@ -454,7 +473,7 @@ impl Document {
         } else {
             self.state.selected
         };
-        self.checkpoint(before, "Reorder layer");
+        self.checkpoint(before, "Reorder layer")?;
         Ok(())
     }
 
@@ -521,8 +540,8 @@ impl Document {
             if changed {
                 self.state.layers[self.state.selected].pixels = Arc::new(pixels);
             }
+            self.checkpoint(before, label)?;
             self.active = None;
-            self.checkpoint(before, label);
             return Ok(changed);
         }
         let unchanged_background = match shape.style {
@@ -614,8 +633,8 @@ impl Document {
         if changed {
             self.state.layers[self.state.selected].pixels = Arc::new(pixels);
         }
+        self.checkpoint(before, label)?;
         self.active = None;
-        self.checkpoint(before, label);
         Ok(changed)
     }
     pub fn sampler(&self, include_preview: bool) -> CompositeSampler<'_> {
@@ -751,28 +770,19 @@ impl Document {
     }
     pub fn undo(&mut self) -> Result<bool, Error> {
         self.commit_shape()?;
-        let Some(previous) = self.undo.pop_back() else {
+        let Some(target) = self.history_position().checked_sub(1) else {
             return Ok(false);
         };
-        self.redo.push(HistoryEntry {
-            state: std::mem::replace(&mut self.state, previous.state),
-            label: previous.label,
-        });
-        Ok(true)
+        self.go_to_history_step(target)
     }
-
     pub fn redo(&mut self) -> Result<bool, Error> {
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
-        let Some(next) = self.redo.pop() else {
+        if self.redo_len() == 0 {
             return Ok(false);
-        };
-        self.undo.push_back(HistoryEntry {
-            state: std::mem::replace(&mut self.state, next.state),
-            label: next.label,
-        });
-        Ok(true)
+        }
+        self.go_to_history_step(self.history_position() + 1)
     }
 }
 

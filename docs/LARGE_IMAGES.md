@@ -54,14 +54,14 @@ A V2 project cannot be opened by an older Hoshi build; this build reads V1 and V
 ## What still differs from Paint.NET
 
 Paint.NET's [official features](https://www.getpaint.net/features.html) say history
-length is limited by available disk space. Hoshi still retains 16 in-memory history
-entries, now sharing tiles; it does **not** yet page tiles/history to disk. Disk-backed
-history, cold-tile eviction, background/cancellable image operations and compressed
-native tile records are follow-up work. Arbitrary dense photographic content must
-fit the memory budget, and expensive file/resampling work can still take time.
-32-layer and 32-open-document limits remain. The current Paint.NET internals are
-not fully public; these are Hoshi's own implementation choices, not a claim that
-Paint.NET uses an identical sparse tile representation.
+length is limited by available disk space. Hoshi now uses [disk-backed history](DISK_HISTORY.md)
+without the former 16-entry cap. Compressed tile records share unchanged data, while
+current-image pixels and restore scratch remain subject to the image-memory budget.
+Cold paging of current-image tiles, background/cancellable image operations and
+compressed native project tile records remain follow-up work. Arbitrary dense
+photographic content must still fit working memory. The 32-layer and 32-open-document
+limits remain. The current Paint.NET internals are not fully public; these are
+Hoshi's own implementation choices, not a claim of identical storage internals.
 
 ## Evidence
 

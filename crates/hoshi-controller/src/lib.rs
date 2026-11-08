@@ -129,6 +129,16 @@ pub enum ControllerError {
     Core(Error),
 }
 
+impl std::fmt::Display for ControllerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Core(e) => std::fmt::Display::fmt(e, f),
+            _ => write!(f, "{self:?}"),
+        }
+    }
+}
+impl std::error::Error for ControllerError {}
+
 impl From<Error> for ControllerError {
     fn from(value: Error) -> Self {
         Self::Core(value)

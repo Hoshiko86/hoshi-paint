@@ -5,7 +5,9 @@ export struct HistoryRow { label: string, index: int, current: bool, redo: bool 
 export component HistoryPanel inherits Rectangle {
     in property <[HistoryRow]> rows;
     in property <int> current-index;
-    changed current-index => { entries.content-y = -max(0px,(root.current-index + 1) * 34px - entries.height); }
+    function reveal-current() { entries.content-y = -max(0px,(root.current-index + 1) * 34px - entries.visible-height); }
+    init => { root.reveal-current(); }
+    changed current-index => { root.reveal-current(); }
     in property <bool> can-jump;
     in property <string> status-text;
     in property <bool> can-undo;
@@ -31,9 +33,11 @@ export component HistoryPanel inherits Rectangle {
                 Button { icon: @image-url("../icons/redo.svg"); width: 40px; enabled: root.can-redo; opacity: self.enabled ? 1 : 0.4; accessible-label: "Redo";
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.redo(); } }
             }
-            Text { text: root.status-text; wrap: word-wrap; color: #526079; height: 56px; }
+            Text { text: root.status-text; wrap: word-wrap; color: #526079; min-height: 56px; vertical-stretch: 0; }
             entries := ListView {
-                height: 280px;
+                min-height: 40px; vertical-stretch: 1;
+                content-height: root.rows.length * 34px;
+                changed visible-height => { root.reveal-current(); }
                 for row in root.rows : Rectangle {
                     height: 34px;
                     border-width: row.current ? 2px : 0px;

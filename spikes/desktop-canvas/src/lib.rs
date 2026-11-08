@@ -789,15 +789,31 @@ fn update(
         if ui.get_modal_visible() {
             return;
         }
-        let mut controller = controller.borrow_mut();
-        let result = action(&mut controller);
-        refresh(&ui, &controller);
+        let result = {
+            let mut controller = controller.borrow_mut();
+            let result = action(&mut controller);
+            refresh(&ui, &controller);
+            result
+        };
         if let Err(error) = result {
+            if matches!(
+                error,
+                ControllerError::Core(
+                    hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt
+                )
+            ) {
+                ui.invoke_hide_colors();
+                ui.invoke_close_history();
+                ui.set_file_error(error.to_string().into());
+            }
             ui.set_status(match error {
                 ControllerError::Core(hoshi_core::Error::MemoryLimit) => {
                     "Image memory budget exceeded. Close other images or use a smaller size.".into()
                 }
-                _ => format!("Action unavailable: {error:?}").into(),
+                ControllerError::Core(
+                    hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt,
+                ) => error.to_string().into(),
+                _ => format!("Action unavailable: {error}").into(),
             });
         }
     }

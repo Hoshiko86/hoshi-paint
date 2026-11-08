@@ -23,6 +23,8 @@ for shortcuts, formats, and remaining Paint.NET parity work.
 Canvases support up to **262,144 pixels per dimension** with sparse tiles, viewport
 rendering, scanline resize and streaming native/PNG files. Actual dense content is
 bounded by available memory; see [large-image support](docs/LARGE_IMAGES.md).
+Undo history now uses [compressed disk storage](docs/DISK_HISTORY.md) with no fixed
+16-entry cap; closing a document removes its temporary history.
 
 ## Development
 

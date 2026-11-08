@@ -65,8 +65,8 @@ provide overwrite confirmation. The filename extension determines the encoder; u
 .hoshi, .png or .jpg explicitly when switching formats in a picker.
 
 The canvas now supports 262,144 pixels per dimension with sparse tiles and a shared
-memory budget; see [large images](LARGE_IMAGES.md). The 32-layer, 16-entry history,
-and 32-tab limits remain. Native V2 projects stream tiles and read older V1 files;
+memory budget; see [large images](LARGE_IMAGES.md). The 32-layer and 32-tab limits
+remain; [undo history](DISK_HISTORY.md) now uses disk without a fixed step cap. Native V2 projects stream tiles and read older V1 files;
 encoded file length no longer has a fixed 128 MiB ceiling.
 Linux file dialogs use the desktop's XDG portal; a portal provider is needed in
 minimal/headless Linux sessions. Windows and macOS use native OS file dialogs.
