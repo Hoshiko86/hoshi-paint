@@ -102,7 +102,7 @@ fn rectangle(x: i32, y: i32, width: u32, height: u32, color: Color) -> Shape {
 
 #[test]
 fn dimensions_are_validated_before_allocation() {
-    for (w, h) in [(0, 1), (1, 0), (u32::MAX, u32::MAX), (1025, 1024)] {
+    for (w, h) in [(0, 1), (1, 0), (u32::MAX, u32::MAX), (262145, 1)] {
         assert!(matches!(Document::new(w, h), Err(Error::InvalidDimensions)));
     }
     assert!(Document::new(1024, 1024).is_ok());

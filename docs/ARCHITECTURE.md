@@ -15,13 +15,11 @@ shape has no persistent vector identity. See the interaction specification.
 
 ## Initial implementation: bounded dense pixels and snapshot history
 
-The first core slice uses dense RGBA8 buffers, caps canvases at 1,048,576 pixels,
-limits documents to 32 layers, and keeps at most 16 history entries. It prioritizes correctness and is NOT the
-final large-document architecture. History snapshots share immutable pixel
-buffers; editing copies the affected layer. Before raising this limit for the
-2048×2048 workload, replace snapshots with bounded tile deltas or measure and
-justify another approach. Allocation/decode limits and history memory budgets
-must also cover hostile input and iOS memory pressure.
+The core now uses sparse RGBA8 layers with implicit backgrounds and shared 128×128
+copy-on-write tiles. Canvas dimensions support 262,144 pixels per axis. Pixel/scratch
+allocations share a memory budget; viewport rendering, scanline resampling and native/
+PNG streaming avoid whole-image working buffers. See [large images](LARGE_IMAGES.md)
+for resource policy, evidence and remaining disk-backed history work.
 
 Initial source-over blending operates in encoded RGBA8 space, consistently for
 preview and commit. Color-space handling, antialiasing, and linear-light rendering

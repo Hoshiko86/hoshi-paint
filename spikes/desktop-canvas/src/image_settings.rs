@@ -39,7 +39,7 @@ impl Draft {
     fn sync(&self, ui: &AppWindow) {
         ui.set_image_width_text(self.text(self.size.0));
         ui.set_image_height_text(self.text(self.size.1));
-        ui.set_image_summary(format!("{} × {} pixels · {:.3} × {:.3} inches\nPrototype limit: 1,048,576 pixels per image.", self.size.0, self.size.1, f64::from(self.size.0) / self.resolution, f64::from(self.size.1) / self.resolution).into());
+        ui.set_image_summary(format!("{} × {} pixels · {:.3} × {:.3} inches\nUp to 262,144 pixels per dimension; memory use depends on image content.", self.size.0, self.size.1, f64::from(self.size.0) / self.resolution, f64::from(self.size.1) / self.resolution).into());
     }
 }
 fn positive(text: &str) -> Result<f64, String> {
@@ -234,7 +234,10 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
                 }
                 _ => unreachable!(),
             };
-            result.map_err(|_| "Cannot apply: maximum 1,048,576 pixels; resolution must be 1–100,000 pixels/inch.".to_string())?;
+            result.map_err(|e| match e {
+                hoshi_controller::ControllerError::Core(hoshi_core::Error::MemoryLimit) => "This operation exceeds the shared image-memory budget. Close other images or choose a smaller size.".to_string(),
+                _ => "Cannot apply: dimensions must be 1–262,144 pixels; resolution must be 1–100,000 pixels/inch.".to_string(),
+            })?;
             ui.invoke_close_image_settings();
             refresh(&ui, &c);
             Ok(())

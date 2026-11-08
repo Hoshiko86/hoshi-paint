@@ -166,8 +166,13 @@ fn invalid_dimensions_and_resolution_leave_pixels_and_history_unchanged() {
         Err(Error::InvalidDimensions)
     );
     assert!(
-        d.resize_image(65536, 65536, 96., Resampling::Bilinear)
-            .is_err()
+        d.resize_image(
+            hoshi_core::MAX_DIMENSION + 1,
+            65536,
+            96.,
+            Resampling::Bilinear
+        )
+        .is_err()
     );
     assert!(d.resize_image(3, 3, f64::NAN, Resampling::Nearest).is_err());
     assert!(d.set_resolution(0.).is_err());

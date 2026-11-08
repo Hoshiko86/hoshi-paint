@@ -335,6 +335,11 @@ impl Workspace {
         if format == FileFormat::Jpeg && self.document().resolution().round() > 65535. {
             return Err("JPEG density cannot exceed 65535 pixels/inch. Use PNG or .hoshi.".into());
         }
+        if format == FileFormat::Jpeg
+            && (self.document().width() > 65535 || self.document().height() > 65535)
+        {
+            return Err("JPEG supports at most 65535 pixels per dimension. Use PNG or .hoshi for this canvas.".into());
+        }
         self.finish()?;
         if self.requires_flatten(format) {
             self.document_for_save_flatten(format)?;

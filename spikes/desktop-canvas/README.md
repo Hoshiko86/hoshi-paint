@@ -40,6 +40,10 @@ PNG for lossless transparency, or JPEG with quality/flattening confirmation.
 See [document management](../../docs/DOCUMENT_MANAGEMENT.md) for shortcuts and limits.
 Linux native file dialogs require an XDG desktop portal provider.
 
+The [large-image design](../../docs/LARGE_IMAGES.md) replaces the former one-megapixel
+cap with sparse 262,144-pixel-per-axis canvases. Fit frames the entire image; large
+canvas display work follows the viewport instead of the document dimensions.
+
 ## Try the interaction
 
 - Drag on the checkerboard to draw a rectangle. Release keeps it editable.

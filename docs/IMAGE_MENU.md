@@ -36,8 +36,9 @@ to 512×512. The initial startup document remains 512×512 transparent.
 - Clipboard-based defaults; [document tabs and file I/O](DOCUMENT_MANAGEMENT.md) are now implemented.
 - Separate resolution unit selection (pixels/cm); physical width/height already support cm.
 - Global menu shortcuts outside canvas focus and persisted dialog defaults.
-- Larger documents and memory budgeting: this spike retains the 1,048,576-pixel limit,
-  32-layer limit, and 16 retained history entries. Resolution is 1–100,000 pixels/inch.
+- Disk-backed history and cold tile paging: [large images](LARGE_IMAGES.md) now support
+  262,144 pixels per axis with a shared memory budget. The 32-layer and 16-entry
+  history limits remain. Resolution is 1–100,000 pixels/inch.
 - Verify detailed dialog defaults and canvas-padding semantics against a current Paint.NET installation.
 
 ## Validation

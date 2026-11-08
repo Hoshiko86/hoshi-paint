@@ -416,7 +416,7 @@ fn huge_finite_view_changes_are_rejected_before_float_conversion_for_ui() {
     controller.zoom_at(10.0, 10.0, f64::MAX).unwrap();
     assert_eq!(controller.viewport().zoom, 32.0);
     controller.zoom_at(10.0, 10.0, f64::MIN_POSITIVE).unwrap();
-    assert_eq!(controller.viewport().zoom, 1.0 / 16.0);
+    assert_eq!(controller.viewport().zoom, 1.0 / 4096.0);
 }
 
 #[test]

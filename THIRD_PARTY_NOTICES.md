@@ -49,3 +49,6 @@ The desktop adapter uses **png 0.18.1** (MIT OR Apache-2.0; selecting MIT),
 (MIT OR Apache-2.0; selecting MIT). Their sources and license texts, together
 with locked transitive dependencies, are included under `vendor/` in the matching
 source archive.
+
+**sysinfo 0.37.2** (MIT) supplies cross-platform available-memory information for
+the desktop memory policy. Its source and license are in the matching vendored archive.

@@ -3,7 +3,11 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-const MAX_PIXELS: u64 = 1_048_576;
+pub const MAX_DIMENSION: u32 = 262_144;
+mod memory;
+mod pixels;
+pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
+pub use pixels::{PixelStore, TILE_SIZE};
 const HISTORY_LIMIT: usize = 16;
 /// Maximum number of layers in a document, bounding dense pixel-buffer allocation.
 pub const MAX_LAYERS: usize = 32;
@@ -63,7 +67,7 @@ pub struct Layer {
     name: String,
     visible: bool,
     opacity: u8,
-    pixels: Arc<Vec<Color>>,
+    pixels: Arc<PixelStore>,
 }
 
 impl Layer {
@@ -76,7 +80,7 @@ impl Layer {
     pub fn opacity(&self) -> u8 {
         self.opacity
     }
-    pub fn pixels(&self) -> &[Color] {
+    pub fn pixels(&self) -> &PixelStore {
         &self.pixels
     }
 }
@@ -116,7 +120,11 @@ pub struct Shape {
 
 impl Shape {
     fn validate(self) -> Result<(), Error> {
-        if self.width == 0 || self.height == 0 || self.width > 65_536 || self.height > 65_536 {
+        if self.width == 0
+            || self.height == 0
+            || self.width > MAX_DIMENSION
+            || self.height > MAX_DIMENSION
+        {
             return Err(Error::InvalidShape);
         }
         match self.style {
@@ -215,6 +223,7 @@ pub enum Error {
     NoActiveShape,
     LayerLimit,
     InvalidHistoryStep,
+    MemoryLimit,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -249,10 +258,8 @@ pub struct Document {
 
 impl Document {
     pub fn new(width: u32, height: u32) -> Result<Self, Error> {
-        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_PIXELS {
-            return Err(Error::InvalidDimensions);
-        }
-        let pixels = vec![Color::TRANSPARENT; (width * height) as usize];
+        Self::validate_image_size(width, height)?;
+        let pixels = PixelStore::new(width, height, Color::TRANSPARENT);
         Ok(Self {
             state: State {
                 width,
@@ -381,10 +388,11 @@ impl Document {
             name: name.into(),
             visible: true,
             opacity: 255,
-            pixels: Arc::new(vec![
-                Color::TRANSPARENT;
-                (self.state.width * self.state.height) as usize
-            ]),
+            pixels: Arc::new(PixelStore::new(
+                self.width(),
+                self.height(),
+                Color::TRANSPARENT,
+            )),
         });
         self.state.selected = index;
         self.checkpoint(before, "Add layer");
@@ -474,58 +482,238 @@ impl Document {
 
     /// Returns whether layer pixels changed. A no-op never adds history.
     pub fn commit_shape(&mut self) -> Result<bool, Error> {
-        let Some(shape) = self.active.take() else {
+        let Some(shape) = self.active else {
             return Ok(false);
         };
         let before = self.state.clone();
-        let layer = &mut self.state.layers[self.state.selected];
         let label = match shape.kind {
             ShapeKind::Rectangle => "Rectangle",
             ShapeKind::Ellipse => "Ellipse",
         };
-        let shape = RasterShape::new(shape);
+        let raster = RasterShape::new(shape);
+        let source = &self.state.layers[self.state.selected].pixels;
+        let background = source.background();
+        let solid = match shape.style {
+            ShapeStyle::Fill(c) => Some(c),
+            ShapeStyle::Both { fill, outline, .. } if fill == outline => Some(fill),
+            ShapeStyle::Outline { color, width }
+                if u64::from(width) * 2 >= u64::from(shape.width.min(shape.height)) =>
+            {
+                Some(color)
+            }
+            _ => None,
+        };
+        let corners = [
+            (0, 0),
+            (self.width() - 1, 0),
+            (0, self.height() - 1),
+            (self.width() - 1, self.height() - 1),
+        ];
+        if let Some(color) = solid
+            && (color.a == 255 || source.is_uniform())
+            && corners
+                .into_iter()
+                .all(|(x, y)| raster.color_at(x, y) == Some(color))
+        {
+            let result = color.over(background, 255);
+            let pixels = PixelStore::new(self.width(), self.height(), result);
+            let changed = **source != pixels;
+            if changed {
+                self.state.layers[self.state.selected].pixels = Arc::new(pixels);
+            }
+            self.active = None;
+            self.checkpoint(before, label);
+            return Ok(changed);
+        }
+        let unchanged_background = match shape.style {
+            ShapeStyle::Fill(c) | ShapeStyle::Outline { color: c, .. } => {
+                c.over(background, 255) == background
+            }
+            ShapeStyle::Both { fill, outline, .. } => {
+                fill.over(background, 255) == background
+                    && outline.over(background, 255) == background
+            }
+        };
+        let mut pixels = (*self.state.layers[self.state.selected].pixels).clone();
+        let angle = f64::from(shape.rotation_degrees).to_radians();
+        let halfw = f64::from(shape.width) / 2.;
+        let halfh = f64::from(shape.height) / 2.;
+        let rx = halfw * angle.cos().abs() + halfh * angle.sin().abs();
+        let ry = halfw * angle.sin().abs() + halfh * angle.cos().abs();
+        let cx = f64::from(shape.x) + halfw;
+        let cy = f64::from(shape.y) + halfh;
+        let left = (cx - rx - 1.).max(0.).min(f64::from(self.width())) as u32;
+        let right = (cx + rx + 1.).ceil().max(0.).min(f64::from(self.width())) as u32;
+        let top = (cy - ry - 1.).max(0.).min(f64::from(self.height())) as u32;
+        let bottom = (cy + ry + 1.).ceil().max(0.).min(f64::from(self.height())) as u32;
+        let rects: Vec<_> = if unchanged_background {
+            pixels
+                .allocated_rects()
+                .map(|(l, t, r, b)| (l.max(left), t.max(top), r.min(right), b.min(bottom)))
+                .collect()
+        } else {
+            if left < right && top < bottom {
+                let l = left / TILE_SIZE * TILE_SIZE;
+                let t = top / TILE_SIZE * TILE_SIZE;
+                let r = (right.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.width());
+                let b = (bottom.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.height());
+                let _check = MemoryReservation::new(u64::from(r - l) * u64::from(b - t) * 4)?;
+            }
+            vec![(left, top, right, bottom)]
+        };
         let mut changed = false;
-        for y in 0..self.state.height {
-            for x in 0..self.state.width {
-                if let Some(color) = shape.color_at(x, y) {
-                    let index = (y * self.state.width + x) as usize;
-                    let result = color.over(layer.pixels[index], 255);
-                    if result != layer.pixels[index] {
-                        Arc::make_mut(&mut layer.pixels)[index] = result;
-                        changed = true;
+        for (l, t, r, b) in rects {
+            for y in t..b {
+                for x in l..r {
+                    if let Some(color) = raster.color_at(x, y) {
+                        let previous = pixels.get(x, y);
+                        let result = color.over(previous, 255);
+                        if result != previous {
+                            pixels.set(x, y, result)?;
+                            changed = true;
+                        }
                     }
                 }
             }
         }
+        if changed {
+            self.state.layers[self.state.selected].pixels = Arc::new(pixels);
+        }
+        self.active = None;
         self.checkpoint(before, label);
         Ok(changed)
     }
-
-    /// Preview blends the active shape into its layer before layer opacity.
-    pub fn composite(&self, include_preview: bool) -> Vec<Color> {
-        let mut output = vec![Color::TRANSPARENT; (self.state.width * self.state.height) as usize];
-        let active = self.active.map(RasterShape::new);
-        for (layer_index, layer) in self.state.layers.iter().enumerate() {
-            if !layer.visible {
-                continue;
+    pub fn sampler(&self, include_preview: bool) -> CompositeSampler<'_> {
+        CompositeSampler::new(
+            &self.state,
+            if include_preview { self.active } else { None },
+        )
+    }
+    pub fn composite_pixel(&self, x: u32, y: u32, include_preview: bool) -> Color {
+        self.sampler(include_preview).pixel(x, y)
+    }
+    pub fn try_composite(&self, include_preview: bool) -> Result<Vec<Color>, Error> {
+        let size = self.width() as usize * self.height() as usize;
+        let _memory = MemoryReservation::new(size as u64 * 4)?;
+        let mut output = Vec::new();
+        output
+            .try_reserve_exact(size)
+            .map_err(|_| Error::MemoryLimit)?;
+        let sampler = self.sampler(include_preview);
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                output.push(sampler.pixel(x, y));
             }
-            for y in 0..self.state.height {
-                for x in 0..self.state.width {
-                    let index = (y * self.state.width + x) as usize;
-                    let mut color = layer.pixels[index];
-                    if include_preview
-                        && layer_index == self.state.selected
-                        && let Some(preview) = active.and_then(|shape| shape.color_at(x, y))
-                    {
-                        color = preview.over(color, 255);
-                    }
-                    output[index] = color.over(output[index], layer.opacity);
+        }
+        Ok(output)
+    }
+    /// Small-buffer reference helper. Production large-image paths stream/sample.
+    pub fn composite(&self, include_preview: bool) -> Vec<Color> {
+        self.try_composite(include_preview)
+            .expect("dense composite exceeds memory budget; use sampler or try_composite")
+    }
+    pub fn has_transparency_fast(&self) -> bool {
+        let sampler = self.sampler(true);
+        let corners = [
+            (0, 0),
+            (self.width() - 1, 0),
+            (0, self.height() - 1),
+            (self.width() - 1, self.height() - 1),
+        ];
+        if corners
+            .into_iter()
+            .any(|(x, y)| sampler.pixel(x, y).a < 255)
+        {
+            return true;
+        }
+        if let Some(shape) = self.active {
+            let opaque = match shape.style {
+                ShapeStyle::Fill(color) => color.a == 255,
+                ShapeStyle::Outline { color, width } => {
+                    color.a == 255
+                        && u64::from(width) * 2 >= u64::from(shape.width.min(shape.height))
+                }
+                ShapeStyle::Both { fill, outline, .. } => fill.a == 255 && outline.a == 255,
+            };
+            let layer = &self.state.layers[self.state.selected];
+            // A filled rectangle/ellipse is convex. Opaque global corners imply
+            // coverage of the entire canvas, including rotated shapes.
+            if opaque && layer.visible && layer.opacity == 255 {
+                let raster = RasterShape::new(shape);
+                if corners
+                    .into_iter()
+                    .all(|(x, y)| raster.color_at(x, y).is_some_and(|c| c.a == 255))
+                {
+                    return false;
                 }
             }
         }
-        output
+        let mut background = Color::TRANSPARENT;
+        let mut tiles = std::collections::HashSet::new();
+        for layer in &self.state.layers {
+            if layer.visible {
+                background = layer.pixels.background().over(background, layer.opacity);
+                tiles.extend(layer.pixels.tile_positions());
+            }
+        }
+        if background.a == 255 {
+            for (tx, ty) in tiles {
+                for y in ty * TILE_SIZE..((ty + 1) * TILE_SIZE).min(self.height()) {
+                    for x in tx * TILE_SIZE..((tx + 1) * TILE_SIZE).min(self.width()) {
+                        if sampler.pixel(x, y).a < 255 {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        // Stop at the first transparent sample; empty huge canvases take O(1).
+        for ty in 0..self.height().div_ceil(TILE_SIZE) {
+            for tx in 0..self.width().div_ceil(TILE_SIZE) {
+                if !tiles.contains(&(tx, ty)) && self.active.is_none() {
+                    return true;
+                }
+                for y in ty * TILE_SIZE..((ty + 1) * TILE_SIZE).min(self.height()) {
+                    for x in tx * TILE_SIZE..((tx + 1) * TILE_SIZE).min(self.width()) {
+                        if sampler.pixel(x, y).a < 255 {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
     }
-
+    pub fn flattened_pixels(&self, matte: Option<Color>) -> Result<PixelStore, Error> {
+        let mut background = Color::TRANSPARENT;
+        let mut tiles = std::collections::HashSet::new();
+        for layer in &self.state.layers {
+            if layer.visible {
+                background = layer.pixels.background().over(background, layer.opacity);
+                tiles.extend(layer.pixels.tile_positions());
+            }
+        }
+        if let Some(matte) = matte {
+            background = background.over(matte, 255)
+        }
+        let mut pixels = PixelStore::new(self.width(), self.height(), background);
+        let sampler = self.sampler(false);
+        for (tx, ty) in tiles {
+            for y in ty * TILE_SIZE..((ty + 1) * TILE_SIZE).min(self.height()) {
+                for x in tx * TILE_SIZE..((tx + 1) * TILE_SIZE).min(self.width()) {
+                    let mut color = sampler.pixel(x, y);
+                    if let Some(matte) = matte {
+                        color = color.over(matte, 255)
+                    }
+                    if color != background {
+                        pixels.set(x, y, color)?;
+                    }
+                }
+            }
+        }
+        Ok(pixels)
+    }
     pub fn undo(&mut self) -> Result<bool, Error> {
         self.commit_shape()?;
         let Some(previous) = self.undo.pop_back() else {
@@ -561,4 +749,37 @@ pub use canvas::{Anchor, ImageTransform, Resampling, ResizeOptions};
 mod resampling;
 
 mod project;
-pub use project::{DocumentSnapshot, MAX_PROJECT_BYTES, ProjectError};
+pub use project::{DocumentSnapshot, ProjectError};
+
+/// Prepared shape geometry and sparse layer sampling, independent of image area.
+pub struct CompositeSampler<'a> {
+    state: &'a State,
+    active: Option<RasterShape>,
+}
+impl<'a> CompositeSampler<'a> {
+    fn new(state: &'a State, preview: Option<Shape>) -> Self {
+        Self {
+            state,
+            active: preview.map(RasterShape::new),
+        }
+    }
+    pub fn pixel(&self, x: u32, y: u32) -> Color {
+        if x >= self.state.width || y >= self.state.height {
+            return Color::TRANSPARENT;
+        }
+        let mut output = Color::TRANSPARENT;
+        for (index, layer) in self.state.layers.iter().enumerate() {
+            if !layer.visible {
+                continue;
+            }
+            let mut color = layer.pixels.get(x, y);
+            if index == self.state.selected
+                && let Some(preview) = self.active.and_then(|s| s.color_at(x, y))
+            {
+                color = preview.over(color, 255)
+            }
+            output = color.over(output, layer.opacity);
+        }
+        output
+    }
+}

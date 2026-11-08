@@ -501,19 +501,11 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, dialogs: Option<Rc<d
         slint::CloseRequestResponse::KeepWindowShown
     });
 }
-fn thumbnail(bytes: &[u8], width: usize, height: usize) -> slint::Image {
-    let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(40, 32);
-    for (i, p) in pixels.make_mut_slice().iter_mut().enumerate() {
-        let x = (i % 40) * width / 40;
-        let y = (i / 40) * height / 32;
-        let n = (y * width + x) * 4;
-        *p = slint::Rgba8Pixel {
-            r: bytes[n],
-            g: bytes[n + 1],
-            b: bytes[n + 2],
-            a: bytes[n + 3],
-        };
-    }
+fn thumbnail(controller: &hoshi_controller::Controller) -> slint::Image {
+    let preview = controller.thumbnail(40, 32);
+    let mut pixels =
+        slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(preview.width, preview.height);
+    pixels.make_mut_bytes().copy_from_slice(&preview.rgba);
     slint::Image::from_rgba8(pixels)
 }
 pub(super) fn refresh(ui: &AppWindow, state: &Workspace) {
@@ -529,12 +521,7 @@ pub(super) fn refresh(ui: &AppWindow, state: &Workspace) {
             let thumbnail = if let Some(cached) = cached {
                 cached.thumbnail
             } else {
-                let rgba = tab.controller.preview_rgba();
-                thumbnail(
-                    &rgba,
-                    tab.controller.document().width() as usize,
-                    tab.controller.document().height() as usize,
-                )
+                thumbnail(&tab.controller)
             };
             DocumentTabRow {
                 id: tab.id as i32,

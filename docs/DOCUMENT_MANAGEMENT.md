@@ -64,9 +64,10 @@ Save As refuses a destination already owned by another open tab. Native file pic
 provide overwrite confirmation. The filename extension determines the encoder; use
 .hoshi, .png or .jpg explicitly when switching formats in a picker.
 
-Prototype bounds remain 1,048,576 pixels per image, 32 layers, 16 undo entries, and
-32 open tabs. Input is bounded before pixel allocation; tab thumbnails are cached.
-These bounds require a larger-image memory/tile design before production use.
+The canvas now supports 262,144 pixels per dimension with sparse tiles and a shared
+memory budget; see [large images](LARGE_IMAGES.md). The 32-layer, 16-entry history,
+and 32-tab limits remain. Native V2 projects stream tiles and read older V1 files;
+encoded file length no longer has a fixed 128 MiB ceiling.
 Linux file dialogs use the desktop's XDG portal; a portal provider is needed in
 minimal/headless Linux sessions. Windows and macOS use native OS file dialogs.
 

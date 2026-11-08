@@ -8,6 +8,7 @@ pub mod documents;
 pub mod files;
 mod history;
 mod image_settings;
+mod resources;
 mod screen_pick;
 pub mod workspace;
 
@@ -35,6 +36,9 @@ slint::slint! {
         // Match widgets to the shell's fixed light surfaces on dark-themed Windows.
         init => { Palette.color-scheme = ColorScheme.light; }
         in property <image> canvas-image;
+        in property <bool> viewport-preview;
+        callback render-viewport();
+        callback fit-canvas();
         in property <[ControlPoint]> control-points;
         in property <float> zoom: 1;
         in property <float> offset-x;
@@ -210,6 +214,8 @@ slint::slint! {
         private property <length> dock-bottom-height: root.has-bottom-dock ? root.dock-row-height : 0px;
         out property <float> canvas-width: viewport.width / 1px;
         out property <float> canvas-height: viewport.height / 1px;
+        changed canvas-width => { root.render-viewport(); }
+        changed canvas-height => { root.render-viewport(); }
         out property <float> colors-host-left: docked-colors.absolute-position.x / 1px;
         out property <float> colors-host-top: docked-colors.absolute-position.y / 1px;
         out property <float> colors-host-width: docked-colors.width / 1px;
@@ -288,6 +294,7 @@ slint::slint! {
                 Button { text: "Cancel · Esc"; enabled: root.has-shape; clicked => { root.action(3); } }
                 Rectangle { horizontal-stretch: 1; }
                 Button { text: "−"; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
+                Button { text: "Fit"; enabled: root.has-document && !root.modal-visible; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
                 Button { text: "Reset view"; clicked => { root.action(4); } }
                 Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
@@ -356,10 +363,10 @@ slint::slint! {
                     Image {
                         visible: root.has-document;
                         source: root.canvas-image;
-                        x: root.offset-x * 1px;
-                        y: root.offset-y * 1px;
-                        width: root.image-width * 1px * root.zoom;
-                        height: root.image-height * 1px * root.zoom;
+                        x: root.viewport-preview ? 0px : root.offset-x * 1px;
+                        y: root.viewport-preview ? 0px : root.offset-y * 1px;
+                        width: root.viewport-preview ? parent.width : root.image-width * 1px * root.zoom;
+                        height: root.viewport-preview ? parent.height : root.image-height * 1px * root.zoom;
                         image-fit: fill;
                     }
                     if root.has-shape : Path {
@@ -613,6 +620,57 @@ pub fn refresh_workspace(ui: &AppWindow, state: &SharedController) {
     refresh(ui, &state.borrow());
 }
 
+fn render_canvas(ui: &AppWindow, controller: &Controller) {
+    if !ui.get_has_document() {
+        ui.set_canvas_image(slint::Image::default());
+        return;
+    }
+    let document = controller.document();
+    let large = u64::from(document.width()) * u64::from(document.height()) > 1_048_576;
+    ui.set_viewport_preview(large);
+    let preview = if large {
+        controller.render_viewport(
+            ui.get_canvas_width().ceil().max(1.) as u32,
+            ui.get_canvas_height().ceil().max(1.) as u32,
+            f64::from(ui.window().scale_factor()),
+        )
+    } else {
+        controller.thumbnail(document.width(), document.height())
+    };
+    let mut pixels =
+        slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(preview.width, preview.height);
+    pixels.make_mut_bytes().copy_from_slice(&preview.rgba);
+    ui.set_canvas_image(slint::Image::from_rgba8(pixels));
+}
+fn bind_rendering(ui: &AppWindow, state: SharedController) {
+    let weak = ui.as_weak();
+    let fit_state = state.clone();
+    ui.on_fit_canvas(move || {
+        if let Some(ui) = weak.upgrade()
+            && !ui.get_modal_visible()
+            && let Ok(mut state) = fit_state.try_borrow_mut()
+            && state.has_document()
+        {
+            let result = state.fit_viewport(
+                f64::from(ui.get_canvas_width()),
+                f64::from(ui.get_canvas_height()),
+            );
+            refresh(&ui, &state);
+            if let Err(error) = result {
+                ui.set_status(format!("Cannot fit image: {error:?}").into());
+            }
+        }
+    });
+    let weak = ui.as_weak();
+    ui.on_render_viewport(move || {
+        if let Some(ui) = weak.upgrade()
+            && let Ok(state) = state.try_borrow()
+        {
+            render_canvas(&ui, &state);
+        }
+    });
+}
+
 fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
     ui.set_has_document(controller.has_document());
     let document = controller.document();
@@ -623,15 +681,11 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
             || !document.layers()[0].visible()
             || document.layers()[0].opacity() != 255,
     );
-    let rgba = controller.preview_rgba();
-    let mut pixels =
-        slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(document.width(), document.height());
-    pixels.make_mut_bytes().copy_from_slice(&rgba);
-    ui.set_canvas_image(slint::Image::from_rgba8(pixels));
     let viewport = controller.viewport();
     ui.set_zoom(viewport.zoom as f32);
     ui.set_offset_x(viewport.offset_x as f32);
     ui.set_offset_y(viewport.offset_y as f32);
+    render_canvas(ui, controller);
     let points = controller
         .handle_positions()
         .into_iter()
@@ -706,12 +760,18 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
             )
         })
         .unwrap_or_default();
+    let percent = viewport.zoom * 100.;
+    let zoom_label = if percent < 1. {
+        format!("{percent:.3}")
+    } else {
+        format!("{percent:.0}")
+    };
     ui.set_status(
         format!(
-            "{} × {} · {:.0}% · Undo: {}{}",
+            "{} × {} · {}% · Undo: {}{}",
             document.width(),
             document.height(),
-            viewport.zoom * 100.0,
+            zoom_label,
             document.undo_len(),
             shape
         )
@@ -733,7 +793,12 @@ fn update(
         let result = action(&mut controller);
         refresh(&ui, &controller);
         if let Err(error) = result {
-            ui.set_status(format!("Action unavailable: {error:?}").into());
+            ui.set_status(match error {
+                ControllerError::Core(hoshi_core::Error::MemoryLimit) => {
+                    "Image memory budget exceeded. Close other images or use a smaller size.".into()
+                }
+                _ => format!("Action unavailable: {error:?}").into(),
+            });
         }
     }
 }
@@ -777,6 +842,7 @@ fn create_panels(
     ),
     slint::PlatformError,
 > {
+    resources::initialize();
     let ui = AppWindow::new()?;
     let recent_store = if dialogs.is_some() {
         None
@@ -787,6 +853,7 @@ fn create_panels(
         recent_store,
     )));
     image_settings::bind(&ui, controller.clone());
+    bind_rendering(&ui, controller.clone());
     refresh(&ui, &controller.borrow());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_shift_modifier(move |pressed| {
