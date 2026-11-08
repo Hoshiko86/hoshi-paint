@@ -75,5 +75,19 @@ fn maximum_canvas_edits_are_sparse_transactional_and_share_history_tiles() {
         )
         .unwrap();
     assert_eq!(white.layers()[0].pixels().allocated_bytes(), 0);
+    let mut outline = Document::new(8192, 8192).unwrap();
+    let mut rectangle = shape(0, 0, 8192, 8192, red);
+    rectangle.style = ShapeStyle::Outline {
+        color: red,
+        width: 1,
+    };
+    outline.begin_shape(rectangle).unwrap();
+    outline.commit_shape().unwrap();
+    assert_eq!(outline.composite_pixel(0, 4096, false), red);
+    assert_eq!(
+        outline.composite_pixel(4096, 4096, false),
+        Color::TRANSPARENT
+    );
+    assert!(outline.layers()[0].pixels().allocated_bytes() < 20 * 1024 * 1024);
     assert!(Document::new(max + 1, 1).is_err());
 }

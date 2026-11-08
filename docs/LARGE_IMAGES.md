@@ -19,7 +19,8 @@ ordinary large photos and panoramic images from working efficiently.
   128×128 tiles. Blank/solid canvases do not allocate a full image. Edge tiles allocate
   only their valid pixels, so extremely thin images do not waste 128 times their RAM.
 - **Copy-on-write history.** Snapshots share unchanged tiles. A small shape copies
-  only touched tiles; rasterization visits its clipped bounds. Opaque full-canvas
+  only touched tiles; rasterization visits its clipped bounds. Rectangle outlines
+  at quarter turns visit border strips instead of scanning their interior. Opaque full-canvas
   fills and uniform transforms/resizes retain constant-size storage.
 - **Viewport rendering.** Large images are sampled directly into the visible viewport,
   bounded to four megapixels and 4096 pixels per texture edge, including HiDPI.

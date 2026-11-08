@@ -546,20 +546,55 @@ impl Document {
         let right = (cx + rx + 1.).ceil().max(0.).min(f64::from(self.width())) as u32;
         let top = (cy - ry - 1.).max(0.).min(f64::from(self.height())) as u32;
         let bottom = (cy + ry + 1.).ceil().max(0.).min(f64::from(self.height())) as u32;
+        let mut paint_rects = vec![(left, top, right, bottom)];
+        if shape.kind == ShapeKind::Rectangle
+            && shape.rotation_degrees.rem_euclid(90) == 0
+            && let ShapeStyle::Outline { width, .. } = shape.style
+            && f64::from(width) < halfw.min(halfh)
+        {
+            // Quarter-turn rectangle outlines are four strips. Visiting their
+            // bounding-box interior would make a thin large outline quadratic.
+            let iw = halfw - f64::from(width);
+            let ih = halfh - f64::from(width);
+            let irx = iw * angle.cos().abs() + ih * angle.sin().abs();
+            let iry = iw * angle.sin().abs() + ih * angle.cos().abs();
+            let il = (cx - irx).ceil().max(f64::from(left)).min(f64::from(right)) as u32;
+            let ir = (cx + irx).floor().max(f64::from(il)).min(f64::from(right)) as u32;
+            let it = (cy - iry).ceil().max(f64::from(top)).min(f64::from(bottom)) as u32;
+            let ib = (cy + iry).floor().max(f64::from(it)).min(f64::from(bottom)) as u32;
+            paint_rects = vec![
+                (left, top, right, it),
+                (left, ib, right, bottom),
+                (left, it, il, ib),
+                (ir, it, right, ib),
+            ];
+        }
         let rects: Vec<_> = if unchanged_background {
             pixels
                 .allocated_rects()
-                .map(|(l, t, r, b)| (l.max(left), t.max(top), r.min(right), b.min(bottom)))
+                .flat_map(|(l, t, r, b)| {
+                    paint_rects
+                        .iter()
+                        .map(move |&(pl, pt, pr, pb)| (l.max(pl), t.max(pt), r.min(pr), b.min(pb)))
+                })
                 .collect()
         } else {
-            if left < right && top < bottom {
-                let l = left / TILE_SIZE * TILE_SIZE;
-                let t = top / TILE_SIZE * TILE_SIZE;
-                let r = (right.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.width());
-                let b = (bottom.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.height());
-                let _check = MemoryReservation::new(u64::from(r - l) * u64::from(b - t) * 4)?;
+            let mut bytes = 0u64;
+            for &(l, t, r, b) in &paint_rects {
+                if l < r && t < b {
+                    let l = l / TILE_SIZE * TILE_SIZE;
+                    let t = t / TILE_SIZE * TILE_SIZE;
+                    let r = (r.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.width());
+                    let b = (b.div_ceil(TILE_SIZE) * TILE_SIZE).min(self.height());
+                    bytes = bytes
+                        .checked_add(u64::from(r - l) * u64::from(b - t) * 4)
+                        .ok_or(Error::MemoryLimit)?;
+                }
             }
-            vec![(left, top, right, bottom)]
+            {
+                let _check = MemoryReservation::new(bytes)?;
+            }
+            paint_rects
         };
         let mut changed = false;
         for (l, t, r, b) in rects {
