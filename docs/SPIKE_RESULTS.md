@@ -36,7 +36,8 @@ machine. The software renderer still draws and its pixel checks pass.
 
 ## Implementation scope
 
-- 512×512 transparency checkerboard; pointer-anchored zoom and pan.
+- Initially 512×512, with dynamic document dimensions, transparency checkerboard,
+  pointer-anchored zoom/pan and Image menu edits; see [IMAGE_MENU.md](IMAGE_MENU.md).
 - Filled rectangle drag/release, eight corner/edge handles, rotation about the
   center, adjustable color and commit/cancel. Opposite resize anchors stay fixed
   within integer-pixel rounding; rotation is in one-degree increments.

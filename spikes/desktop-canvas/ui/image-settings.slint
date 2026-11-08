@@ -1,0 +1,102 @@
+import { Button, LineEdit, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+export component ImageSettings inherits Rectangle {
+    in property <int> kind;
+    in-out property <string> width-text;
+    in-out property <string> height-text;
+    in-out property <string> resolution-text;
+    in-out property <string> percent-text;
+    in property <int> units;
+    in property <bool> aspect;
+    in property <bool> percentage;
+    in-out property <int> anchor: 4;
+    in-out property <int> background-choice;
+    in-out property <int> resampling: 0;
+    in-out property <bool> gamma-correction: true;
+    in property <string> summary;
+    in property <string> error;
+    callback edited(int, string);
+    callback units-selected(int);
+    callback aspect-selected(bool);
+    callback percentage-selected(bool);
+    callback apply();
+    callback cancel();
+    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    init => { width-entry.focus(); }
+    ScrollView {
+        content-width: self.width;
+        content-height: root.kind == 0 ? 610px : root.kind == 1 ? 700px : 680px;
+    FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.cancel(); return accept; }
+            reject
+        }
+    VerticalLayout {
+        padding: 20px; spacing: 10px;
+        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: #18253c; }
+        if root.kind == 1: HorizontalLayout {
+            ComboBox { model: ["By absolute size", "By percentage"]; current-index: root.percentage ? 1 : 0;
+                accessible-label: "Resize sizing mode"; selected(value) => { root.percentage-selected(self.current-index == 1); } }
+            LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: "Resize percentage"; edited(value) => { root.edited(3, value); } accepted => { root.apply(); } }
+            Text { text: "%"; vertical-alignment: center; color: #273650; }
+        }
+        HorizontalLayout {
+            Text { text: "Units"; width: 100px; vertical-alignment: center; color: #273650; }
+            ComboBox { model: ["Pixels", "Inches", "Centimeters"]; current-index: root.units;
+                accessible-label: "Image size units"; selected(value) => { root.units-selected(self.current-index); } }
+        }
+        HorizontalLayout {
+            Text { text: "Width"; width: 100px; vertical-alignment: center; color: #273650; }
+            width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: "Image width"; edited(value) => { root.edited(0, value); } accepted => { root.apply(); } }
+        }
+        HorizontalLayout {
+            Text { text: "Height"; width: 100px; vertical-alignment: center; color: #273650; }
+            LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: "Image height"; edited(value) => { root.edited(1, value); } accepted => { root.apply(); } }
+        }
+        CheckBox { text: "Maintain aspect ratio"; checked: root.aspect; enabled: !root.percentage;
+            toggled => { root.aspect-selected(self.checked); } }
+        if root.kind != 2: HorizontalLayout {
+            Text { text: "Resolution"; width: 100px; vertical-alignment: center; color: #273650; }
+            LineEdit { text <=> root.resolution-text; accessible-label: "Resolution in pixels per inch"; edited(value) => { root.edited(2, value); } accepted => { root.apply(); } }
+            Text { text: "pixels/inch"; color: #273650; vertical-alignment: center; }
+        }
+        if root.kind == 1: HorizontalLayout {
+            Text { text: "Resampling"; width: 100px; color: #273650; vertical-alignment: center; }
+            ComboBox { model: ["Bicubic", "Bicubic (Smooth)", "Bilinear", "Bilinear (Low Quality)", "Adaptive (Sharp)", "Lanczos", "Fant", "Nearest Neighbor"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
+            Button { icon: @image-url("../icons/undo.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
+                Tooltip { text: @markdown("Reset resampling to Bicubic"); }
+                clicked => { root.resampling = 0; } }
+        }
+        if root.kind == 1: CheckBox {
+            text: "Use gamma correction"; accessible-label: "Use gamma correction";
+            checked <=> root.gamma-correction;
+            Tooltip { text: @markdown("Resample in linear light to preserve brightness. Alpha is always treated as coverage."); }
+        }
+        if root.kind == 2: HorizontalLayout {
+            Text { text: "Anchor"; width: 100px; color: #273650; vertical-alignment: center; }
+            Rectangle { width: 150px; height: 108px;
+                for label[index] in ["Top left", "Top", "Top right", "Left", "Center", "Right", "Bottom left", "Bottom", "Bottom right"]: Button {
+                    x: Math.mod(index, 3) * 50px; y: floor(index / 3) * 36px; width: 46px; height: 32px;
+                    text: root.anchor == index ? "●" : ["↖", "↑", "↗", "←", "·", "→", "↙", "↓", "↘"][index];
+                    accessible-label: "Canvas anchor " + label; clicked => { root.anchor = index; }
+                }
+            }
+        }
+        if root.kind != 1: HorizontalLayout {
+            Text { text: root.kind == 0 ? "Background" : "Fill new area"; width: 100px; color: #273650; vertical-alignment: center; }
+            ComboBox { model: root.kind == 0 ? ["White", "Transparent", "Secondary color"] : ["Transparent", "Secondary color"];
+                current-index <=> root.background-choice; accessible-label: "Image background fill"; }
+        }
+        Text { text: root.summary; wrap: word-wrap; color: #526079; }
+        Text { text: root.error; wrap: word-wrap; color: #a12828; min-height: 36px; }
+        Text { text: root.kind == 0 ? "Create replaces the current image and clears its undo history." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #526079; font-size: 12px; }
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "Cancel"; clicked => { root.cancel(); } }
+            Button { text: root.kind == 0 ? "Create" : "OK"; accessible-label: "Apply image settings"; clicked => { root.apply(); } }
+        }
+    }
+}
+}
+}

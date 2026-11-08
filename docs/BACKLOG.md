@@ -104,3 +104,13 @@ with accessible hex labels. Future palette work should add favorite-color
 saving/removal, persistence and palette files while keeping the same selection
 behavior in floating and docked hosts. Those capabilities are not implemented
 by the current preset-swatch foundation.
+
+## Image and canvas menu
+
+File New and Image Resize/Canvas Size/flip/rotate/flatten are implemented in the
+desktop spike with dimension/resolution history. Crop to Selection remains blocked
+on selections. See [IMAGE_MENU.md](IMAGE_MENU.md) for supported settings and parity gaps.
+
+Resize now exposes all eight documented Paint.NET resamplers and gamma correction.
+See [RESAMPLING.md](RESAMPLING.md): Paint.NET golden-image comparison and its exact
+Adaptive (Sharp) policy remain verification work.

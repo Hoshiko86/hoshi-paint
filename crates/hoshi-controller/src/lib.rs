@@ -6,7 +6,9 @@
 
 pub mod color;
 
-pub use hoshi_core::{Color, HistoryStep, ShapeStyle};
+pub use hoshi_core::{
+    Anchor, Color, HistoryStep, ImageTransform, Resampling, ResizeOptions, ShapeStyle,
+};
 use hoshi_core::{Document, Error, Shape, ShapeKind};
 
 /// Drawing style retained for the next shape as well as the active preview.
@@ -827,6 +829,71 @@ impl Controller {
             ColorSlot::Secondary => self.secondary_color = color,
         }
         self.refresh_shape_style()
+    }
+
+    pub fn new_image(
+        &mut self,
+        width: u32,
+        height: u32,
+        resolution: f64,
+        background: Color,
+    ) -> Result<(), ControllerError> {
+        let document = Document::new_with_background(width, height, resolution, background)?;
+        self.document = document;
+        self.gesture = None;
+        self.sample_snapshot = None;
+        self.last_pointer = None;
+        self.aspect_lock = false;
+        self.tool = Tool::Rectangle;
+        self.reset_view();
+        Ok(())
+    }
+    pub fn resize_image(
+        &mut self,
+        width: u32,
+        height: u32,
+        resolution: f64,
+        options: impl Into<ResizeOptions>,
+    ) -> Result<(), ControllerError> {
+        Document::validate_image_size(width, height)?;
+        Document::validate_resolution(resolution)?;
+        self.pointer_up()?;
+        self.commit()?;
+        self.document
+            .resize_image(width, height, resolution, options)?;
+        Ok(())
+    }
+    pub fn resize_canvas(
+        &mut self,
+        width: u32,
+        height: u32,
+        anchor: Anchor,
+        fill: Color,
+    ) -> Result<(), ControllerError> {
+        Document::validate_image_size(width, height)?;
+        if anchor.column > 2 || anchor.row > 2 {
+            return Err(Error::InvalidDimensions.into());
+        }
+        self.pointer_up()?;
+        self.commit()?;
+        self.document.resize_canvas(width, height, anchor, fill)?;
+        Ok(())
+    }
+    pub fn transform_image(&mut self, transform: ImageTransform) -> Result<(), ControllerError> {
+        self.pointer_up()?;
+        self.commit()?;
+        self.document.transform_image(transform)?;
+        Ok(())
+    }
+    pub fn flatten(&mut self) -> Result<(), ControllerError> {
+        let layers = self.document.layers();
+        if layers.len() == 1 && layers[0].visible() && layers[0].opacity() == 255 {
+            return Ok(());
+        }
+        self.pointer_up()?;
+        self.commit()?;
+        self.document.flatten()?;
+        Ok(())
     }
 
     pub fn rename_layer(&mut self, name: &str) -> Result<(), ControllerError> {
