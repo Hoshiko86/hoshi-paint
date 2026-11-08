@@ -1,3 +1,4 @@
+import { FileShortcuts } from "file-shortcuts.slint";
 import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
     preferred-height: 34px;
@@ -22,7 +23,7 @@ component Channel inherits Rectangle {
     }
 }
 export struct PaletteSwatch { red: int, green: int, blue: int, label: string, description: string }
-component SwatchDetails inherits Rectangle {
+export component SwatchDetails inherits Rectangle {
     in property <string> text;
     background: Palette.alternate-background;
     border-width: 1px; border-color: Palette.border; border-radius: 4px;
@@ -291,6 +292,8 @@ export component ColorPanel inherits Rectangle {
     }
 }
 export component ColorPickerWindow inherits Window {
+    callback file-action(int);
+    callback cycle-document(bool);
     in property <color> workspace-primary <=> panel.workspace-primary;
     in property <color> workspace-secondary <=> panel.workspace-secondary;
     in property <string> primary-description <=> panel.primary-description;
@@ -345,6 +348,10 @@ export component ColorPickerWindow inherits Window {
     callback pick-screen();
     callback close-picker();
     callback toggle-dock();
+    FileShortcuts {
+        width: parent.width; height: parent.height;
+        file-action(value) => { root.file-action(value); }
+        cycle-document(backward) => { root.cycle-document(backward); }
     panel := ColorPanel {
         swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }
         select-color-slot(value) => { root.select-color-slot(value); }
@@ -356,5 +363,6 @@ export component ColorPickerWindow inherits Window {
         pick-screen => { root.pick-screen(); }
         close-picker => { root.close-picker(); }
         toggle-dock => { root.toggle-dock(); }
+    }
     }
 }

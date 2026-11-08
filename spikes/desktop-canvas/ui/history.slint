@@ -1,3 +1,4 @@
+import { FileShortcuts } from "file-shortcuts.slint";
 import { Button, ListView, Palette } from "std-widgets.slint";
 import { ToolPanelFrame } from "colors.slint";
 export struct HistoryRow { label: string, index: int, current: bool, redo: bool }
@@ -51,6 +52,8 @@ export component HistoryPanel inherits Rectangle {
     }
 }
 export component HistoryWindow inherits Window {
+    callback file-action(int);
+    callback cycle-document(bool);
     title: "History · Hoshi Paint";
     preferred-width: 340px; preferred-height: 520px;
     min-width: 300px; min-height: 250px;
@@ -69,11 +72,16 @@ export component HistoryWindow inherits Window {
     callback jump(int);
     callback undo();
     callback redo();
+    FileShortcuts {
+        width: parent.width; height: parent.height;
+        file-action(value) => { root.file-action(value); }
+        cycle-document(backward) => { root.cycle-document(backward); }
     panel := HistoryPanel {
         placement-selected(value) => { root.placement-selected(value); }
         close-panel => { root.close-panel(); }
         jump(index) => { root.jump(index); }
         undo => { root.undo(); }
         redo => { root.redo(); }
+    }
     }
 }

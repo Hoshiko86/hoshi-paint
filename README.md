@@ -13,6 +13,13 @@ Run `cargo run --package hoshi-canvas-spike --locked`. See the
 [spike guide](spikes/desktop-canvas/README.md) for platform prerequisites,
 controls, validation, and remaining evaluation gates.
 
+## Document management
+
+The desktop spike now supports multiple document tabs, native Open/Save dialogs,
+Save As/Save All, recent files, and unsaved-change prompts. Use `.hoshi` to retain
+layers, or PNG/JPEG for flat images. See [document management](docs/DOCUMENT_MANAGEMENT.md)
+for shortcuts, formats, and remaining Paint.NET parity work.
+
 ## Development
 
 Install Rust using rustup. The repository pins its toolchain in

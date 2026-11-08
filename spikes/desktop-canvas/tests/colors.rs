@@ -181,6 +181,9 @@ fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
     }
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::CloseRequested);
+    while ui.get_file_prompt_visible() {
+        ui.invoke_file_prompt_response(1);
+    }
     assert!(!ui.window().is_visible());
     assert!(
         !picker.window().is_visible(),

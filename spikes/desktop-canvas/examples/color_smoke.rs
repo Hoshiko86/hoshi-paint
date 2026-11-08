@@ -110,6 +110,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             ui.window()
                 .dispatch_event(slint::platform::WindowEvent::CloseRequested);
+            while ui.get_file_prompt_visible() {
+                ui.invoke_file_prompt_response(1);
+            }
             assert!(!picker.window().is_visible());
             println!(
                 "PASS: desktop color picker rendered, HSV/hex edits and floating/docked fill and outline editing succeeded."
