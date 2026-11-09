@@ -78,7 +78,7 @@ fn settings_survive_cancel_and_apply_to_the_next_shape_without_changing_old_pixe
         ShapeStyle::Both {
             fill: c.secondary_color(),
             outline,
-            width: 65536,
+            width: 65536.0,
         }
     );
     assert_eq!(c.composite()[20 * 64 + 20], outline);
@@ -117,7 +117,7 @@ fn workspace_slots_are_independent_of_style_and_swapping_is_one_live_preview_edi
         c.document().active_shape().unwrap().style,
         ShapeStyle::Outline {
             color: primary,
-            width: 2
+            width: 2.0
         }
     );
     c.set_shape_mode(ShapeMode::Both).unwrap();
@@ -135,7 +135,7 @@ fn workspace_slots_are_independent_of_style_and_swapping_is_one_live_preview_edi
         ShapeStyle::Both {
             fill: primary,
             outline: secondary,
-            width: 2
+            width: 2.0
         }
     );
     assert_eq!(c.document().undo_len(), 0);

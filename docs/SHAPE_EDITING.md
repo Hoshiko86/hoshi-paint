@@ -25,4 +25,4 @@ Add the primitive's geometry and raster coverage in core, then its creation/tool
 
 A line or polygon still needs its own creation rules and coverage calculation. Vertex editing, line endpoint controls and other shape-specific controls should be separate extensions beside shared frame editing. Mirror flags are retained even for symmetric rectangles/ellipses so future asymmetric primitives can use the same transform.
 
-Integer bounds and whole-degree rotations remain current model constraints. Dash patterns, antialiasing controls, fractional stroke widths and additional shape tools are separate rendering/tool work; this change does not claim those features.
+Integer bounds and whole-degree rotations remain current model constraints. Shared paint settings now support fractional strokes, antialiasing, dash styles and two-color patterns; see [SHAPE_RENDERING.md](SHAPE_RENDERING.md) for algorithms and remaining parity work. Additional shape tools still need their primitive geometry and creation UI.

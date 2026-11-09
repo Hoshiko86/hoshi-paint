@@ -12,6 +12,10 @@ fn pixel(d: &mut Document, x: i32, y: i32, color: Color) {
         rotation_degrees: 0,
         flip_horizontal: false,
         flip_vertical: false,
+        rendering: hoshi_core::RenderOptions {
+            antialias: false,
+            ..Default::default()
+        },
         style: ShapeStyle::Fill(color),
     })
     .unwrap();

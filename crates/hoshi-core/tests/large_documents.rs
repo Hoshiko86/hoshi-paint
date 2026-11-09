@@ -12,6 +12,10 @@ fn shape(x: i32, y: i32, w: u32, h: u32, color: Color) -> Shape {
         rotation_degrees: 0,
         flip_horizontal: false,
         flip_vertical: false,
+        rendering: hoshi_core::RenderOptions {
+            antialias: false,
+            ..Default::default()
+        },
         style: ShapeStyle::Fill(color),
     }
 }
@@ -81,7 +85,7 @@ fn maximum_canvas_edits_are_sparse_transactional_and_share_history_tiles() {
     let mut rectangle = shape(0, 0, 8192, 8192, red);
     rectangle.style = ShapeStyle::Outline {
         color: red,
-        width: 1,
+        width: 1.0,
     };
     outline.begin_shape(rectangle).unwrap();
     outline.commit_shape().unwrap();

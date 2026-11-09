@@ -10,6 +10,10 @@ fn rectangle(color: Color) -> Shape {
         rotation_degrees: 0,
         flip_horizontal: false,
         flip_vertical: false,
+        rendering: hoshi_core::RenderOptions {
+            antialias: false,
+            ..Default::default()
+        },
         style: ShapeStyle::Fill(color),
     }
 }

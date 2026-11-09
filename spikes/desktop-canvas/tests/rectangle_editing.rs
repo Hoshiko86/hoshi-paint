@@ -222,7 +222,7 @@ fn shared_canvas_input_supports_shape_modifiers_pivot_keyboard_and_secondary_dra
         ShapeStyle::Both {
             fill: state.borrow().primary_color(),
             outline: state.borrow().secondary_color(),
-            width: state.borrow().stroke_width()
+            width: state.borrow().stroke_width_pixels()
         }
     );
     key(&ui, Key::Return, true);

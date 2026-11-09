@@ -1,0 +1,52 @@
+// Rendering settings are shared by every shape tool. The controller owns
+// validation, preview updates, and the defaults used for the next gesture.
+import { LineEdit, ComboBox, CheckBox } from "std-widgets.slint";
+export component ShapeRendering inherits VerticalLayout {
+    in property <float> outline-width: 2;
+    in property <bool> outline-enabled;
+    in property <bool> fill-enabled;
+    in property <bool> antialiasing: true;
+    in property <int> line-style;
+    in property <int> fill-pattern;
+    callback edit-width(float);
+    callback select-line(int);
+    callback select-fill(int);
+    callback toggle-antialiasing(bool);
+    out property <float> width-left: width-edit.absolute-position.x / 1px;
+    out property <float> width-top: width-edit.absolute-position.y / 1px;
+    changed outline-width => { if !width-edit.has-focus { width-edit.text = "" + root.outline-width; } }
+    changed line-style => { line-choice.current-index = root.line-style; }
+    changed fill-pattern => { fill-choice.current-index = root.fill-pattern; }
+    spacing: 5px;
+    HorizontalLayout { spacing: 6px;
+        Text { text: "Width (px)"; color: #526079; font-size: 12px; vertical-alignment: center; }
+        width-edit := LineEdit {
+            enabled: root.outline-enabled;
+            init => { self.text = "" + root.outline-width; }
+            changed has-focus => { if !self.has-focus { self.text = "" + root.outline-width; } }
+            input-type: decimal; accessible-label: "Outline width in canvas pixels";
+            Tooltip { text: @markdown("0.01–65536 pixels. [ and ] change by 1; Ctrl changes by 5."); }
+            edited(value) => {
+                // Incomplete input such as a trailing decimal point stays editable.
+                if value.is-float() && value.to-float() >= 0.01 && value.to-float() <= 65536 {
+                    root.edit-width(value.to-float());
+                }
+            }
+            accepted => { self.text = "" + root.outline-width; }
+        }
+    }
+    line-choice := ComboBox { enabled: root.outline-enabled;
+        model: ["Line: Solid", "Line: Dash", "Line: Dot", "Line: Dash dot", "Line: Dash dot dot"];
+        current-index: root.line-style; accessible-label: "Outline line style";
+        selected(value) => { root.select-line(self.current-index); }
+    }
+    fill-choice := ComboBox { enabled: root.fill-enabled;
+        model: ["Fill: Solid", "Fill: Horizontal", "Fill: Vertical", "Fill: Forward diagonal", "Fill: Backward diagonal", "Fill: Cross", "Fill: Diagonal cross", "Fill: Checkerboard"];
+        current-index: root.fill-pattern; accessible-label: "Shape fill pattern";
+        selected(value) => { root.select-fill(self.current-index); }
+    }
+    CheckBox { enabled: root.outline-enabled || root.fill-enabled; text: "Antialiasing"; checked: root.antialiasing;
+        toggled => { root.toggle-antialiasing(self.checked); }
+        Tooltip { text: @markdown("Smooth shape edges using partial pixel coverage."); }
+    }
+}

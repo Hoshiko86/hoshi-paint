@@ -87,147 +87,9 @@ impl Layer {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ShapeKind {
-    Rectangle,
-    Ellipse,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ShapeStyle {
-    Fill(Color),
-    Outline {
-        color: Color,
-        width: u32,
-    },
-    Both {
-        fill: Color,
-        outline: Color,
-        width: u32,
-    },
-}
-
-/// Integer local bounds; outline is drawn inside the bounds. Rotation is about
-/// the bounds' center, clockwise in screen coordinates, at whole-degree steps.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Shape {
-    pub kind: ShapeKind,
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-    pub rotation_degrees: i32,
-    pub flip_horizontal: bool,
-    pub flip_vertical: bool,
-    pub style: ShapeStyle,
-}
-
-impl Shape {
-    pub fn new(
-        kind: ShapeKind,
-        x: i32,
-        y: i32,
-        width: u32,
-        height: u32,
-        style: ShapeStyle,
-    ) -> Self {
-        Self {
-            kind,
-            x,
-            y,
-            width,
-            height,
-            rotation_degrees: 0,
-            flip_horizontal: false,
-            flip_vertical: false,
-            style,
-        }
-    }
-
-    fn validate(self) -> Result<(), Error> {
-        if self.width == 0
-            || self.height == 0
-            || self.width > MAX_DIMENSION
-            || self.height > MAX_DIMENSION
-        {
-            return Err(Error::InvalidShape);
-        }
-        match self.style {
-            ShapeStyle::Outline { width: 0, .. } | ShapeStyle::Both { width: 0, .. } => {
-                Err(Error::InvalidShape)
-            }
-            _ => Ok(()),
-        }
-    }
-
-    fn contains(self, x: f64, y: f64, inset: f64) -> bool {
-        let width = f64::from(self.width) - 2.0 * inset;
-        let height = f64::from(self.height) - 2.0 * inset;
-        if width <= 0.0 || height <= 0.0 {
-            return false;
-        }
-        let left = f64::from(self.x) + inset;
-        let top = f64::from(self.y) + inset;
-        if x < left || y < top || x >= left + width || y >= top + height {
-            return false;
-        }
-        match self.kind {
-            ShapeKind::Rectangle => true,
-            ShapeKind::Ellipse => {
-                let dx = (x - left - width / 2.0) / (width / 2.0);
-                let dy = (y - top - height / 2.0) / (height / 2.0);
-                dx * dx + dy * dy <= 1.0
-            }
-        }
-    }
-}
-
-/// Cache the transform once per raster operation rather than taking a sine and
-/// cosine for every pixel. Exact quarter turns avoid floating-point edge drift.
-#[derive(Clone, Copy)]
-struct RasterShape {
-    shape: Shape,
-    center_x: f64,
-    center_y: f64,
-    transform: geometry::PreparedTransform,
-}
-
-impl RasterShape {
-    fn new(shape: Shape) -> Self {
-        Self {
-            shape,
-            center_x: f64::from(shape.x) + f64::from(shape.width) / 2.0,
-            center_y: f64::from(shape.y) + f64::from(shape.height) / 2.0,
-            transform: geometry::Frame::from_shape(shape).prepare(),
-        }
-    }
-
-    fn color_at(self, x: u32, y: u32) -> Option<Color> {
-        let local = self
-            .transform
-            .to_local(geometry::Point::new(f64::from(x) + 0.5, f64::from(y) + 0.5));
-        let x = self.center_x + local.x;
-        let y = self.center_y + local.y;
-        if !self.shape.contains(x, y, 0.0) {
-            return None;
-        }
-        match self.shape.style {
-            ShapeStyle::Fill(color) => Some(color),
-            ShapeStyle::Outline { color, width } => {
-                (!self.shape.contains(x, y, f64::from(width))).then_some(color)
-            }
-            ShapeStyle::Both {
-                fill,
-                outline,
-                width,
-            } => Some(if self.shape.contains(x, y, f64::from(width)) {
-                fill
-            } else {
-                outline
-            }),
-        }
-    }
-}
+pub mod rendering;
+use rendering::RasterShape;
+pub use rendering::{FillPattern, LineStyle, RenderOptions, Shape, ShapeKind, ShapeStyle};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -516,9 +378,10 @@ impl Document {
 
     /// Returns whether layer pixels changed. A no-op never adds history.
     pub fn commit_shape(&mut self) -> Result<bool, Error> {
-        let Some(shape) = self.active else {
+        let Some(mut shape) = self.active else {
             return Ok(false);
         };
+        shape.rendering = shape.rendering.for_style(shape.style);
         let before = self.state.clone();
         let label = match shape.kind {
             ShapeKind::Rectangle => "Rectangle",
@@ -527,11 +390,16 @@ impl Document {
         let raster = RasterShape::new(shape);
         let source = &self.state.layers[self.state.selected].pixels;
         let background = source.background();
+        let has_fill = !matches!(shape.style, ShapeStyle::Outline { .. });
+        let patterned_fill = has_fill && shape.rendering.fill_pattern != FillPattern::Solid;
         let solid = match shape.style {
-            ShapeStyle::Fill(c) => Some(c),
-            ShapeStyle::Both { fill, outline, .. } if fill == outline => Some(fill),
+            ShapeStyle::Fill(c) if !patterned_fill => Some(c),
+            ShapeStyle::Both { fill, outline, .. } if !patterned_fill && fill == outline => {
+                Some(fill)
+            }
             ShapeStyle::Outline { color, width }
-                if u64::from(width) * 2 >= u64::from(shape.width.min(shape.height)) =>
+                if shape.rendering.line_style == LineStyle::Solid
+                    && width * 2. >= f64::from(shape.width.min(shape.height)) =>
             {
                 Some(color)
             }
@@ -559,15 +427,17 @@ impl Document {
             self.active = None;
             return Ok(changed);
         }
-        let unchanged_background = match shape.style {
-            ShapeStyle::Fill(c) | ShapeStyle::Outline { color: c, .. } => {
-                c.over(background, 255) == background
-            }
-            ShapeStyle::Both { fill, outline, .. } => {
-                fill.over(background, 255) == background
-                    && outline.over(background, 255) == background
-            }
-        };
+        let unchanged_background = (!patterned_fill
+            || shape.rendering.pattern_color.over(background, 255) == background)
+            && match shape.style {
+                ShapeStyle::Fill(c) | ShapeStyle::Outline { color: c, .. } => {
+                    c.over(background, 255) == background
+                }
+                ShapeStyle::Both { fill, outline, .. } => {
+                    fill.over(background, 255) == background
+                        && outline.over(background, 255) == background
+                }
+            };
         let mut pixels = (*self.state.layers[self.state.selected].pixels).clone();
         let angle = f64::from(shape.rotation_degrees).to_radians();
         let halfw = f64::from(shape.width) / 2.;
@@ -584,12 +454,12 @@ impl Document {
         if shape.kind == ShapeKind::Rectangle
             && shape.rotation_degrees.rem_euclid(90) == 0
             && let ShapeStyle::Outline { width, .. } = shape.style
-            && f64::from(width) < halfw.min(halfh)
+            && width < halfw.min(halfh)
         {
             // Quarter-turn rectangle outlines are four strips. Visiting their
             // bounding-box interior would make a thin large outline quadratic.
-            let iw = halfw - f64::from(width);
-            let ih = halfh - f64::from(width);
+            let iw = halfw - width;
+            let ih = halfh - width;
             let irx = iw * angle.cos().abs() + ih * angle.sin().abs();
             let iry = iw * angle.sin().abs() + ih * angle.cos().abs();
             let il = (cx - irx).ceil().max(f64::from(left)).min(f64::from(right)) as u32;
@@ -695,19 +565,27 @@ impl Document {
         {
             return true;
         }
-        if let Some(shape) = self.active {
+        if let Some(mut shape) = self.active {
+            shape.rendering = shape.rendering.for_style(shape.style);
             let opaque = match shape.style {
                 ShapeStyle::Fill(color) => color.a == 255,
                 ShapeStyle::Outline { color, width } => {
                     color.a == 255
-                        && u64::from(width) * 2 >= u64::from(shape.width.min(shape.height))
+                        && shape.rendering.line_style == LineStyle::Solid
+                        && width * 2. >= f64::from(shape.width.min(shape.height))
                 }
                 ShapeStyle::Both { fill, outline, .. } => fill.a == 255 && outline.a == 255,
             };
             let layer = &self.state.layers[self.state.selected];
             // A filled rectangle/ellipse is convex. Opaque global corners imply
             // coverage of the entire canvas, including rotated shapes.
-            if opaque && layer.visible && layer.opacity == 255 {
+            if opaque
+                && (matches!(shape.style, ShapeStyle::Outline { .. })
+                    || shape.rendering.fill_pattern == FillPattern::Solid
+                    || shape.rendering.pattern_color.a == 255)
+                && layer.visible
+                && layer.opacity == 255
+            {
                 let raster = RasterShape::new(shape);
                 if corners
                     .into_iter()
@@ -834,7 +712,7 @@ impl<'a> CompositeSampler<'a> {
             }
             let mut color = layer.pixels.get(x, y);
             if index == self.state.selected
-                && let Some(preview) = self.active.and_then(|s| s.color_at(x, y))
+                && let Some(preview) = self.active.as_ref().and_then(|s| s.color_at(x, y))
             {
                 color = preview.over(color, 255)
             }

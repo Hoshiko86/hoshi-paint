@@ -11,9 +11,11 @@ mod image_settings;
 mod input;
 mod resources;
 mod screen_pick;
+mod shape_rendering;
 pub mod workspace;
 
 slint::slint! {
+    import { ShapeRendering } from "../ui/shape-rendering.slint";
     import { ShapeControls, ControlPoint } from "../ui/shape-controls.slint";
     export { ControlPoint } from "../ui/shape-controls.slint";
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
@@ -53,6 +55,17 @@ slint::slint! {
         in property <int> selected-tool;
         in property <int> shape-mode;
         in property <int> stroke-width: 2;
+        in property <float> stroke-width-pixels: 2;
+        in property <bool> shape-antialiasing: true;
+        in property <int> line-style;
+        in property <int> fill-pattern;
+        callback edit-stroke-width-pixels(float);
+        callback select-line-style(int);
+        callback select-fill-pattern(int);
+        callback toggle-shape-antialiasing(bool);
+        callback adjust-outline-width(int);
+        out property <float> outline-input-left: rendering-settings.width-left;
+        out property <float> outline-input-top: rendering-settings.width-top;
         in property <color> workspace-primary;
         in property <color> workspace-secondary;
         in property <string> workspace-primary-description;
@@ -337,16 +350,23 @@ slint::slint! {
                     spacing: 8px;
                     Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     rectangle-tool := Button { enabled: root.has-document; text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
-                    Rectangle { height: 12px; }
+                    Rectangle { height: 4px; }
                     Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;
                         accessible-label: "Shape style";
                         Tooltip { text: @markdown("Fill or outline alone uses Primary. Both uses Primary outline and Secondary fill."); }
                         selected(value) => { root.select-shape-mode(self.current-index); } }
-                    Text { text: "Outline width (px)"; color: #526079; font-size: 12px; }
-                    SpinBox { minimum: 1; maximum: 65536; value: root.stroke-width; enabled: root.shape-mode != 0;
-                        accessible-label: "Outline width in canvas pixels";
-                        edited(value) => { root.edit-stroke-width(value); } }
+                    rendering-settings := ShapeRendering {
+                        outline-width: root.stroke-width-pixels;
+                        outline-enabled: root.has-document && root.shape-mode != 0;
+                        fill-enabled: root.has-document && root.shape-mode != 1;
+                        antialiasing: root.shape-antialiasing;
+                        line-style: root.line-style; fill-pattern: root.fill-pattern;
+                        edit-width(value) => { root.edit-stroke-width-pixels(value); }
+                        select-line(value) => { root.select-line-style(value); }
+                        select-fill(value) => { root.select-fill-pattern(value); }
+                        toggle-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+                    }
                     Text { text: "COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     WorkspaceColors {
                         primary: root.workspace-primary; secondary: root.workspace-secondary;
@@ -357,11 +377,11 @@ slint::slint! {
                     }
                     Button { text: root.color-slot == 0 ? "Primary · Colors…" : "Secondary · Colors…"; clicked => { root.show-colors(); } }
                     Text { text: root.selected-hex; color: #526079; font-size: 12px; }
-                    Rectangle { height: 12px; }
+                    Rectangle { height: 4px; }
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     layer-input := LineEdit { enabled: root.has-document; text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
                     Rectangle { vertical-stretch: 1; }
-                    Text { text: "Shift keeps proportions.\nAlt resizes about center.\nCrosshair moves the pivot.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
+
                 }
                 viewport := Rectangle {
                     x: 204px + root.dock-left-width;
@@ -396,6 +416,10 @@ slint::slint! {
                         }
                         key-pressed(event) => {
                             root.input-modifiers(event.text == Key.Shift || event.modifiers.shift, event.text == Key.Alt || event.modifiers.alt, event.text == Key.Control || event.text == Key.Meta || event.modifiers.control || event.modifiers.meta);
+                            if !event.modifiers.alt && (event.text == "[" || event.text == "]") {
+                                root.adjust-outline-width((event.text == "[" ? -1 : 1) * (event.modifiers.control || event.modifiers.meta ? 5 : 1));
+                                return accept;
+                            }
                             if root.has-shape && (event.text == Key.LeftArrow || event.text == Key.RightArrow || event.text == Key.UpArrow || event.text == Key.DownArrow) {
                                 root.keyboard-transform(event.text == Key.LeftArrow ? -1 : event.text == Key.RightArrow ? 1 : 0, event.text == Key.UpArrow ? -1 : event.text == Key.DownArrow ? 1 : 0, root.navigation-owner == PointerEventButton.right, event.modifiers.control || event.modifiers.meta);
                                 return accept;
@@ -711,6 +735,7 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         ShapeMode::Both => 2,
     });
     ui.set_stroke_width(controller.stroke_width() as i32);
+    shape_rendering::refresh(ui, controller);
     ui.set_color_slot(if controller.color_slot() == ColorSlot::Primary {
         0
     } else {
@@ -871,6 +896,7 @@ fn create_panels(
     bind_rendering(&ui, controller.clone());
     refresh(&ui, &controller.borrow());
     input::bind(&ui, controller.clone());
+    shape_rendering::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
         if tool == 3 {

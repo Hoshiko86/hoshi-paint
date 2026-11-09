@@ -58,7 +58,7 @@ fn style_controls_and_both_color_hosts_edit_separate_channels_without_committing
         ShapeStyle::Both {
             fill: outline,
             outline: fill,
-            width: 6
+            width: 6.0
         }
     );
     picker.invoke_restore_original();
