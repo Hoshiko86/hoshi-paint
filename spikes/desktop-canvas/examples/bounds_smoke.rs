@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(200), move || {
         let ui = weak.upgrade().unwrap();
+        ui.invoke_set_shape_properties_placement(2);
         ui.invoke_pointer_down(30., 40.);
         ui.invoke_pointer_move(110., 80.);
         ui.invoke_pointer_up(110., 80.);

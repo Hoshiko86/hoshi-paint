@@ -1,0 +1,138 @@
+// One properties body is hosted in either the main window or a floating window.
+import { ComboBox, Palette } from "std-widgets.slint";
+import { ToolPanelFrame } from "colors.slint";
+import { ShapeBounds } from "shape-bounds.slint";
+import { ShapeRendering } from "shape-rendering.slint";
+import { FileShortcuts } from "file-shortcuts.slint";
+
+export component ShapePropertiesPanel inherits Rectangle {
+    in property <bool> has-document;
+    in property <bool> has-shape;
+    in property <int> shape-mode;
+    in property <float> stroke-width-pixels: 2;
+    in property <bool> shape-antialiasing: true;
+    in property <int> line-style;
+    in property <int> fill-pattern;
+    in property <string> shape-x-text;
+    in property <string> shape-y-text;
+    in property <string> shape-width-text;
+    in property <string> shape-height-text;
+    in-out property <bool> shape-bounds-locked;
+    in property <int> placement;
+    callback select-shape-mode(int);
+    callback edit-stroke-width-pixels(float);
+    callback select-line-style(int);
+    callback select-fill-pattern(int);
+    callback toggle-shape-antialiasing(bool);
+    callback edit-shape-bound(int, string, bool);
+    callback bounds-lock-changed(bool);
+    callback placement-selected(int);
+    callback close-panel();
+    callback file-action(int);
+    callback cycle-document(bool);
+    out property <float> outline-input-left: rendering.width-left;
+    out property <float> outline-input-top: rendering.width-top;
+    out property <float> shape-mode-left: mode.absolute-position.x / 1px;
+    out property <float> shape-mode-top: mode.absolute-position.y / 1px;
+    // Taking focus ends the currently edited numeric field before a host moves.
+    public function finish-edits() { bounds.finish-edits(); focus-sink.focus(); }
+    focus-sink := FocusScope { width: 1px; height: 1px; }
+    changed shape-mode => { mode.current-index = root.shape-mode; }
+    changed shape-bounds-locked => { root.bounds-lock-changed(root.shape-bounds-locked); }
+    ToolPanelFrame {
+        title: "Shapes"; placement: root.placement; docked: root.placement != 0;
+        // The shared frame scrolls this fixed body even in a short top/bottom dock.
+        body-height: 500px;
+        placement-selected(value) => { root.placement-selected(value); }
+        close-panel => { root.close-panel(); }
+        VerticalLayout {
+            padding: 8px; spacing: 6px;
+            Text { text: "SHAPE"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            ComboBox { model: ["Rectangle"]; enabled: root.has-document;
+                accessible-label: "Shape kind";
+                Tooltip { text: @markdown("Rectangle. Additional shapes will share these properties."); }
+            }
+            Text { text: "BOUNDS"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            bounds := ShapeBounds {
+                compact: true; active: root.has-shape;
+                x-value: root.shape-x-text; y-value: root.shape-y-text;
+                width-value: root.shape-width-text; height-value: root.shape-height-text;
+                locked <=> root.shape-bounds-locked;
+                edit(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
+            }
+            Text { text: "STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            mode := ComboBox {
+                model: ["Fill", "Outline", "Fill and outline"];
+                enabled: root.has-document; current-index: root.shape-mode;
+                accessible-label: "Shape style";
+                Tooltip { text: @markdown("Fill or outline uses Primary. Both uses Primary outline and Secondary fill."); }
+                selected(value) => { root.select-shape-mode(self.current-index); }
+            }
+            rendering := ShapeRendering {
+                outline-width: root.stroke-width-pixels;
+                outline-enabled: root.has-document && root.shape-mode != 0;
+                fill-enabled: root.has-document && root.shape-mode != 1;
+                antialiasing: root.shape-antialiasing;
+                line-style: root.line-style; fill-pattern: root.fill-pattern;
+                edit-width(value) => { root.edit-stroke-width-pixels(value); }
+                select-line(value) => { root.select-line-style(value); }
+                select-fill(value) => { root.select-fill-pattern(value); }
+                toggle-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+}
+
+export component ShapePropertiesWindow inherits Window {
+    title: "Shape properties · Hoshi Paint";
+    preferred-width: 340px; preferred-height: 560px;
+    min-width: 300px; min-height: 240px;
+    background: #f2f4f8; default-font-size: 13px;
+    init => { Palette.color-scheme = ColorScheme.light; }
+    in property <bool> has-document <=> panel.has-document;
+    in property <bool> has-shape <=> panel.has-shape;
+    in property <int> shape-mode <=> panel.shape-mode;
+    in property <float> stroke-width-pixels <=> panel.stroke-width-pixels;
+    in property <bool> shape-antialiasing <=> panel.shape-antialiasing;
+    in property <int> line-style <=> panel.line-style;
+    in property <int> fill-pattern <=> panel.fill-pattern;
+    in property <string> shape-x-text <=> panel.shape-x-text;
+    in property <string> shape-y-text <=> panel.shape-y-text;
+    in property <string> shape-width-text <=> panel.shape-width-text;
+    in property <string> shape-height-text <=> panel.shape-height-text;
+    in-out property <bool> shape-bounds-locked <=> panel.shape-bounds-locked;
+    in property <int> placement <=> panel.placement;
+    out property <float> outline-input-left: panel.outline-input-left;
+    out property <float> outline-input-top: panel.outline-input-top;
+    out property <float> shape-mode-left: panel.shape-mode-left;
+    out property <float> shape-mode-top: panel.shape-mode-top;
+    public function finish-edits() { panel.finish-edits(); }
+    callback select-shape-mode(int);
+    callback edit-stroke-width-pixels(float);
+    callback select-line-style(int);
+    callback select-fill-pattern(int);
+    callback toggle-shape-antialiasing(bool);
+    callback edit-shape-bound(int,string,bool);
+    callback bounds-lock-changed(bool);
+    callback placement-selected(int);
+    callback close-panel();
+    callback file-action(int);
+    callback cycle-document(bool);
+    FileShortcuts {
+        width: parent.width; height: parent.height;
+        file-action(value) => { root.file-action(value); }
+        cycle-document(backward) => { root.cycle-document(backward); }
+        panel := ShapePropertiesPanel {
+            select-shape-mode(value) => { root.select-shape-mode(value); }
+            edit-stroke-width-pixels(value) => { root.edit-stroke-width-pixels(value); }
+            select-line-style(value) => { root.select-line-style(value); }
+            select-fill-pattern(value) => { root.select-fill-pattern(value); }
+            toggle-shape-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+            edit-shape-bound(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
+            bounds-lock-changed(value) => { root.bounds-lock-changed(value); }
+            placement-selected(value) => { root.placement-selected(value); }
+            close-panel => { root.close-panel(); }
+        }
+    }
+}

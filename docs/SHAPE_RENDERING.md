@@ -2,6 +2,8 @@
 
 Rendering settings apply immediately to the active shape preview and become defaults for the next shape. Changing a setting creates no history entry. Enter commits the final raster result as one undoable action. Saved documents contain those pixels; previews and tool defaults are not saved as vector objects.
 
+Open **Shape Properties** using the Shapes tool or sliders icon. It can float or dock on any edge; see [tool panels](TOOL_PANELS.md).
+
 ## Controls and color roles
 
 - Antialiasing is on by default and can be disabled for hard pixel edges.

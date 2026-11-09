@@ -29,7 +29,7 @@ Integer bounds and whole-degree rotations remain current model constraints. Shar
 
 ## Numeric position and dimensions
 
-The bounds bar above the canvas provides X, Y, Width and Height for the active shape. Values are whole canvas pixels, independent of zoom and screen DPI. X/Y locate the top-left of the **unrotated** bounds, measured from canvas (0,0); negative positions and shapes partly outside the canvas are allowed. Width and height range from 1 to 262,144 pixels. Rotation, mirrored geometry and rendering styles stay intact.
+The Shape Properties panel provides X, Y, Width and Height for the active shape. Values are whole canvas pixels, independent of zoom and screen DPI. X/Y locate the top-left of the **unrotated** bounds, measured from canvas (0,0); negative positions and shapes partly outside the canvas are allowed. Width and height range from 1 to 262,144 pixels. Rotation, mirrored geometry and rendering styles stay intact.
 
 Type a complete value and press Enter or leave the field (for example with Tab) to apply it to the preview. Enter inside a field applies that field, rather than committing the shape. Invalid or incomplete input leaves the preview unchanged and the field returns to its last valid value. Enter with canvas focus still commits the shape as one undoable action; Escape on the canvas cancels it. The fields are disabled when there is no active shape, so this is not editing previously committed pixels as a vector object.
 
@@ -37,4 +37,4 @@ Type a complete value and press Enter or leave the field (for example with Tab) 
 
 Changing X or Y moves a custom rotation pivot by the same offset. Changing dimensions keeps the entered X/Y origin and any custom pivot fixed; the default pivot follows the shape center. Mouse editing and numeric editing use the same controller geometry. The implementation lives in `hoshi-controller::bounds`, with a reusable `shape-bounds.slint` view and a small Rust adapter. It can be reused for additional shape tools.
 
-The bounds bar scrolls horizontally when docked panels leave a narrow canvas; it does not crowd the existing tools/colors sidebar.
+Shape Properties can float or dock on any edge, with scrolling when space is limited. See [TOOL_PANELS.md](TOOL_PANELS.md).

@@ -123,8 +123,7 @@ impl Manager {
         ui.set_file_error(error.into());
     }
     fn prepare(&self, ui: &AppWindow) {
-        ui.invoke_hide_colors();
-        ui.invoke_close_history();
+        crate::panel_hosts::close_adjustment_panels(ui);
         ui.invoke_clear_navigation_state();
         ui.invoke_focus_canvas();
         let mut c = self.state.borrow_mut();
@@ -256,6 +255,7 @@ impl Manager {
         self.save_path(ui, id, path);
     }
     fn save_path(&self, ui: &AppWindow, id: u32, path: PathBuf) {
+        ui.invoke_finish_shape_properties_inputs();
         let format = match FileFormat::for_path(&path) {
             Ok(f) => f,
             Err(e) => {

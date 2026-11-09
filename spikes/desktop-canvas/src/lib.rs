@@ -9,21 +9,24 @@ pub mod files;
 mod history;
 mod image_settings;
 mod input;
+mod panel_hosts;
+mod panel_layout;
 mod resources;
 mod screen_pick;
 mod shape_bounds;
+mod shape_properties;
 mod shape_rendering;
 pub mod workspace;
 
 slint::slint! {
-    import { ShapeBounds } from "../ui/shape-bounds.slint";
-    import { ShapeRendering } from "../ui/shape-rendering.slint";
+    import { ShapePropertiesPanel } from "../ui/shape-properties.slint";
+    export { ShapePropertiesWindow } from "../ui/shape-properties.slint";
     import { ShapeControls, ControlPoint } from "../ui/shape-controls.slint";
     export { ControlPoint } from "../ui/shape-controls.slint";
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
     import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
-    import { ColorPanel, PaletteSwatch, WorkspaceColors, SwatchDetails } from "../ui/colors.slint";
+    import { ColorPanel, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
@@ -34,7 +37,7 @@ slint::slint! {
         title: root.document-title;
         preferred-width: 1120px;
         preferred-height: 760px;
-        min-width: max(960px, 236px + root.dock-left-width + root.dock-right-width + 240px);
+        min-width: max(960px, root.layout-min-width * 1px + 32px);
         min-height: 680px;
         background: #f2f4f8;
         default-font-family: "DejaVu Sans";
@@ -74,8 +77,8 @@ slint::slint! {
         callback select-fill-pattern(int);
         callback toggle-shape-antialiasing(bool);
         callback adjust-outline-width(int);
-        out property <float> outline-input-left: rendering-settings.width-left;
-        out property <float> outline-input-top: rendering-settings.width-top;
+        out property <float> outline-input-left: docked-shapes.outline-input-left;
+        out property <float> outline-input-top: docked-shapes.outline-input-top;
         in property <color> workspace-primary;
         in property <color> workspace-secondary;
         in property <string> workspace-primary-description;
@@ -83,7 +86,6 @@ slint::slint! {
         callback swap-colors();
         callback reset-colors();
         in property <int> color-slot;
-        changed shape-mode => { shape-mode-choice.current-index = root.shape-mode; }
         callback select-shape-mode(int);
         callback edit-stroke-width(int);
         callback select-color-slot(int);
@@ -241,14 +243,48 @@ slint::slint! {
         callback sync-history();
         private property <bool> color-host-visible: root.colors-visible && root.colors-docked && root.colors-placement > 0;
         private property <bool> history-host-visible: root.history-visible && root.history-placement > 0;
-        private property <length> dock-left-width: (root.color-host-visible && root.colors-placement == 1 ? 434px : 0px) + (root.history-host-visible && root.history-placement == 1 ? 314px : 0px);
-        private property <length> dock-right-width: (root.color-host-visible && root.colors-placement == 2 ? 434px : 0px) + (root.history-host-visible && root.history-placement == 2 ? 314px : 0px);
-        private property <bool> has-top-dock: (root.color-host-visible && root.colors-placement == 3) || (root.history-host-visible && root.history-placement == 3);
-        private property <bool> has-bottom-dock: (root.color-host-visible && root.colors-placement == 4) || (root.history-host-visible && root.history-placement == 4);
-        private property <int> dock-row-count: (root.has-top-dock ? 1 : 0) + (root.has-bottom-dock ? 1 : 0);
-        private property <length> dock-row-height: min(264px, (workspace.height - bounds-bar.height - 200px) / max(1, root.dock-row-count));
-        private property <length> dock-top-height: root.has-top-dock ? root.dock-row-height : 0px;
-        private property <length> dock-bottom-height: root.has-bottom-dock ? root.dock-row-height : 0px;
+        in property <bool> shape-properties-visible;
+        in property <int> shape-properties-placement;
+        callback show-shape-properties();
+        callback close-shape-properties();
+        callback set-shape-properties-placement(int);
+        callback sync-shape-properties();
+        callback finish-shape-properties-inputs();
+        public function finish-shape-properties-edits() { docked-shapes.finish-edits(); }
+        callback layout-panels();
+        out property <float> workspace-width: workspace.width / 1px;
+        out property <float> workspace-height: workspace.height / 1px;
+        changed workspace-width => { root.layout-panels(); }
+        changed workspace-height => { root.layout-panels(); }
+        changed colors-visible => { root.layout-panels(); }
+        changed colors-placement => { root.layout-panels(); }
+        changed colors-docked => { root.layout-panels(); }
+        changed history-visible => { root.layout-panels(); }
+        changed history-placement => { root.layout-panels(); }
+        changed shape-properties-visible => { root.layout-panels(); }
+        changed shape-properties-placement => { root.layout-panels(); }
+        in property <float> layout-min-width: 318;
+        in property <float> canvas-layout-x;
+        in property <float> canvas-layout-y;
+        in property <float> canvas-layout-width;
+        in property <float> canvas-layout-height;
+        in property <float> colors-layout-x;
+        in property <float> colors-layout-y;
+        in property <float> colors-layout-width;
+        in property <float> colors-layout-height;
+        in property <float> history-layout-x;
+        in property <float> history-layout-y;
+        in property <float> history-layout-width;
+        in property <float> history-layout-height;
+        in property <float> shapes-layout-x;
+        in property <float> shapes-layout-y;
+        in property <float> shapes-layout-width;
+        in property <float> shapes-layout-height;
+        private property <bool> shapes-host-visible: root.shape-properties-visible && root.shape-properties-placement > 0;
+        out property <float> shapes-host-left: docked-shapes.absolute-position.x / 1px;
+        out property <float> shapes-host-top: docked-shapes.absolute-position.y / 1px;
+        out property <float> shapes-host-width: docked-shapes.width / 1px;
+        out property <float> shapes-host-height: docked-shapes.height / 1px;
         out property <float> canvas-width: viewport.width / 1px;
         out property <float> canvas-height: viewport.height / 1px;
         changed canvas-width => { root.render-viewport(); }
@@ -262,7 +298,7 @@ slint::slint! {
         out property <float> history-host-width: docked-history.width / 1px;
         out property <float> history-host-height: docked-history.height / 1px;
         callback show-about();
-        show-about => { if !root.modal-visible { root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
+        show-about => { if !root.modal-visible { root.close-shape-properties(); root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
             Menu { title: "File";
@@ -312,12 +348,10 @@ slint::slint! {
             padding: 16px;
             spacing: 12px;
             HorizontalLayout {
-                height: 44px;
+                height: 32px;
                 spacing: 16px;
                 Text { text: "HOSHI PAINT"; font-size: 22px; font-weight: 700; color: #18253c; }
-                Text { text: "Canvas study / 01"; color: #6c778b; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
-                Text { text: "Shape workflow"; color: #6c778b; vertical-alignment: center; }
             }
             HorizontalLayout {
                 height: 40px;
@@ -326,14 +360,15 @@ slint::slint! {
                     Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
                 Button { icon: @image-url("../icons/redo.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { text: "History…"; enabled: root.has-document; clicked => { root.show-history(); } }
-                Button { text: "Commit · Enter"; enabled: root.has-shape; clicked => { root.action(2); } }
-                Button { text: "Cancel · Esc"; enabled: root.has-shape; clicked => { root.action(3); } }
+                Button { icon: @image-url("../icons/clock-rotate-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
+                Button { icon: @image-url("../icons/check.svg"); width: 40px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
+                Button { icon: @image-url("../icons/xmark.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
+                Button { icon: @image-url("../icons/sliders.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { text: "−"; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
-                Button { text: "Fit"; enabled: root.has-document && !root.modal-visible; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
-                Button { text: "Reset view"; clicked => { root.action(4); } }
-                Button { text: "+"; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
+                Button { icon: @image-url("../icons/magnifying-glass-minus.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
+                Button { icon: @image-url("../icons/expand.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
+                Button { icon: @image-url("../icons/crosshairs.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
+                Button { icon: @image-url("../icons/magnifying-glass-plus.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
             ScrollView {
                 height: 54px; content-height: 50px; content-width: max(self.width, root.document-tabs.length * 210px);
@@ -347,7 +382,7 @@ slint::slint! {
                                 enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
                                 Tooltip { SwatchDetails { text: tab.detail; } }
                             }
-                            Button { text: "×"; width: 26px; accessible-label: "Close document " + tab.title;
+                            Button { icon: @image-url("../icons/xmark.svg"); width: 26px; accessible-label: "Close document " + tab.title;
                                 enabled: !root.modal-visible; clicked => { root.close-document(tab.id); } }
                         }
                     }
@@ -356,57 +391,30 @@ slint::slint! {
             workspace := Rectangle {
                 vertical-stretch: 1;
                 VerticalLayout {
-                    x: 0px; y: 0px; width: 190px; height: parent.height;
-                    spacing: 8px;
-                    Text { text: "TOOLS"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    rectangle-tool := Button { enabled: root.has-document; text: root.selected-tool == 0 ? "● Rectangle" : "Rectangle"; clicked => { root.choose-tool(0); } }
-                    Rectangle { height: 4px; }
-                    Text { text: "SHAPE STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    shape-mode-choice := ComboBox { model: ["Fill", "Outline", "Fill and outline"]; current-index: root.shape-mode;
-                        accessible-label: "Shape style";
-                        Tooltip { text: @markdown("Fill or outline alone uses Primary. Both uses Primary outline and Secondary fill."); }
-                        selected(value) => { root.select-shape-mode(self.current-index); } }
-                    rendering-settings := ShapeRendering {
-                        outline-width: root.stroke-width-pixels;
-                        outline-enabled: root.has-document && root.shape-mode != 0;
-                        fill-enabled: root.has-document && root.shape-mode != 1;
-                        antialiasing: root.shape-antialiasing;
-                        line-style: root.line-style; fill-pattern: root.fill-pattern;
-                        edit-width(value) => { root.edit-stroke-width-pixels(value); }
-                        select-line(value) => { root.select-line-style(value); }
-                        select-fill(value) => { root.select-fill-pattern(value); }
-                        toggle-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+                    x: 0px; y: 0px; width: 64px; height: parent.height;
+                    spacing: 8px; alignment: start;
+                    Text { text: "TOOLS"; color: #6c778b; font-size: 11px; font-weight: 700; }
+                    Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: #315cae; border-radius: 4px; background: transparent;
+                        rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+                            icon: @image-url("../icons/shapes.svg"); accessible-label: "Shapes"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+                            Tooltip { text: @markdown("Shapes · Rectangle"); }
+                            clicked => { root.choose-tool(0); root.show-shape-properties(); }
+                        }
                     }
-                    Text { text: "COLOR"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    WorkspaceColors {
-                        primary: root.workspace-primary; secondary: root.workspace-secondary;
-                        primary-description: root.workspace-primary-description; secondary-description: root.workspace-secondary-description;
-                        slot: root.color-slot; picking: root.screen-picking;
-                        select(value) => { root.select-color-slot(value); }
-                        swap => { root.swap-colors(); } reset => { root.reset-colors(); }
+                    Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: "Colors";
+                        Tooltip { text: @markdown("Colors · Primary, Secondary and Color Picker"); } clicked => { root.show-colors(); } }
+                    Text { text: "COLORS"; color: #6c778b; font-size: 11px; font-weight: 700; }
+                    ColorSwatch { value: root.workspace-primary; label: "Primary color"; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
+                    ColorSwatch { value: root.workspace-secondary; label: "Secondary color"; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
+                    HorizontalLayout { spacing: 4px;
+                        Button { icon: @image-url("../icons/swap-colors.svg"); width: 28px; accessible-label: "Swap colors"; Tooltip { text: @markdown("Swap colors · X"); } clicked => { root.swap-colors(); } }
+                        Button { icon: @image-url("../icons/reset-colors.svg"); width: 28px; accessible-label: "Reset colors"; Tooltip { text: @markdown("Reset colors · D"); } clicked => { root.reset-colors(); } }
                     }
-                    Button { text: root.color-slot == 0 ? "Primary · Colors…" : "Secondary · Colors…"; clicked => { root.show-colors(); } }
-                    Text { text: root.selected-hex; color: #526079; font-size: 12px; }
-                    Rectangle { height: 4px; }
-                    Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
-                    layer-input := LineEdit { enabled: root.has-document; text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
                     Rectangle { vertical-stretch: 1; }
-
-                }
-                bounds-bar := ShapeBounds {
-                    x: 204px + root.dock-left-width;
-                    y: root.dock-top-height;
-                    width: parent.width - 204px - root.dock-left-width - root.dock-right-width;
-                    active: root.has-shape; locked <=> root.shape-bounds-locked;
-                    x-value: root.shape-x-text; y-value: root.shape-y-text;
-                    width-value: root.shape-width-text; height-value: root.shape-height-text;
-                    edit(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
                 }
                 viewport := Rectangle {
-                    x: 204px + root.dock-left-width;
-                    y: root.dock-top-height + bounds-bar.height;
-                    width: parent.width - 204px - root.dock-left-width - root.dock-right-width;
-                    height: parent.height - root.dock-top-height - root.dock-bottom-height - bounds-bar.height;
+                    x: root.canvas-layout-x * 1px; y: root.canvas-layout-y * 1px;
+                    width: root.canvas-layout-width * 1px; height: root.canvas-layout-height * 1px;
                     background: #dce2eb;
                     clip: true;
                     border-width: 1px;
@@ -534,10 +542,8 @@ slint::slint! {
                     color-slot: root.color-slot;
                     select-color-slot(value) => { root.select-color-slot(value); }
                     visible: root.color-host-visible;
-                    x: root.colors-placement == 2 ? parent.width - 420px : 204px;
-                    y: root.colors-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.colors-placement == 3 ? 0px : root.dock-top-height);
-                    width: (root.colors-placement == 3 || root.colors-placement == 4) ? ((parent.width - 204px) - (root.history-host-visible && root.history-placement == root.colors-placement ? 14px : 0px)) / (root.history-host-visible && root.history-placement == root.colors-placement ? 2 : 1) : 420px;
-                    height: (root.colors-placement == 3 || root.colors-placement == 4) ? root.dock-row-height - 14px : parent.height - root.dock-top-height - root.dock-bottom-height;
+                    x: root.colors-layout-x * 1px; y: root.colors-layout-y * 1px;
+                    width: root.colors-layout-width * 1px; height: root.colors-layout-height * 1px;
                     docked: true;
                     placement: root.colors-placement;
                     placement-selected(value) => { root.set-colors-placement(value); }
@@ -560,10 +566,8 @@ slint::slint! {
                 }
                 docked-history := HistoryPanel {
                     visible: root.history-host-visible;
-                    x: root.history-placement == 2 ? parent.width - 300px - (root.color-host-visible && root.colors-placement == 2 ? 434px : 0px) : 204px + (root.color-host-visible && root.colors-placement == root.history-placement ? docked-colors.width + 14px : 0px);
-                    y: root.history-placement == 4 ? parent.height - root.dock-row-height + 14px : (root.history-placement == 3 ? 0px : root.dock-top-height);
-                    width: (root.history-placement == 3 || root.history-placement == 4) ? ((parent.width - 204px) - (root.color-host-visible && root.colors-placement == root.history-placement ? 14px : 0px)) / (root.color-host-visible && root.colors-placement == root.history-placement ? 2 : 1) : 300px;
-                    height: (root.history-placement == 3 || root.history-placement == 4) ? root.dock-row-height - 14px : parent.height - root.dock-top-height - root.dock-bottom-height;
+                    x: root.history-layout-x * 1px; y: root.history-layout-y * 1px;
+                    width: root.history-layout-width * 1px; height: root.history-layout-height * 1px;
                     placement: root.history-placement;
                     rows: root.history-rows;
                     current-index: root.history-position;
@@ -578,8 +582,34 @@ slint::slint! {
                     undo => { root.history-undo(); }
                     redo => { root.history-redo(); }
                 }
+                docked-shapes := ShapePropertiesPanel {
+                    visible: root.shapes-host-visible;
+                    x: root.shapes-layout-x * 1px; y: root.shapes-layout-y * 1px;
+                    width: root.shapes-layout-width * 1px; height: root.shapes-layout-height * 1px;
+                    has-document: root.has-document; has-shape: root.has-shape;
+                    shape-mode: root.shape-mode; stroke-width-pixels: root.stroke-width-pixels;
+                    shape-antialiasing: root.shape-antialiasing; line-style: root.line-style; fill-pattern: root.fill-pattern;
+                    shape-x-text: root.shape-x-text; shape-y-text: root.shape-y-text;
+                    shape-width-text: root.shape-width-text; shape-height-text: root.shape-height-text;
+                    shape-bounds-locked <=> root.shape-bounds-locked; placement: root.shape-properties-placement;
+                    select-shape-mode(value) => { root.select-shape-mode(value); }
+                    edit-stroke-width-pixels(value) => { root.edit-stroke-width-pixels(value); }
+                    select-line-style(value) => { root.select-line-style(value); }
+                    select-fill-pattern(value) => { root.select-fill-pattern(value); }
+                    toggle-shape-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+                    edit-shape-bound(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
+                    bounds-lock-changed(value) => { if root.shape-bounds-locked != value { root.shape-bounds-locked = value; } }
+                    placement-selected(value) => { root.set-shape-properties-placement(value); }
+                    close-panel => { root.close-shape-properties(); }
+                }
             }
-            Text { height: 22px; text: root.status; color: #526079; font-size: 12px; }
+            HorizontalLayout { height: 32px; spacing: 8px;
+                Text { text: root.status; color: #526079; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                Text { text: "Layer"; color: #526079; vertical-alignment: center; }
+                layer-input := LineEdit { width: 160px; enabled: root.has-document; text: root.layer-name; accessible-label: "Layer name";
+                    edited(value) => { root.rename(value); self.text = root.layer-name; }
+                }
+            }
         }
         if root.file-prompt-visible: Rectangle {
             background: #0008; TouchArea { }
@@ -822,6 +852,7 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         .into(),
     );
     documents::refresh(ui, controller);
+    ui.invoke_sync_shape_properties();
 }
 
 fn update(
@@ -846,8 +877,7 @@ fn update(
                     hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt
                 )
             ) {
-                ui.invoke_hide_colors();
-                ui.invoke_close_history();
+                panel_hosts::close_adjustment_panels(&ui);
                 ui.set_file_error(error.to_string().into());
             }
             ui.set_status(match error {
@@ -874,11 +904,27 @@ pub fn create_app_with_colors()
     Ok((ui, controller, colors))
 }
 
+/// Handles to the main window and its reusable adjustment-panel hosts.
+pub struct AppPanels {
+    pub ui: AppWindow,
+    pub controller: SharedController,
+    pub colors: Rc<ColorPickerWindow>,
+    pub history: Rc<HistoryWindow>,
+    pub shapes: Rc<ShapePropertiesWindow>,
+}
 pub fn create_app_with_dialogs(
     dialogs: Rc<dyn documents::FileDialogs>,
 ) -> Result<(AppWindow, SharedController), slint::PlatformError> {
-    let (ui, state, _, _) = create_panels(Some(dialogs))?;
-    Ok((ui, state))
+    let app = create_panels(Some(dialogs))?;
+    Ok((app.ui, app.controller))
+}
+pub fn create_app_with_shape_properties()
+-> Result<(AppWindow, SharedController, Rc<ShapePropertiesWindow>), slint::PlatformError> {
+    let app = create_panels(None)?;
+    Ok((app.ui, app.controller, app.shapes))
+}
+pub fn create_app_with_all_panels() -> Result<AppPanels, slint::PlatformError> {
+    create_panels(None)
 }
 pub fn create_app_with_panels() -> Result<
     (
@@ -889,19 +935,12 @@ pub fn create_app_with_panels() -> Result<
     ),
     slint::PlatformError,
 > {
-    create_panels(None)
+    let app = create_panels(None)?;
+    Ok((app.ui, app.controller, app.colors, app.history))
 }
 fn create_panels(
     dialogs: Option<Rc<dyn documents::FileDialogs>>,
-) -> Result<
-    (
-        AppWindow,
-        SharedController,
-        Rc<ColorPickerWindow>,
-        Rc<HistoryWindow>,
-    ),
-    slint::PlatformError,
-> {
+) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
     let recent_store = if dialogs.is_some() {
@@ -914,6 +953,7 @@ fn create_panels(
     )));
     image_settings::bind(&ui, controller.clone());
     bind_rendering(&ui, controller.clone());
+    panel_hosts::bind(&ui);
     refresh(&ui, &controller.borrow());
     input::bind(&ui, controller.clone());
     shape_rendering::bind(&ui, controller.clone());
@@ -1005,6 +1045,7 @@ fn create_panels(
     });
     let picker = colors::bind_picker(&ui, controller.clone())?;
     let history = history::bind_window(&ui, controller.clone())?;
+    let shapes = shape_properties::create(&ui, controller.clone())?;
     documents::bind(&ui, controller.clone(), dialogs);
     let main = ui.as_weak();
     picker.on_file_action(move |action| {
@@ -1031,5 +1072,11 @@ fn create_panels(
         }
     });
 
-    Ok((ui, controller, picker, history))
+    Ok(AppPanels {
+        ui,
+        controller,
+        colors: picker,
+        history,
+        shapes,
+    })
 }

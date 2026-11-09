@@ -1,9 +1,9 @@
-use hoshi_canvas_spike::{AppWindow, create_app};
+use hoshi_canvas_spike::create_app_with_shape_properties;
 use hoshi_controller::{FillPattern, LineStyle};
 use slint::platform::{Key, PointerEventButton as Button, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
 
-fn key(ui: &AppWindow, text: impl Into<slint::SharedString>, pressed: bool) {
+fn key(ui: &impl ComponentHandle, text: impl Into<slint::SharedString>, pressed: bool) {
     let text = text.into();
     ui.window().dispatch_event(if pressed {
         WindowEvent::KeyPressed { text }
@@ -11,7 +11,7 @@ fn key(ui: &AppWindow, text: impl Into<slint::SharedString>, pressed: bool) {
         WindowEvent::KeyReleased { text }
     });
 }
-fn click(ui: &AppWindow, x: f32, y: f32) {
+fn click(ui: &impl ComponentHandle, x: f32, y: f32) {
     for pressed in [true, false] {
         ui.window().dispatch_event(if pressed {
             WindowEvent::PointerPressed {
@@ -36,7 +36,7 @@ fn rendering_controls_update_preview_defaults_and_preserve_text_focus() {
         },
     )))
     .unwrap();
-    let (ui, state) = create_app().unwrap();
+    let (ui, state, properties) = create_app_with_shape_properties().unwrap();
     ui.window().set_size(LogicalSize::new(1120., 850.));
     ui.show().unwrap();
     ui.window().take_snapshot().unwrap();
@@ -62,23 +62,25 @@ fn rendering_controls_update_preview_defaults_and_preserve_text_focus() {
         "preview adjustments must not commit"
     );
     assert!(state.borrow().document().active_shape().is_some());
+    ui.invoke_show_shape_properties();
+    properties.window().take_snapshot().unwrap();
     // An actual decimal edit must keep the trailing decimal point until typing finishes.
     click(
-        &ui,
-        ui.get_outline_input_left() + 12.,
-        ui.get_outline_input_top() + 12.,
+        properties.as_ref(),
+        properties.get_outline_input_left() + 12.,
+        properties.get_outline_input_top() + 12.,
     );
-    key(&ui, Key::Control, true);
-    key(&ui, "a", true);
-    key(&ui, "a", false);
-    key(&ui, Key::Control, false);
+    key(properties.as_ref(), Key::Control, true);
+    key(properties.as_ref(), "a", true);
+    key(properties.as_ref(), "a", false);
+    key(properties.as_ref(), Key::Control, false);
     for character in ["3", ".", "2", "5"] {
-        key(&ui, character, true);
-        key(&ui, character, false);
+        key(properties.as_ref(), character, true);
+        key(properties.as_ref(), character, false);
     }
     assert_eq!(state.borrow().stroke_width_pixels(), 3.25);
-    key(&ui, "]", true);
-    key(&ui, "]", false);
+    key(properties.as_ref(), "]", true);
+    key(properties.as_ref(), "]", false);
     assert_eq!(
         state.borrow().stroke_width_pixels(),
         3.25,
