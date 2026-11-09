@@ -10,6 +10,8 @@ fn shape(x: i32, y: i32, w: u32, h: u32, color: Color) -> Shape {
         width: w,
         height: h,
         rotation_degrees: 0,
+        flip_horizontal: false,
+        flip_vertical: false,
         style: ShapeStyle::Fill(color),
     }
 }

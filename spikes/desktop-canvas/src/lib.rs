@@ -8,11 +8,14 @@ pub mod documents;
 pub mod files;
 mod history;
 mod image_settings;
+mod input;
 mod resources;
 mod screen_pick;
 pub mod workspace;
 
 slint::slint! {
+    import { ShapeControls, ControlPoint } from "../ui/shape-controls.slint";
+    export { ControlPoint } from "../ui/shape-controls.slint";
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
     import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
@@ -22,7 +25,6 @@ slint::slint! {
     export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
     import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox, ScrollView } from "std-widgets.slint";
     export struct DocumentTabRow { id: int, title: string, detail: string, thumbnail: image, active: bool, dirty: bool, generation: int }
-    export struct ControlPoint { x: float, y: float, kind: int }
     export component AppWindow inherits Window {
         in property <string> document-title: "Untitled · Hoshi Paint";
         title: root.document-title;
@@ -127,7 +129,19 @@ slint::slint! {
         out property <float> rectangle-tool-top: rectangle-tool.absolute-position.y / 1px;
         out property <float> rectangle-tool-width: rectangle-tool.width / 1px;
         out property <float> rectangle-tool-height: rectangle-tool.height / 1px;
+        // Button/modifier events are normalized once in the Rust input adapter.
         callback pointer-down(float, float);
+        // Logical x/y, secondary button, then Shift/Alt/Control (or Command).
+        callback pointer-pressed(float, float, bool, bool, bool, bool);
+        callback pointer-motion(float, float, bool, bool, bool);
+        callback pointer-released(float, float, bool, bool, bool);
+        callback input-modifiers(bool, bool, bool);
+        callback keyboard-transform(int, int, bool, bool);
+        callback hover-canvas(float, float);
+        // Presentation values match the named EditCursor mapping in input.rs:
+        // draw, move, horizontal, vertical, diagonals, rotation, movable pivot.
+        in-out property <int> edit-cursor;
+        changed has-shape => { if !root.has-shape { root.edit-cursor = 0; } }
         callback pointer-move(float, float);
         callback pointer-up(float, float);
         callback pointer-cancel();
@@ -347,7 +361,7 @@ slint::slint! {
                     Text { text: "LAYER NAME"; color: #6c778b; font-size: 12px; font-weight: 700; }
                     layer-input := LineEdit { enabled: root.has-document; text: root.layer-name; placeholder-text: "Layer name"; edited(value) => { root.rename(value); self.text = root.layer-name; } }
                     Rectangle { vertical-stretch: 1; }
-                    Text { text: "Drag handles to resize.\nRound handle rotates.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
+                    Text { text: "Shift keeps proportions.\nAlt resizes about center.\nCrosshair moves the pivot.\nEnter commits. Esc cancels."; wrap: word-wrap; color: #6c778b; font-size: 12px; }
                 }
                 viewport := Rectangle {
                     x: 204px + root.dock-left-width;
@@ -369,31 +383,9 @@ slint::slint! {
                         height: root.viewport-preview ? parent.height : root.image-height * 1px * root.zoom;
                         image-fit: fill;
                     }
-                    if root.has-shape : Path {
-                        width: parent.width;
-                        height: parent.height;
-                        viewbox-width: self.width / 1px;
-                        viewbox-height: self.height / 1px;
-                        stroke: #315cae;
-                        stroke-width: 1px;
-                        fill: transparent;
-                        MoveTo { x: root.control-points[0].x; y: root.control-points[0].y; }
-                        LineTo { x: root.control-points[2].x; y: root.control-points[2].y; }
-                        LineTo { x: root.control-points[4].x; y: root.control-points[4].y; }
-                        LineTo { x: root.control-points[6].x; y: root.control-points[6].y; }
-                        Close { }
-                        MoveTo { x: root.control-points[1].x; y: root.control-points[1].y; }
-                        LineTo { x: root.control-points[8].x; y: root.control-points[8].y; }
-                    }
-                    for point in root.control-points : Rectangle {
-                        x: point.x * 1px - 5px;
-                        y: point.y * 1px - 5px;
-                        width: 10px;
-                        height: 10px;
-                        border-width: 1.5px;
-                        border-color: #315cae;
-                        border-radius: point.kind == 8 ? 5px : 1px;
-                        background: point.kind == 8 ? #c8ddff : white;
+                    if root.has-shape: ShapeControls {
+                        width: parent.width; height: parent.height;
+                        points: root.control-points;
                     }
                     canvas-focus := FocusScope {
                         width: parent.width;
@@ -403,6 +395,11 @@ slint::slint! {
                             if reason == FocusReason.window-activation || root.navigation-panning { root.pointer-cancel(); }
                         }
                         key-pressed(event) => {
+                            root.input-modifiers(event.text == Key.Shift || event.modifiers.shift, event.text == Key.Alt || event.modifiers.alt, event.text == Key.Control || event.text == Key.Meta || event.modifiers.control || event.modifiers.meta);
+                            if root.has-shape && (event.text == Key.LeftArrow || event.text == Key.RightArrow || event.text == Key.UpArrow || event.text == Key.DownArrow) {
+                                root.keyboard-transform(event.text == Key.LeftArrow ? -1 : event.text == Key.RightArrow ? 1 : 0, event.text == Key.UpArrow ? -1 : event.text == Key.DownArrow ? 1 : 0, root.navigation-owner == PointerEventButton.right, event.modifiers.control || event.modifiers.meta);
+                                return accept;
+                            }
                             if event.text == Key.Space && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
                                 root.navigation-space = true; return accept;
                             }
@@ -410,7 +407,7 @@ slint::slint! {
                                 if event.text == "x" || event.text == "X" { root.swap-colors(); return accept; }
                                 if event.text == "d" || event.text == "D" { root.reset-colors(); return accept; }
                             }
-                            if event.text == Key.Shift { root.shift-modifier(true); return accept; }
+                            if event.text == Key.Shift || event.text == Key.Alt || event.text == Key.Control || event.text == Key.Meta { return accept; }
                             if event.text == Key.Return { root.action(2); return accept; }
                             if event.text == Key.Escape {
                                 if root.navigation-panning {
@@ -428,6 +425,7 @@ slint::slint! {
                             reject
                         }
                         key-released(event) => {
+                            root.input-modifiers(event.text != Key.Shift && event.modifiers.shift, event.text != Key.Alt && event.modifiers.alt, event.text != Key.Control && event.text != Key.Meta && (event.modifiers.control || event.modifiers.meta));
                             if event.text == Key.Space {
                                 root.navigation-space = false;
                                 if root.navigation-space-pan && root.navigation-owner == PointerEventButton.left {
@@ -436,12 +434,12 @@ slint::slint! {
                                 }
                                 return accept;
                             }
-                            if event.text == Key.Shift { root.shift-modifier(false); return accept; }
+                            if event.text == Key.Shift || event.text == Key.Alt || event.text == Key.Control || event.text == Key.Meta { return accept; }
                             reject
                         }
                         touch := TouchArea {
                             enabled: root.has-document && !root.modal-visible;
-                            mouse-cursor: root.screen-picking ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : MouseCursor.default;
+                            mouse-cursor: root.screen-picking ? MouseCursor.custom(@image-url("../icons/eye-dropper-cursor.svg"), 3, 29) : root.navigation-panning ? MouseCursor.grabbing : root.edit-cursor == 1 ? MouseCursor.move : root.edit-cursor == 2 ? MouseCursor.ew-resize : root.edit-cursor == 3 ? MouseCursor.ns-resize : root.edit-cursor == 4 ? MouseCursor.nesw-resize : root.edit-cursor == 5 ? MouseCursor.nwse-resize : root.edit-cursor == 6 ? MouseCursor.custom(@image-url("../icons/rotate-shape-cursor.svg"), 16, 16) : root.edit-cursor == 7 ? MouseCursor.move : MouseCursor.default;
                             pointer-event(event) => {
                                 if event.kind == PointerEventKind.cancel {
                                     root.pointer-cancel();
@@ -450,22 +448,23 @@ slint::slint! {
                                         canvas-focus.focus();
                                         root.navigation-owner = event.button;
                                         root.navigation-space-pan = event.button == PointerEventButton.left && root.navigation-space;
-                                        root.navigation-panning = event.button != PointerEventButton.left || root.navigation-space || root.selected-tool == 2;
+                                        root.navigation-panning = event.button == PointerEventButton.middle || (event.button == PointerEventButton.left && root.navigation-space) || root.selected-tool == 2;
                                         if root.navigation-panning {
                                             root.begin-pan(self.mouse-x / 1px, self.mouse-y / 1px);
                                         } else {
-                                            root.shift-modifier(event.modifiers.shift);
-                                            root.pointer-down(self.mouse-x / 1px, self.mouse-y / 1px);
+                                            root.pointer-pressed(self.mouse-x / 1px, self.mouse-y / 1px, event.button == PointerEventButton.right, event.modifiers.shift, event.modifiers.alt, event.modifiers.control || event.modifiers.meta);
                                         }
                                     }
                                 } else if event.kind == PointerEventKind.move && root.navigation-owner != PointerEventButton.other {
-                                    root.pointer-move(self.mouse-x / 1px, self.mouse-y / 1px);
+                                    if root.navigation-panning { root.pointer-move(self.mouse-x / 1px, self.mouse-y / 1px); }
+                                    else { root.pointer-motion(self.mouse-x / 1px, self.mouse-y / 1px, event.modifiers.shift, event.modifiers.alt, event.modifiers.control || event.modifiers.meta); }
+                                } else if event.kind == PointerEventKind.move {
+                                    root.hover-canvas(self.mouse-x / 1px, self.mouse-y / 1px);
                                 } else if event.kind == PointerEventKind.up && event.button == root.navigation-owner {
                                     if root.navigation-panning {
                                         root.end-pan(self.mouse-x / 1px, self.mouse-y / 1px);
                                     } else {
-                                        root.shift-modifier(event.modifiers.shift);
-                                        root.pointer-up(self.mouse-x / 1px, self.mouse-y / 1px);
+                                        root.pointer-released(self.mouse-x / 1px, self.mouse-y / 1px, event.modifiers.shift, event.modifiers.alt, event.modifiers.control || event.modifiers.meta);
                                     }
                                     root.navigation-owner = PointerEventButton.other;
                                     root.navigation-panning = false;
@@ -871,51 +870,7 @@ fn create_panels(
     image_settings::bind(&ui, controller.clone());
     bind_rendering(&ui, controller.clone());
     refresh(&ui, &controller.borrow());
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_shift_modifier(move |pressed| {
-        if state.borrow().aspect_lock() == pressed {
-            return;
-        }
-        update(&weak, &state, |c| c.set_aspect_lock(pressed));
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_pointer_down(move |x, y| update(&weak, &state, |c| c.pointer_down(x.into(), y.into())));
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_pointer_move(move |x, y| update(&weak, &state, |c| c.pointer_move(x.into(), y.into())));
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_pointer_up(move |x, y| {
-        update(&weak, &state, |c| {
-            let movement = c.pointer_move(x.into(), y.into());
-            let release = c.pointer_up();
-            movement.and(release)
-        })
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_pointer_cancel(move || {
-        if let Some(ui) = weak.upgrade() {
-            ui.invoke_clear_navigation_state();
-        }
-        update(&weak, &state, |c| {
-            if c.is_dragging() {
-                c.cancel_pointer();
-            }
-            c.set_aspect_lock(false)
-        })
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_begin_pan(move |x, y| {
-        update(&weak, &state, |c| c.begin_temporary_pan(x.into(), y.into()))
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_end_pan(move |x, y| {
-        update(&weak, &state, |c| {
-            let movement = c.pointer_move(x.into(), y.into());
-            let release = c.end_temporary_pan();
-            movement.and(release)
-        })
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_pan_by(move |dx, dy| update(&weak, &state, |c| c.pan(dx.into(), dy.into())));
+    input::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
         if tool == 3 {

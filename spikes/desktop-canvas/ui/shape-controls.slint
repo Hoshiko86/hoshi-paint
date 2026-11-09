@@ -1,0 +1,32 @@
+// Selection decoration is shared by every shape. Hit testing and transforms
+// belong to the controller, so this component never changes document geometry.
+export struct ControlPoint { x: float, y: float, kind: int }
+export component ShapeControls inherits Rectangle {
+    in property <[ControlPoint]> points;
+    background: transparent;
+    // Wire IDs 0–7 are bounding-box nubs, 8 rotates, and 9 moves the pivot.
+    if root.points.length >= 9: Path {
+        width: parent.width; height: parent.height;
+        viewbox-width: self.width / 1px; viewbox-height: self.height / 1px;
+        stroke: #315cae; stroke-width: 1px; fill: transparent;
+        MoveTo { x: root.points[0].x; y: root.points[0].y; }
+        LineTo { x: root.points[2].x; y: root.points[2].y; }
+        LineTo { x: root.points[4].x; y: root.points[4].y; }
+        LineTo { x: root.points[6].x; y: root.points[6].y; }
+        Close { }
+        MoveTo { x: root.points[1].x; y: root.points[1].y; }
+        LineTo { x: root.points[8].x; y: root.points[8].y; }
+    }
+    for point in root.points: Rectangle {
+        x: point.x * 1px - 5px; y: point.y * 1px - 5px;
+        width: 10px; height: 10px;
+        border-width: 1.5px; border-color: #315cae;
+        border-radius: point.kind >= 8 ? 5px : 1px;
+        background: point.kind >= 8 ? #c8ddff : white;
+        if point.kind == 9: Text {
+            text: "+"; color: #315cae; font-size: 11px;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+        Tooltip { text: point.kind == 9 ? @markdown("Move rotation pivot") : point.kind == 8 ? @markdown("Rotate shape · Shift snaps to 15°") : @markdown("Resize · Shift keeps proportions · Alt anchors the center"); }
+    }
+}

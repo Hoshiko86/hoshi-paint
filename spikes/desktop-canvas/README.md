@@ -48,7 +48,7 @@ canvas display work follows the viewport instead of the document dimensions.
 
 - Drag on the checkerboard to draw a rectangle. Release keeps it editable.
   Hold Shift while drawing to create a square; press/release Shift during the drag
-  to toggle the constraint live. Squares stop at the canvas boundary.
+  to toggle the constraint live. Squares stop at the canvas boundary. Alt draws from the center; centered bounds may extend outside the canvas.
 - Choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
   canvas pixels (1–65,536), inset inside the bounds; a wide stroke can consume
   the interior. Settings apply live to the active preview and to future shapes.
@@ -62,16 +62,16 @@ canvas display work follows the viewport instead of the document dimensions.
 - Swap colors with the arrow icon or X; reset to black/white with the overlapping
   squares icon or D. Shortcuts apply while the canvas has focus, preserving text
   input in color/layer fields. Active shapes update live; committed pixels stay fixed.
-  Right-drag remains canvas panning; reversed right-button painting is not implemented.
+  Right-drag starts a shape with Primary/Secondary roles reversed, or rotates an active shape.
 - Cancel discards the active preview while retaining workspace colors and settings.
 - Drag any of the eight square control points: corners resize both dimensions;
   edge midpoints resize one. The opposite handle stays fixed, within integer-pixel
-  rounding, even after rotation. Crossed edges clamp at one pixel.
-- Hold Shift while dragging a corner to preserve the aspect ratio from the start
+  rounding, even after rotation. Crossing an opposite handle flips the shape.
+- Hold Shift while dragging any resize handle to preserve the aspect ratio from the start
   of that drag, within pixel rounding. Press/release Shift mid-drag to toggle it
-  live; edge handles remain single-axis. Works after rotation and zoom.
+  live. Hold Alt to resize around the center, or Shift+Alt for both constraints. Works after rotation and zoom.
 - Drag the round control point above the top edge to rotate about the center
-  in one-degree increments. Handles keep their screen size when zoomed.
+  in one-degree increments; Shift snaps to 15°. Drag the central crosshair to relocate the pivot. Handles keep their screen size when zoomed.
 - Drag inside the active rectangle to move it, including after rotation.
   Handles take precedence. Shape movement is direct; canvas panning uses the
   shortcuts below. Separate Move shape, Pan canvas and nudge/size buttons are no
@@ -111,13 +111,12 @@ canvas display work follows the viewport instead of the document dimensions.
 - Open **History…** for labeled committed actions, the current state, grayed redo
   entries and available undo/redo counts. Click a retained step to undo/redo to it.
   Commit or cancel an active shape before selecting a history row. Toolbar and
-  History Undo/Redo use icons with tooltips. At most 16 actions are retained; the
+  History Undo/Redo use icons with tooltips. History spills to disk without a fixed action cap; the
   first row means **Oldest available state**, not necessarily the original image.
 - **Ctrl/Cmd + wheel** zooms about the pointer over the canvas. A plain wheel pans
   vertically (trackpad horizontal movement pans horizontally); Shift + wheel pans
-  horizontally. **Space + left-drag**, **middle-drag**, or **right-drag** temporarily
-  pan without changing the drawing tool, shape or history. Right-drag is a
-  convenience alias; this is not a claim of complete Paint.NET shortcut parity.
+  horizontally. **Space + left-drag** or **middle-drag** temporarily
+  pan without changing the drawing tool, shape or history.
   Release, Escape, capture loss or focus loss end temporary navigation. Space in
   text fields remains text input.
 - Edit the layer name. This commits an active shape before renaming it.
@@ -135,7 +134,7 @@ filter to Bicubic. See [resampling compatibility](../../docs/RESAMPLING.md) for
 algorithm details and the remaining reference-image comparison work. Canvas Size uses a nine-point anchor and crops
 or pads without scaling pixels. [Behavior and remaining Paint.NET parity gaps](../../docs/IMAGE_MENU.md).
 
-Only one layer is exposed in this shell. There is no brush, file import/save,
+Only one layer is exposed in this shell. There is no brush,
 dash/pattern styles, antialiasing controls, rounded rectangle, ellipse tool or selection UI
 yet. Core support does not imply that a corresponding UI has shipped.
 
@@ -247,3 +246,5 @@ updates skip unnecessary color-control synchronization. See
 [the measured resize probe](../../docs/RESIZE_PERFORMANCE.md) for before/after
 results and reproducible commands. These are development measurements, not
 physical display-latency or release acceptance results.
+
+Shared shape editing architecture and extension guide: [SHAPE_EDITING.md](../../docs/SHAPE_EDITING.md).

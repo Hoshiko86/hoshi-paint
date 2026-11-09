@@ -37,7 +37,7 @@ fn visible_handles_resize_rotate_and_commit_through_window_events() {
     ui.show().unwrap();
     ui.window().take_snapshot().unwrap();
     drag(&ui, (80.0, 100.0), (240.0, 200.0));
-    assert_eq!(ui.get_control_points().row_count(), 9);
+    assert_eq!(ui.get_control_points().row_count(), 10);
     let corner = state.borrow().handle_positions()[4];
     drag(
         &ui,
@@ -66,7 +66,8 @@ fn visible_handles_resize_rotate_and_commit_through_window_events() {
         90
     );
     assert_eq!(state.borrow().document().undo_len(), 0);
-    drag(&ui, (190.0, 160.0), (200.0, 180.0));
+    // The center nub now moves the rotation pivot. Drag another interior point.
+    drag(&ui, (170.0, 150.0), (180.0, 170.0));
     let moved = state.borrow().document().active_shape().unwrap();
     assert_eq!(
         (
