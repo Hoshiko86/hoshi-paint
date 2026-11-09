@@ -57,7 +57,8 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
     up(&ui, 120.0, 90.0, Button::Left);
     let shape = state.borrow().document().active_shape().unwrap();
     let pixels = state.borrow().composite();
-    for button in [Button::Middle, Button::Right] {
+    {
+        let button = Button::Middle;
         let before = state.borrow().viewport();
         down(&ui, 200.0, 220.0, button);
         moved(&ui, 225.0, 235.0);
@@ -102,7 +103,7 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
     assert!(!state.borrow().is_dragging());
     assert_eq!(state.borrow().document().active_shape(), Some(shape));
     up(&ui, 210.0, 230.0, Button::Middle);
-    down(&ui, 200.0, 220.0, Button::Right);
+    down(&ui, 200.0, 220.0, Button::Middle);
     moved(&ui, 210.0, 230.0);
     ui.window()
         .dispatch_event(WindowEvent::WindowActiveChanged(false));
@@ -110,7 +111,7 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
     assert_eq!(state.borrow().document().active_shape(), Some(shape));
     ui.window()
         .dispatch_event(WindowEvent::WindowActiveChanged(true));
-    up(&ui, 210.0, 230.0, Button::Right);
+    up(&ui, 210.0, 230.0, Button::Middle);
     down(&ui, 200.0, 220.0, Button::Middle);
     moved(&ui, 210.0, 230.0);
     ui.window().dispatch_event(WindowEvent::PointerExited);

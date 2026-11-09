@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 pub const MAX_DIMENSION: u32 = 262_144;
+pub mod geometry;
 mod memory;
 mod pixels;
 pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
@@ -116,10 +117,33 @@ pub struct Shape {
     pub width: u32,
     pub height: u32,
     pub rotation_degrees: i32,
+    pub flip_horizontal: bool,
+    pub flip_vertical: bool,
     pub style: ShapeStyle,
 }
 
 impl Shape {
+    pub fn new(
+        kind: ShapeKind,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        style: ShapeStyle,
+    ) -> Self {
+        Self {
+            kind,
+            x,
+            y,
+            width,
+            height,
+            rotation_degrees: 0,
+            flip_horizontal: false,
+            flip_vertical: false,
+            style,
+        }
+    }
+
     fn validate(self) -> Result<(), Error> {
         if self.width == 0
             || self.height == 0
@@ -165,34 +189,25 @@ struct RasterShape {
     shape: Shape,
     center_x: f64,
     center_y: f64,
-    sin: f64,
-    cos: f64,
+    transform: geometry::PreparedTransform,
 }
 
 impl RasterShape {
     fn new(shape: Shape) -> Self {
-        let angle = shape.rotation_degrees.rem_euclid(360);
-        let (sin, cos) = match angle {
-            0 => (0.0, 1.0),
-            90 => (1.0, 0.0),
-            180 => (0.0, -1.0),
-            270 => (-1.0, 0.0),
-            _ => f64::from(angle).to_radians().sin_cos(),
-        };
         Self {
             shape,
             center_x: f64::from(shape.x) + f64::from(shape.width) / 2.0,
             center_y: f64::from(shape.y) + f64::from(shape.height) / 2.0,
-            sin,
-            cos,
+            transform: geometry::Frame::from_shape(shape).prepare(),
         }
     }
 
     fn color_at(self, x: u32, y: u32) -> Option<Color> {
-        let dx = f64::from(x) + 0.5 - self.center_x;
-        let dy = f64::from(y) + 0.5 - self.center_y;
-        let x = self.center_x + self.cos * dx + self.sin * dy;
-        let y = self.center_y - self.sin * dx + self.cos * dy;
+        let local = self
+            .transform
+            .to_local(geometry::Point::new(f64::from(x) + 0.5, f64::from(y) + 0.5));
+        let x = self.center_x + local.x;
+        let y = self.center_y + local.y;
         if !self.shape.contains(x, y, 0.0) {
             return None;
         }

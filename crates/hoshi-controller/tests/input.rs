@@ -84,9 +84,9 @@ fn move_drag_uses_document_coordinates_after_zoom() {
     controller.pointer_up().unwrap();
     controller.zoom_at(0.0, 0.0, 2.0).unwrap();
     controller.set_tool(Tool::MoveShape).unwrap();
-    // Grab the interior, away from the new corner/edge control points.
-    controller.pointer_down(100.0, 100.0).unwrap();
-    controller.pointer_move(106.0, 104.0).unwrap();
+    // Grab the interior, away from the resize handles and central pivot.
+    controller.pointer_down(80.0, 80.0).unwrap();
+    controller.pointer_move(86.0, 84.0).unwrap();
     controller.pointer_up().unwrap();
     let shape = controller.document().active_shape().unwrap();
     assert_eq!(
@@ -196,17 +196,18 @@ fn click_and_zero_area_drag_do_not_create_pixels_or_history() {
 }
 
 #[test]
-fn workspace_click_does_not_commit_or_replace_active_shape() {
+fn workspace_click_commits_existing_shape_without_painting_extra_pixels() {
     let mut controller = Controller::new(16, 16).unwrap();
     draw(&mut controller);
-    let shape = controller.document().active_shape();
-    // Nearby workspace points may now intentionally select outlying handles.
+    let pixels = controller.composite();
+    // Distant workspace clicks finish the current shape, but never paint there.
     for (x, y) in [(-1000.0, 1.0), (1.0, -1000.0), (1000.0, 1.0), (1.0, 1000.0)] {
         controller.pointer_down(x, y).unwrap();
         controller.pointer_move(5.0, 6.0).unwrap();
         controller.pointer_up().unwrap();
-        assert_eq!(controller.document().active_shape(), shape);
-        assert_eq!(controller.document().undo_len(), 0);
+        assert!(controller.document().active_shape().is_none());
+        assert_eq!(controller.document().undo_len(), 1);
+        assert_eq!(controller.composite(), pixels);
     }
 }
 
@@ -311,7 +312,7 @@ fn rotated_resize_keeps_the_opposite_anchor_fixed() {
 fn rotation_handle_keeps_center_and_commits_as_one_undoable_action() {
     let mut c = large_controller();
     let knob = handle(&c, 8);
-    assert_eq!(c.handle_positions().len(), 9);
+    assert_eq!(c.handle_positions().len(), 10);
     assert_eq!(knob, (60.0, 2.0));
     c.pointer_down(knob.0, knob.1).unwrap();
     c.pointer_move(118.0, 60.0).unwrap();
@@ -368,14 +369,15 @@ fn rotation_knob_offset_is_zoom_independent_and_pan_ignores_handles() {
 }
 
 #[test]
-fn crossing_an_opposite_edge_clamps_safely_and_cancel_discards_preview() {
+fn crossing_an_opposite_edge_flips_and_cancel_discards_preview() {
     let mut c = large_controller();
     let edge = handle(&c, 3);
     c.pointer_down(edge.0, edge.1).unwrap();
     c.pointer_move(-500.0, edge.1).unwrap();
     c.pointer_up().unwrap();
     let shape = c.document().active_shape().unwrap();
-    assert_eq!((shape.x, shape.width), (20, 1));
+    assert_eq!((shape.x, shape.width), (-500, 520));
+    assert!(shape.flip_horizontal);
     c.cancel();
     assert!(c.document().active_shape().is_none());
     assert_eq!(c.document().undo_len(), 0);
@@ -443,7 +445,7 @@ fn shift_corner_resize_preserves_ratio_and_rotated_opposite_anchor() {
 }
 
 #[test]
-fn shift_can_toggle_mid_drag_and_does_not_constrain_edge_handles() {
+fn shift_can_toggle_mid_drag_and_constrains_edge_handles() {
     let mut c = Controller::new(256, 256).unwrap();
     c.pointer_down(40.0, 40.0).unwrap();
     c.pointer_move(120.0, 80.0).unwrap();
@@ -485,7 +487,7 @@ fn shift_can_toggle_mid_drag_and_does_not_constrain_edge_handles() {
     c.pointer_down(120.0, 60.0).unwrap();
     c.pointer_move(160.0, 70.0).unwrap();
     let edge = c.document().active_shape().unwrap();
-    assert_eq!((edge.width, edge.height), (120, 40));
+    assert_eq!((edge.width, edge.height), (120, 60));
     c.cancel_pointer();
     assert!(!c.aspect_lock());
 }

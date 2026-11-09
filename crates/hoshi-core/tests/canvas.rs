@@ -10,6 +10,8 @@ fn pixel(d: &mut Document, x: i32, y: i32, color: Color) {
         width: 1,
         height: 1,
         rotation_degrees: 0,
+        flip_horizontal: false,
+        flip_vertical: false,
         style: ShapeStyle::Fill(color),
     })
     .unwrap();

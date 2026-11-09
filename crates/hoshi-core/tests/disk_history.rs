@@ -8,6 +8,8 @@ fn rectangle(color: Color) -> Shape {
         width: 1,
         height: 1,
         rotation_degrees: 0,
+        flip_horizontal: false,
+        flip_vertical: false,
         style: ShapeStyle::Fill(color),
     }
 }

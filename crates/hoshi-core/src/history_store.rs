@@ -690,6 +690,8 @@ mod tests {
             width: 2,
             height: 2,
             rotation_degrees: 0,
+            flip_horizontal: false,
+            flip_vertical: false,
             style: crate::ShapeStyle::Fill(Color::rgba(255, 0, 0, 255)),
         };
         document.begin_shape(shape).unwrap();

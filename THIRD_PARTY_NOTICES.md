@@ -32,7 +32,7 @@ contrast; path geometry is unchanged. Attribution comments remain in both SVGs. 
 Only Free SVGs are bundled, not Pro assets or font files. Hoshi Paint source
 is GPL-3.0-only; the icon retains its own CC BY 4.0 terms.
 
-The swap-colors and reset-colors SVGs are original Hoshi Paint artwork covered
+The swap-colors, reset-colors and rotate-shape-cursor SVGs are original Hoshi Paint artwork covered
 by GPL-3.0-only.
 
 ## Image files and native dialogs

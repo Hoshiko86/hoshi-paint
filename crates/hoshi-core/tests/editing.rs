@@ -96,6 +96,8 @@ fn rectangle(x: i32, y: i32, width: u32, height: u32, color: Color) -> Shape {
         width,
         height,
         rotation_degrees: 0,
+        flip_horizontal: false,
+        flip_vertical: false,
         style: ShapeStyle::Fill(color),
     }
 }
