@@ -12,6 +12,7 @@ use hoshi_core::{Shape, ShapeKind};
 pub(super) struct EditState {
     pub pivot: Option<Point>,
     pub secondary_colors: bool,
+    pub numeric_ratio: Option<(u32, u32)>,
 }
 #[derive(Clone, Copy)]
 pub(super) enum Gesture {
@@ -211,6 +212,7 @@ impl Controller {
                         })
                     }
                     index => {
+                        self.edit_state.numeric_ratio = None;
                         self.gesture = Some(Gesture::Resize {
                             original: shape,
                             handle: ResizeHandle::ALL[index as usize],

@@ -55,6 +55,11 @@ jobs:
           SLINT_BACKEND: winit-software
           HOSHI_RENDERING_SNAPSHOT: target/spike-shape-rendering.png
         run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example rendering_smoke --locked
+      - name: Native numeric shape bounds smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example bounds_smoke --locked
       - name: Native document tabs and save prompts smoke test
         if: runner.os == 'Linux'
         env:
@@ -107,7 +112,7 @@ jobs:
           for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
                          "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
                          "target/spike-colors-docked.png", "target/spike-panels.png", "target/spike-history.png",
-                         "target/spike-rectangle-editing.png", "target/spike-shape-rendering.png", "target/spike-documents.png", "target/spike-save-prompt.png",
+                         "target/spike-rectangle-editing.png", "target/spike-shape-rendering.png", "target/spike-shape-bounds.png", "target/spike-documents.png", "target/spike-save-prompt.png",
                          "target/spike-save-configuration.png", "target/spike-image-new.png", "target/spike-image-resize.png",
                          "target/spike-canvas-size.png", "target/spike-image-edited.png",
                          "target/spike-large-canvas-fit.png", "target/spike-large-canvas-edit.png",
