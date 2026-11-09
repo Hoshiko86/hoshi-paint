@@ -31,6 +31,20 @@ impl Controller {
             .document
             .active_shape()
             .ok_or(ControllerError::NoActiveShape)?;
+        let current = match field {
+            BoundsField::X => i64::from(shape.x),
+            BoundsField::Y => i64::from(shape.y),
+            BoundsField::Width => i64::from(shape.width),
+            BoundsField::Height => i64::from(shape.height),
+        };
+        // Focus loss can submit an unchanged field. Recomputing its partner
+        // would turn e.g. locked 83×42 into 84×42 just by tabbing through Height.
+        if value == current {
+            if !keep_aspect {
+                self.edit_state.numeric_ratio = None;
+            }
+            return Ok(());
+        }
         let (mut x, mut y, mut width, mut height) = (shape.x, shape.y, shape.width, shape.height);
         let (ratio_width, ratio_height) = self.edit_state.numeric_ratio.unwrap_or((width, height));
         let invalid = || ControllerError::Core(Error::InvalidShape);

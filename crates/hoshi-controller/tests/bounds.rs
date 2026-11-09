@@ -82,6 +82,12 @@ fn locked_ratio_does_not_drift_after_rounding_and_can_be_recaptured() {
     c.set_numeric_aspect_lock(true);
     c.edit_shape_bound(BoundsField::Width, 83, true).unwrap();
     assert_eq!(c.document().active_shape().unwrap().height, 42);
+    c.edit_shape_bound(BoundsField::Height, 42, true).unwrap();
+    assert_eq!(
+        c.document().active_shape().unwrap().width,
+        83,
+        "submitting an untouched rounded dimension must be a no-op"
+    );
     c.edit_shape_bound(BoundsField::Width, 160, true).unwrap();
     assert_eq!(c.document().active_shape().unwrap().height, 80);
     c.set_numeric_aspect_lock(false);

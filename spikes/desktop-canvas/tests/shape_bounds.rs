@@ -60,6 +60,18 @@ fn numeric_fields_apply_on_enter_preserve_edit_mode_and_track_mouse_edits() {
     .next()
     .unwrap()
     .mock_single_click(PointerEventButton::Left);
+    type_value(&ui, "Shape width", "83");
+    let rounded = state.borrow().document().active_shape();
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Shape height")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    key(&ui, Key::Tab);
+    assert_eq!(
+        state.borrow().document().active_shape(),
+        rounded,
+        "tabbing through an untouched field must not round its partner again"
+    );
     type_value(&ui, "Shape width", "200");
     let shape = state.borrow().document().active_shape().unwrap();
     assert_eq!((shape.width, shape.height), (200, 100));
