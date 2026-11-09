@@ -378,9 +378,10 @@ impl Document {
 
     /// Returns whether layer pixels changed. A no-op never adds history.
     pub fn commit_shape(&mut self) -> Result<bool, Error> {
-        let Some(shape) = self.active else {
+        let Some(mut shape) = self.active else {
             return Ok(false);
         };
+        shape.rendering = shape.rendering.for_style(shape.style);
         let before = self.state.clone();
         let label = match shape.kind {
             ShapeKind::Rectangle => "Rectangle",
@@ -564,7 +565,8 @@ impl Document {
         {
             return true;
         }
-        if let Some(shape) = self.active {
+        if let Some(mut shape) = self.active {
+            shape.rendering = shape.rendering.for_style(shape.style);
             let opaque = match shape.style {
                 ShapeStyle::Fill(color) => color.a == 255,
                 ShapeStyle::Outline { color, width } => {

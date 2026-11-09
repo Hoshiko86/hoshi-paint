@@ -124,3 +124,28 @@ impl Default for RenderOptions {
         }
     }
 }
+
+impl RenderOptions {
+    /// Resolve inactive/equivalent paints once before rasterization. UI defaults
+    /// remain unchanged, but hidden settings must never alter pixel coverage.
+    pub(crate) fn for_style(mut self, style: ShapeStyle) -> Self {
+        match style {
+            ShapeStyle::Fill(color) => {
+                self.line_style = LineStyle::Solid;
+                if color == self.pattern_color {
+                    self.fill_pattern = FillPattern::Solid;
+                }
+            }
+            ShapeStyle::Outline { .. } => self.fill_pattern = FillPattern::Solid,
+            ShapeStyle::Both { fill, outline, .. } => {
+                if fill == self.pattern_color {
+                    self.fill_pattern = FillPattern::Solid;
+                }
+                if fill == outline && self.fill_pattern == FillPattern::Solid {
+                    self.line_style = LineStyle::Solid;
+                }
+            }
+        }
+        self
+    }
+}

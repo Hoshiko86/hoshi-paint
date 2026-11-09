@@ -180,3 +180,58 @@ fn unused_line_settings_do_not_disable_constant_size_huge_fills() {
     assert_eq!(doc.layers()[0].pixels().allocated_bytes(), 0);
     assert_eq!(doc.composite_pixel(size / 2, size / 2, false), RED);
 }
+
+#[test]
+fn unused_style_settings_never_change_pixel_coverage() {
+    let mut outline = rectangle(ShapeStyle::Outline {
+        color: RED,
+        width: 0.01,
+    });
+    let expected = render(outline);
+    outline.rendering.fill_pattern = FillPattern::Cross;
+    assert_eq!(
+        render(outline),
+        expected,
+        "unused hatches must not erase thin outlines"
+    );
+    let mut fill = rectangle(ShapeStyle::Fill(RED));
+    fill.rotation_degrees = 27;
+    let expected = render(fill);
+    fill.rendering.line_style = LineStyle::Dash;
+    assert_eq!(
+        render(fill),
+        expected,
+        "unused line styles must not change fill antialiasing"
+    );
+}
+#[test]
+fn equal_pattern_colors_keep_huge_fills_uniform() {
+    let size = hoshi_core::MAX_DIMENSION;
+    let mut doc = Document::new(size, size).unwrap();
+    let mut shape = Shape::new(
+        ShapeKind::Rectangle,
+        0,
+        0,
+        size,
+        size,
+        ShapeStyle::Fill(RED),
+    );
+    shape.rendering.fill_pattern = FillPattern::Cross;
+    shape.rendering.pattern_color = RED;
+    doc.begin_shape(shape).unwrap();
+    doc.commit_shape().unwrap();
+    assert_eq!(doc.layers()[0].pixels().allocated_bytes(), 0);
+}
+
+#[test]
+fn matching_fill_and_outline_colors_do_not_change_coverage_with_dash_style() {
+    let mut shape = rectangle(ShapeStyle::Both {
+        fill: RED,
+        outline: RED,
+        width: 2.25,
+    });
+    shape.rotation_degrees = 27;
+    let expected = render(shape);
+    shape.rendering.line_style = LineStyle::DashDot;
+    assert_eq!(render(shape), expected);
+}

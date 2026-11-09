@@ -14,7 +14,8 @@ pub(crate) struct RasterShape {
     arc_lengths: [f64; ARC_STEPS + 1],
 }
 impl RasterShape {
-    pub(crate) fn new(shape: Shape) -> Self {
+    pub(crate) fn new(mut shape: Shape) -> Self {
+        shape.rendering = shape.rendering.for_style(shape.style);
         let mut arc_lengths = [0.; ARC_STEPS + 1];
         if shape.kind == ShapeKind::Ellipse && shape.rendering.line_style != LineStyle::Solid {
             let (rx, ry) = (f64::from(shape.width) / 2., f64::from(shape.height) / 2.);
