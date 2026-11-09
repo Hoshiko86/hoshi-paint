@@ -50,7 +50,7 @@ canvas display work follows the viewport instead of the document dimensions.
   Hold Shift while drawing to create a square; press/release Shift during the drag
   to toggle the constraint live. Squares stop at the canvas boundary. Alt draws from the center; centered bounds may extend outside the canvas.
 - Choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
-  canvas pixels (1–65,536), inset inside the bounds; a wide stroke can consume
+  canvas pixels (0.01–65,536), inset inside the bounds; a wide stroke can consume
   the interior. Settings apply live to the active preview and to future shapes.
 - Primary and Secondary are shared workspace colors, initially black and white.
   Click either swatch in the sidebar or Colors panel to choose the slot being edited.
@@ -135,7 +135,7 @@ algorithm details and the remaining reference-image comparison work. Canvas Size
 or pads without scaling pixels. [Behavior and remaining Paint.NET parity gaps](../../docs/IMAGE_MENU.md).
 
 Only one layer is exposed in this shell. There is no brush,
-dash/pattern styles, antialiasing controls, rounded rectangle, ellipse tool or selection UI
+rounded rectangle, ellipse tool or selection UI
 yet. Core support does not imply that a corresponding UI has shipped.
 
 ## Validation commands
@@ -248,3 +248,5 @@ results and reproducible commands. These are development measurements, not
 physical display-latency or release acceptance results.
 
 Shared shape editing architecture and extension guide: [SHAPE_EDITING.md](../../docs/SHAPE_EDITING.md).
+
+[Shared shape rendering](../../docs/SHAPE_RENDERING.md) covers decimal outlines, antialiasing, dash styles and two-color pattern fills.

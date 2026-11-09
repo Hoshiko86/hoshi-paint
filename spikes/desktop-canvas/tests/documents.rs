@@ -303,3 +303,30 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     writer.finish().unwrap();
     assert!(files::load(&high).err().unwrap().contains("16-bit"));
 }
+
+#[test]
+fn shared_rendering_settings_keep_fractional_precision_when_switching_tabs() {
+    use hoshi_controller::{FillPattern, LineStyle};
+    let mut w = Workspace::default();
+    let first = w.active_id().unwrap();
+    w.set_stroke_width_pixels(6.5).unwrap();
+    w.set_line_style(LineStyle::DashDot).unwrap();
+    w.set_fill_pattern(FillPattern::DiagonalCross).unwrap();
+    w.set_antialiasing(false).unwrap();
+    w.new_image(32, 32, 96., Color::TRANSPARENT).unwrap();
+    assert_eq!(w.stroke_width_pixels(), 6.5);
+    assert_eq!(w.line_style(), LineStyle::DashDot);
+    assert_eq!(w.fill_pattern(), FillPattern::DiagonalCross);
+    assert!(!w.antialiasing());
+    w.set_stroke_width_pixels(0.25).unwrap();
+    w.set_antialiasing(true).unwrap();
+    w.activate(first).unwrap();
+    assert_eq!(w.stroke_width_pixels(), 0.25);
+    assert!(w.antialiasing());
+    w.pointer_down(2., 2.).unwrap();
+    w.pointer_move(20., 20.).unwrap();
+    w.pointer_up().unwrap();
+    let shape = w.document().active_shape().unwrap();
+    assert_eq!(shape.rendering.line_style, LineStyle::DashDot);
+    assert_eq!(shape.rendering.fill_pattern, FillPattern::DiagonalCross);
+}

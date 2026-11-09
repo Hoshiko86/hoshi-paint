@@ -71,7 +71,7 @@ fn rotation_preserves_outline_fill_and_ellipse_geometry() {
     shape.style = ShapeStyle::Both {
         fill: RED,
         outline: BLUE,
-        width: 1,
+        width: 1.0,
     };
     doc.begin_shape(shape).unwrap();
     let pixels = doc.composite(true);
@@ -98,6 +98,10 @@ fn rectangle(x: i32, y: i32, width: u32, height: u32, color: Color) -> Shape {
         rotation_degrees: 0,
         flip_horizontal: false,
         flip_vertical: false,
+        rendering: hoshi_core::RenderOptions {
+            antialias: false,
+            ..Default::default()
+        },
         style: ShapeStyle::Fill(color),
     }
 }
@@ -164,7 +168,7 @@ fn outline_and_fill_have_distinct_pixels() {
     shape.style = ShapeStyle::Both {
         fill: RED,
         outline: BLUE,
-        width: 1,
+        width: 1.0,
     };
     doc.begin_shape(shape).unwrap();
     let pixels = doc.composite(true);
@@ -172,7 +176,7 @@ fn outline_and_fill_have_distinct_pixels() {
     assert_eq!(pixels.iter().filter(|&&p| p == RED).count(), 9);
     shape.style = ShapeStyle::Outline {
         color: BLUE,
-        width: 1,
+        width: 1.0,
     };
     doc.adjust_shape(shape).unwrap();
     assert_eq!(doc.composite(true)[12], Color::TRANSPARENT);

@@ -277,13 +277,11 @@ impl Controller {
             let height = (2. * half_height)
                 .round()
                 .clamp(1., f64::from(hoshi_core::MAX_DIMENSION));
-            return Shape::new(
-                self.shape_kind,
+            return self.create_shape(
                 (anchor.0 - width / 2.).round() as i32,
                 (anchor.1 - height / 2.).round() as i32,
                 width as u32,
                 height as u32,
-                self.drawing_style(),
             );
         }
         // Bounds stay inside this small document. The gesture handler only calls
@@ -337,17 +335,12 @@ impl Controller {
         } else {
             (left, top, right - left, bottom - top)
         };
-        Shape {
-            kind: self.shape_kind,
-            x: left as i32,
-            y: top as i32,
-            width: (width as u32).max(1),
-            height: (height as u32).max(1),
-            rotation_degrees: 0,
-            flip_horizontal: false,
-            flip_vertical: false,
-            style: self.drawing_style(),
-        }
+        self.create_shape(
+            left as i32,
+            top as i32,
+            (width as u32).max(1),
+            (height as u32).max(1),
+        )
     }
 
     pub fn pointer_move(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {

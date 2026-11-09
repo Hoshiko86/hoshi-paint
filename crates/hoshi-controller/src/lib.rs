@@ -8,6 +8,7 @@ pub mod color;
 mod editing;
 mod input;
 mod preview;
+mod rendering;
 mod viewport;
 use editing::{EditState, Gesture};
 pub use input::{EditCursor, InputModifiers, PointerButton};
@@ -17,7 +18,8 @@ pub const ROTATION_HANDLE: i32 = 8;
 pub const PIVOT_HANDLE: i32 = 9;
 
 pub use hoshi_core::{
-    Anchor, Color, HistoryStep, ImageTransform, Resampling, ResizeOptions, ShapeStyle,
+    Anchor, Color, FillPattern, HistoryStep, ImageTransform, LineStyle, RenderOptions, Resampling,
+    ResizeOptions, ShapeStyle,
 };
 use hoshi_core::{Document, DocumentSnapshot, Error, Shape, ShapeKind};
 
@@ -89,7 +91,8 @@ pub struct Controller {
     secondary_color: Color,
     color_slot: ColorSlot,
     shape_mode: ShapeMode,
-    stroke_width: u32,
+    stroke_width: f64,
+    rendering: RenderOptions,
     modifiers: InputModifiers,
     edit_state: EditState,
     shape_kind: ShapeKind,
@@ -114,7 +117,8 @@ impl Controller {
             secondary_color: Color::rgba(255, 255, 255, 255),
             color_slot: ColorSlot::Primary,
             shape_mode: ShapeMode::Fill,
-            stroke_width: 2,
+            stroke_width: 2.,
+            rendering: RenderOptions::default(),
             modifiers: InputModifiers::default(),
             edit_state: EditState::default(),
             shape_kind: ShapeKind::Rectangle,
@@ -331,7 +335,7 @@ impl Controller {
         self.shape_mode
     }
     pub fn stroke_width(&self) -> u32 {
-        self.stroke_width
+        self.stroke_width.ceil() as u32
     }
     pub fn set_color_slot(&mut self, target: ColorSlot) {
         self.color_slot = target;
@@ -360,6 +364,7 @@ impl Controller {
     fn refresh_shape_style(&mut self) -> Result<(), ControllerError> {
         if let Some(mut shape) = self.document.active_shape() {
             shape.style = self.drawing_style();
+            shape.rendering = self.drawing_render_options();
             self.document.adjust_shape(shape)?;
         }
         Ok(())
@@ -370,13 +375,9 @@ impl Controller {
         self.refresh_shape_style()
     }
 
-    /// Outlines are inset inside the shape bounds; wider strokes may consume the fill.
+    /// Integer compatibility adapter; decimal-aware callers use set_stroke_width_pixels.
     pub fn set_stroke_width(&mut self, width: u32) -> Result<(), ControllerError> {
-        if width == 0 || width > 65_536 {
-            return Err(Error::InvalidShape.into());
-        }
-        self.stroke_width = width;
-        self.refresh_shape_style()
+        self.set_stroke_width_pixels(f64::from(width))
     }
 
     /// Set Primary regardless of which workspace slot is selected.

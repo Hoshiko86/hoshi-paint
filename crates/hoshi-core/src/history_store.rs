@@ -692,6 +692,10 @@ mod tests {
             rotation_degrees: 0,
             flip_horizontal: false,
             flip_vertical: false,
+            rendering: crate::RenderOptions {
+                antialias: false,
+                ..Default::default()
+            },
             style: crate::ShapeStyle::Fill(Color::rgba(255, 0, 0, 255)),
         };
         document.begin_shape(shape).unwrap();

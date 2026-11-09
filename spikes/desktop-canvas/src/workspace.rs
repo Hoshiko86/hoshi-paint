@@ -1,6 +1,8 @@
 //! Independent tab state, shared drawing settings, and save points.
 use crate::files::{self, FileFormat};
-use hoshi_controller::{Color, ColorSlot, Controller, ControllerError, ShapeMode};
+use hoshi_controller::{
+    Color, ColorSlot, Controller, ControllerError, FillPattern, LineStyle, ShapeMode,
+};
 use hoshi_core::{Document, DocumentSnapshot};
 use std::{
     cell::{Cell, RefCell},
@@ -14,7 +16,10 @@ struct Drawing {
     secondary: Color,
     slot: ColorSlot,
     mode: ShapeMode,
-    width: u32,
+    width: f64,
+    antialiasing: bool,
+    line_style: LineStyle,
+    fill_pattern: FillPattern,
 }
 impl Drawing {
     fn apply(self, target: &mut Controller) -> Result<(), String> {
@@ -29,7 +34,16 @@ impl Drawing {
             .set_shape_mode(self.mode)
             .map_err(|e| e.to_string())?;
         target
-            .set_stroke_width(self.width)
+            .set_stroke_width_pixels(self.width)
+            .map_err(|e| e.to_string())?;
+        target
+            .set_antialiasing(self.antialiasing)
+            .map_err(|e| e.to_string())?;
+        target
+            .set_line_style(self.line_style)
+            .map_err(|e| e.to_string())?;
+        target
+            .set_fill_pattern(self.fill_pattern)
             .map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -198,7 +212,10 @@ impl Workspace {
             secondary: self.secondary_color(),
             slot: self.color_slot(),
             mode: self.shape_mode(),
-            width: self.stroke_width(),
+            width: self.stroke_width_pixels(),
+            antialiasing: self.antialiasing(),
+            line_style: self.line_style(),
+            fill_pattern: self.fill_pattern(),
         }
     }
     fn settings_to(&self, target: &mut Controller) {
