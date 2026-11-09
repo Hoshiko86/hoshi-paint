@@ -278,17 +278,17 @@ fn layer_actions_and_selection_roundtrip_through_history() {
 }
 
 #[test]
-fn history_retains_only_the_documented_number_of_actions() {
+fn history_retains_all_actions_without_a_fixed_step_cap() {
     let mut doc = Document::new(1, 1).unwrap();
     for i in 0..30 {
         doc.rename_layer(0, format!("layer {i}")).unwrap();
     }
-    assert_eq!(doc.undo_len(), 16);
-    for _ in 0..16 {
+    assert_eq!(doc.undo_len(), 30);
+    for _ in 0..30 {
         assert!(doc.undo().unwrap());
     }
     assert!(!doc.undo().unwrap());
-    for _ in 0..16 {
+    for _ in 0..30 {
         assert!(doc.redo().unwrap());
     }
     assert_eq!(doc.layers()[0].name(), "layer 29");

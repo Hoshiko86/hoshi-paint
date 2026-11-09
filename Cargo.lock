@@ -1630,6 +1630,8 @@ name = "hoshi-core"
 version = "0.0.0"
 dependencies = [
  "crc32fast",
+ "lz4_flex",
+ "tempfile",
 ]
 
 [[package]]
@@ -2420,6 +2422,12 @@ dependencies = [
  "lyon_geom",
  "num-traits",
 ]
+
+[[package]]
+name = "lz4_flex"
+version = "0.11.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "373f5eceeeab7925e0c1098212f2fbc4d416adec9d35051a6ab251e824c1854a"
 
 [[package]]
 name = "memchr"

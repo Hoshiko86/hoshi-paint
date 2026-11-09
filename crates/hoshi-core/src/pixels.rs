@@ -1,9 +1,23 @@
 //! Sparse copy-on-write tiles. Uniform canvas regions allocate no pixel buffers.
 use crate::{Color, Error, MemoryReservation};
-use std::{collections::HashMap, ops::Index, sync::Arc};
+use std::{
+    collections::HashMap,
+    ops::Index,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
+static NEXT_TILE_ID: AtomicU64 = AtomicU64::new(1);
+fn next_tile_id() -> Result<u64, Error> {
+    NEXT_TILE_ID
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+        .map_err(|_| Error::MemoryLimit)
+}
 pub const TILE_SIZE: u32 = 128;
 #[derive(Debug)]
-struct Tile {
+pub(crate) struct Tile {
+    id: u64,
     pixels: Vec<Color>,
     width: u32,
     height: u32,
@@ -19,11 +33,46 @@ impl Tile {
             .map_err(|_| Error::MemoryLimit)?;
         pixels.resize(count, color);
         Ok(Self {
+            id: next_tile_id()?,
             pixels,
             width,
             height,
             _reservation: reservation,
         })
+    }
+    pub(crate) fn id(&self) -> u64 {
+        self.id
+    }
+    pub(crate) fn width(&self) -> u32 {
+        self.width
+    }
+    pub(crate) fn height(&self) -> u32 {
+        self.height
+    }
+    pub(crate) fn colors(&self) -> &[Color] {
+        &self.pixels
+    }
+    pub(crate) fn from_archived(
+        id: u64,
+        width: u32,
+        height: u32,
+        colors: &[u8],
+    ) -> Result<Self, Error> {
+        if id == 0
+            || width == 0
+            || height == 0
+            || width > TILE_SIZE
+            || height > TILE_SIZE
+            || colors.len() != width as usize * height as usize * 4
+        {
+            return Err(Error::HistoryCorrupt);
+        }
+        let mut result = Self::filled(Color::TRANSPARENT, width, height)?;
+        result.id = id;
+        for (pixel, rgba) in result.pixels.iter_mut().zip(colors.as_chunks::<4>().0) {
+            *pixel = Color::rgba(rgba[0], rgba[1], rgba[2], rgba[3]);
+        }
+        Ok(result)
     }
     fn copied(&self) -> Result<Self, Error> {
         let mut tile = Self::filled(Color::TRANSPARENT, self.width, self.height)?;
@@ -67,6 +116,27 @@ impl PixelStore {
     }
     pub fn tile_positions(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
         self.tiles.keys().copied()
+    }
+    pub(crate) fn shared_tiles(&self) -> impl Iterator<Item = (u32, u32, &Arc<Tile>)> + '_ {
+        self.tiles.iter().map(|(&(x, y), tile)| (x, y, tile))
+    }
+    pub(crate) fn insert_shared_tile(
+        &mut self,
+        x: u32,
+        y: u32,
+        tile: Arc<Tile>,
+    ) -> Result<(), Error> {
+        if x >= self.width.div_ceil(TILE_SIZE)
+            || y >= self.height.div_ceil(TILE_SIZE)
+            || tile.width() != (self.width - x * TILE_SIZE).min(TILE_SIZE)
+            || tile.height() != (self.height - y * TILE_SIZE).min(TILE_SIZE)
+            || self.tiles.contains_key(&(x, y))
+        {
+            return Err(Error::HistoryCorrupt);
+        }
+        self.tiles.try_reserve(1).map_err(|_| Error::MemoryLimit)?;
+        self.tiles.insert((x, y), tile);
+        Ok(())
     }
     pub fn allocated_rects(&self) -> impl Iterator<Item = (u32, u32, u32, u32)> + '_ {
         self.tile_positions().map(|(tx, ty)| {

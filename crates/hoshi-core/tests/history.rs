@@ -53,19 +53,19 @@ fn chronological_history_tracks_current_redo_and_navigation() {
 }
 
 #[test]
-fn bounded_history_identifies_oldest_available_state_and_branch_discards_redo() {
+fn all_history_remains_available_and_branch_discards_only_redo() {
     let mut doc = Document::new(1, 1).unwrap();
     for index in 0..25 {
         doc.rename_layer(0, format!("Layer {index}")).unwrap();
     }
-    assert_eq!(doc.history_steps().len(), 17);
-    assert_eq!(doc.history_position(), 16);
+    assert_eq!(doc.history_steps().len(), 26);
+    assert_eq!(doc.history_position(), 25);
     assert_eq!(doc.history_steps()[0].label, "Oldest available state");
     doc.go_to_history_step(0).unwrap();
-    assert_eq!(doc.layers()[0].name(), "Layer 8");
+    assert_eq!(doc.layers()[0].name(), "Background");
     assert!(doc.history_steps()[0].is_current);
     assert!(doc.history_steps()[1..].iter().all(|step| step.is_redo));
-    doc.go_to_history_step(16).unwrap();
+    doc.go_to_history_step(25).unwrap();
     assert_eq!(doc.layers()[0].name(), "Layer 24");
     doc.go_to_history_step(10).unwrap();
     doc.rename_layer(0, "Branch").unwrap();

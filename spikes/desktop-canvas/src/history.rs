@@ -1,53 +1,159 @@
 //! One history model is shared by the floating and internally docked hosts.
-use crate::{AppWindow, HistoryRow, HistoryWindow, SharedController, update};
-use hoshi_controller::Controller;
-use slint::{ComponentHandle, Model};
-use std::rc::Rc;
+use crate::{AppWindow, HistoryRow, HistoryWindow, SharedController, update, workspace::Workspace};
+use slint::{ComponentHandle, Model, ModelNotify, ModelTracker};
+use std::{
+    any::Any,
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
 
-pub(super) fn refresh(ui: &AppWindow, controller: &Controller) {
-    let steps = controller.history_steps();
-    let old = ui.get_history_rows();
-    let rows_changed = old.row_count() != steps.len()
-        || steps.iter().enumerate().any(|(index, step)| {
-            old.row_data(index).is_none_or(|row| {
-                row.label != step.label
-                    || row.current != step.is_current
-                    || row.redo != step.is_redo
+/// Only row labels are cached. Current/redo flags are computed for visible rows;
+/// pointer motion does not walk the retained timeline or recreate its model.
+#[derive(Default)]
+struct TimelineRows {
+    labels: Vec<&'static str>,
+    generation: u64,
+    structure_generation: u64,
+    position: usize,
+}
+#[derive(Default)]
+struct HistoryModel {
+    timelines: RefCell<HashMap<u32, TimelineRows>>,
+    active: Cell<Option<u32>>,
+    notify: ModelNotify,
+}
+impl HistoryModel {
+    fn sync(&self, workspace: &Workspace) -> Result<(), ()> {
+        let active = workspace.active_id();
+        let mut changed = self.active.replace(active) != active;
+        {
+            let mut timelines = self.timelines.borrow_mut();
+            timelines.retain(|id, _| workspace.tabs().iter().any(|tab| tab.id == *id));
+            if let Some(id) = active {
+                let document = workspace.document();
+                let length = document.history_len();
+                let rows = timelines.entry(id).or_default();
+                let generation = document.history_generation();
+                let structure = document.history_structure_generation();
+                let position = document.history_position();
+                if rows.generation != generation
+                    || rows.labels.len() != length
+                    || rows.position != position
+                    || rows.structure_generation != structure
+                {
+                    let rebuild =
+                        rows.structure_generation != structure || rows.labels.len() > length;
+                    let first = if rebuild { 0 } else { rows.labels.len() };
+                    rows.labels
+                        .try_reserve(length.saturating_sub(rows.labels.len()))
+                        .map_err(|_| ())?;
+                    if rebuild {
+                        rows.labels.clear();
+                    }
+                    for index in first..length {
+                        rows.labels
+                            .push(document.history_step(index).ok_or(())?.label);
+                    }
+                    rows.generation = generation;
+                    rows.structure_generation = structure;
+                    rows.position = position;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.notify.reset();
+        }
+        Ok(())
+    }
+}
+impl Model for HistoryModel {
+    type Data = HistoryRow;
+    fn row_count(&self) -> usize {
+        self.active
+            .get()
+            .and_then(|id| {
+                self.timelines
+                    .borrow()
+                    .get(&id)
+                    .map(|rows| rows.labels.len())
             })
-        });
-    let can_jump = controller.document().active_shape().is_none();
-    if !rows_changed && ui.get_history_can_jump() == can_jump {
+            .unwrap_or(0)
+    }
+    fn row_data(&self, index: usize) -> Option<HistoryRow> {
+        let active = self.active.get()?;
+        let timelines = self.timelines.borrow();
+        let rows = timelines.get(&active)?;
+        Some(HistoryRow {
+            label: (*rows.labels.get(index)?).into(),
+            index: i32::try_from(index).ok()?,
+            current: index == rows.position,
+            redo: index > rows.position,
+        })
+    }
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.notify
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+fn disk_size(bytes: u64) -> String {
+    if bytes < 1024 {
+        format!("{bytes} B")
+    } else if bytes < 1024 * 1024 {
+        format!("{:.1} KiB", bytes as f64 / 1024.)
+    } else if bytes < 1024 * 1024 * 1024 {
+        format!("{:.1} MiB", bytes as f64 / (1024. * 1024.))
+    } else {
+        format!("{:.2} GiB", bytes as f64 / (1024. * 1024. * 1024.))
+    }
+}
+
+pub(super) fn refresh(ui: &AppWindow, workspace: &Workspace) {
+    let old = ui.get_history_rows();
+    let model;
+    let rows = if let Some(rows) = old.as_any().downcast_ref::<HistoryModel>() {
+        rows
+    } else {
+        model = Rc::new(HistoryModel::default());
+        ui.set_history_rows(model.clone().into());
+        model.as_ref()
+    };
+    if rows.sync(workspace).is_err() {
+        rows.active.set(None);
+        rows.notify.reset();
+        ui.set_history_can_jump(false);
+        ui.set_history_position(0);
+        ui.set_history_status("The history list could not allocate memory. Undo and Redo still work; the history on disk is unchanged.".into());
+        ui.invoke_sync_history();
         return;
     }
-    if rows_changed {
-        let rows = steps
-            .into_iter()
-            .enumerate()
-            .map(|(index, step)| HistoryRow {
-                label: step.label.into(),
-                index: index as i32,
-                current: step.is_current,
-                redo: step.is_redo,
-            })
-            .collect::<Vec<_>>();
-        ui.set_history_rows(Rc::new(slint::VecModel::from(rows)).into());
-    }
-    let document = controller.document();
-    ui.set_history_can_jump(document.active_shape().is_none());
-    ui.set_history_position(controller.history_position() as i32);
+    let document = workspace.document();
+    ui.set_history_can_jump(workspace.has_document() && document.active_shape().is_none());
+    ui.set_history_position(document.history_position() as i32);
     let pending = if document.active_shape().is_some() {
         "Commit or cancel the active shape before selecting a history step."
     } else {
         "Select a step to return to it."
     };
-    ui.set_history_status(
+    ui.set_history_status(if workspace.has_document() {
         format!(
-            "Undo: {} · Redo: {}\n{pending}",
+            "Undo: {} · Redo: {}\nSession history: {} on disk{}\n{pending}",
             document.undo_len(),
-            document.redo_len()
+            document.redo_len(),
+            disk_size(document.history_storage_bytes()),
+            if document.history_cleanup_pending() {
+                " · cleanup pending"
+            } else {
+                ""
+            }
         )
-        .into(),
-    );
+        .into()
+    } else {
+        "No image open.".into()
+    });
     ui.invoke_sync_history();
 }
 

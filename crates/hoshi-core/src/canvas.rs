@@ -84,7 +84,7 @@ impl Document {
         self.image_editable()?;
         let before = self.state.clone();
         self.state.resolution = (resolution * 1000.0).round() as u32;
-        self.checkpoint(before, "Resolution");
+        self.checkpoint(before, "Resolution")?;
         Ok(())
     }
     /// New document initialization, without adding an undo entry.
@@ -162,7 +162,7 @@ impl Document {
         self.state.layers = layers;
         self.state.width = width;
         self.state.height = height;
-        self.checkpoint(before, "Canvas Size");
+        self.checkpoint(before, "Canvas Size")?;
         Ok(())
     }
     /// Resize each layer in premultiplied alpha to avoid dark fringes at transparency.
@@ -193,7 +193,7 @@ impl Document {
         self.state.width = width;
         self.state.height = height;
         self.state.resolution = (resolution * 1000.0).round() as u32;
-        self.checkpoint(before, "Resize");
+        self.checkpoint(before, "Resize")?;
         Ok(())
     }
     pub fn transform_image(&mut self, transform: ImageTransform) -> Result<(), Error> {
@@ -242,7 +242,7 @@ impl Document {
                 ImageTransform::RotateCounterClockwise => "Rotate 90° Counter-Clockwise",
                 ImageTransform::Rotate180 => "Rotate 180°",
             },
-        );
+        )?;
         Ok(())
     }
     pub fn flatten(&mut self) -> Result<(), Error> {
@@ -261,7 +261,7 @@ impl Document {
             pixels: Arc::new(self.flattened_pixels(None)?),
         }];
         self.state.selected = 0;
-        self.checkpoint(before, "Flatten");
+        self.checkpoint(before, "Flatten")?;
         Ok(())
     }
 }

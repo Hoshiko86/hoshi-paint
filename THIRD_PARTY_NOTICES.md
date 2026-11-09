@@ -52,3 +52,8 @@ source archive.
 
 **sysinfo 0.37.2** (MIT) supplies cross-platform available-memory information for
 the desktop memory policy. Its source and license are in the matching vendored archive.
+
+Disk-backed undo uses **lz4_flex 0.11.6** (MIT) to compress private history records.
+The core also uses the existing **tempfile 3.27.0** dependency (selecting MIT) for
+session scratch files. Their sources and license texts are included in the matching
+vendored source archive.

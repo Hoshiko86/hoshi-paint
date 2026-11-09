@@ -120,7 +120,7 @@ impl Document {
             pixels: Arc::new(pixels),
         }];
         self.state.selected = 0;
-        self.checkpoint(before, "Flatten for Save");
+        self.checkpoint(before, "Flatten for Save")?;
         Ok(())
     }
     /// Stream V2 tile records without allocating an encoded copy of the document.
@@ -309,8 +309,7 @@ impl Document {
                 layers,
             },
             active: None,
-            undo: VecDeque::new(),
-            redo: Vec::new(),
+            history: History::default(),
         })
     }
 }

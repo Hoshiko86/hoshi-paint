@@ -19,7 +19,8 @@ The core now uses sparse RGBA8 layers with implicit backgrounds and shared 128×
 copy-on-write tiles. Canvas dimensions support 262,144 pixels per axis. Pixel/scratch
 allocations share a memory budget; viewport rendering, scanline resampling and native/
 PNG streaming avoid whole-image working buffers. See [large images](LARGE_IMAGES.md)
-for resource policy, evidence and remaining disk-backed history work.
+for resource policy and evidence. [Undo history](DISK_HISTORY.md) stores compressed,
+shared tile records on disk without a fixed entry cap.
 
 Initial source-over blending operates in encoded RGBA8 space, consistently for
 preview and commit. Color-space handling, antialiasing, and linear-light rendering

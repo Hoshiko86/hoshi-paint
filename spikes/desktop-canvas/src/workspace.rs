@@ -20,17 +20,17 @@ impl Drawing {
     fn apply(self, target: &mut Controller) -> Result<(), String> {
         target
             .set_primary_color(self.primary)
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| e.to_string())?;
         target
             .set_secondary_color(self.secondary)
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| e.to_string())?;
         target.set_color_slot(self.slot);
         target
             .set_shape_mode(self.mode)
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| e.to_string())?;
         target
             .set_stroke_width(self.width)
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -208,8 +208,8 @@ impl Workspace {
     }
     fn finish(&mut self) -> Result<(), String> {
         if self.has_document() {
-            self.pointer_up().map_err(|e| format!("{e:?}"))?;
-            self.commit().map_err(|e| format!("{e:?}"))?;
+            self.pointer_up().map_err(|e| e.to_string())?;
+            self.commit().map_err(|e| e.to_string())?;
         }
         Ok(())
     }
@@ -363,7 +363,7 @@ impl Workspace {
         } else {
             None
         })
-        .map_err(|e| format!("{e:?}"))
+        .map_err(|e| e.to_string())
     }
     pub fn close_discard(&mut self, id: u32) -> Result<(), String> {
         let index = self

@@ -236,6 +236,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
             };
             result.map_err(|e| match e {
                 hoshi_controller::ControllerError::Core(hoshi_core::Error::MemoryLimit) => "This operation exceeds the shared image-memory budget. Close other images or choose a smaller size.".to_string(),
+                hoshi_controller::ControllerError::Core(hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt) => e.to_string(),
                 _ => "Cannot apply: dimensions must be 1–262,144 pixels; resolution must be 1–100,000 pixels/inch.".to_string(),
             })?;
             ui.invoke_close_image_settings();
