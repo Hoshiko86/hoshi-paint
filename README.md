@@ -20,6 +20,10 @@ Save As/Save All, recent files, and unsaved-change prompts. Use `.hoshi` to reta
 layers, or PNG/JPEG for flat images. See [document management](docs/DOCUMENT_MANAGEMENT.md)
 for shortcuts, formats, and remaining Paint.NET parity work.
 
+Canvases support up to **262,144 pixels per dimension** with sparse tiles, viewport
+rendering, scanline resize and streaming native/PNG files. Actual dense content is
+bounded by available memory; see [large-image support](docs/LARGE_IMAGES.md).
+
 ## Development
 
 Install Rust using rustup. The repository pins its toolchain in

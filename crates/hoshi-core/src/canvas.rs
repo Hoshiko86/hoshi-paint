@@ -54,7 +54,12 @@ impl Document {
         f64::from(self.state.resolution) / 1000.0
     }
     pub fn validate_image_size(width: u32, height: u32) -> Result<(), Error> {
-        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_PIXELS {
+        if width == 0
+            || height == 0
+            || width > MAX_DIMENSION
+            || height > MAX_DIMENSION
+            || (u64::from(width) * u64::from(height)) > usize::MAX as u64 / 4
+        {
             Err(Error::InvalidDimensions)
         } else {
             Ok(())
@@ -92,7 +97,7 @@ impl Document {
         Self::validate_resolution(resolution)?;
         let mut document = Self::new(width, height)?;
         document.state.resolution = (resolution * 1000.0).round() as u32;
-        document.state.layers[0].pixels = Arc::new(vec![color; (width * height) as usize]);
+        document.state.layers[0].pixels = Arc::new(PixelStore::new(width, height, color));
         Ok(document)
     }
     /// Canvas size changes bounds only; no resampling. New areas can be transparent
@@ -115,21 +120,46 @@ impl Document {
         let before = self.state.clone();
         let dx = (i64::from(width) - i64::from(self.width())) * i64::from(anchor.column) / 2;
         let dy = (i64::from(height) - i64::from(self.height())) * i64::from(anchor.row) / 2;
-        for (index, layer) in self.state.layers.iter_mut().enumerate() {
-            let mut pixels =
-                vec![if index == 0 { fill } else { Color::TRANSPARENT }; (width * height) as usize];
-            for y in 0..before.height {
-                for x in 0..before.width {
-                    let nx = i64::from(x) + dx;
-                    let ny = i64::from(y) + dy;
-                    if nx >= 0 && ny >= 0 && nx < i64::from(width) && ny < i64::from(height) {
-                        pixels[ny as usize * width as usize + nx as usize] =
-                            layer.pixels[(y * before.width + x) as usize];
+        let mut layers = before.layers.clone();
+        for (index, layer) in layers.iter_mut().enumerate() {
+            let fill = if index == 0 { fill } else { Color::TRANSPARENT };
+            let covers = dx <= 0
+                && dy <= 0
+                && dx + i64::from(before.width) >= i64::from(width)
+                && dy + i64::from(before.height) >= i64::from(height);
+            let background = if covers {
+                layer.pixels.background()
+            } else {
+                fill
+            };
+            let mut pixels = PixelStore::new(width, height, background);
+            let rects: Vec<_> = if background == layer.pixels.background() {
+                layer.pixels.allocated_rects().collect()
+            } else {
+                // Different padding around a uniform region needs materialized tiles.
+                // Reject a buffer that cannot fit before spending time filling it.
+                let area =
+                    u64::from(before.width.min(width)) * u64::from(before.height.min(height));
+                let _check = MemoryReservation::new(area.saturating_mul(4))?;
+                vec![(0, 0, before.width, before.height)]
+            };
+            for (left, top, right, bottom) in rects {
+                for y in top..bottom {
+                    for x in left..right {
+                        let nx = i64::from(x) + dx;
+                        let ny = i64::from(y) + dy;
+                        if nx >= 0 && ny >= 0 && nx < i64::from(width) && ny < i64::from(height) {
+                            let color = layer.pixels.get(x, y);
+                            if color != background {
+                                pixels.set(nx as u32, ny as u32, color)?;
+                            }
+                        }
                     }
                 }
             }
             layer.pixels = Arc::new(pixels);
         }
+        self.state.layers = layers;
         self.state.width = width;
         self.state.height = height;
         self.checkpoint(before, "Canvas Size");
@@ -149,14 +179,16 @@ impl Document {
         let before = self.state.clone();
         if (width, height) != (self.width(), self.height()) {
             let options = options.into();
-            for layer in &mut self.state.layers {
+            let mut layers = before.layers.clone();
+            for layer in &mut layers {
                 layer.pixels = Arc::new(crate::resampling::resize(
                     &layer.pixels,
                     (before.width, before.height),
                     (width, height),
                     options,
-                ));
+                )?);
             }
+            self.state.layers = layers;
         }
         self.state.width = width;
         self.state.height = height;
@@ -173,23 +205,32 @@ impl Document {
             }
             _ => (before.width, before.height),
         };
-        for layer in &mut self.state.layers {
-            let mut pixels = vec![Color::TRANSPARENT; (width * height) as usize];
-            for y in 0..before.height {
-                for x in 0..before.width {
-                    let (nx, ny) = match transform {
-                        ImageTransform::FlipHorizontal => (before.width - 1 - x, y),
-                        ImageTransform::FlipVertical => (x, before.height - 1 - y),
-                        ImageTransform::RotateClockwise => (before.height - 1 - y, x),
-                        ImageTransform::RotateCounterClockwise => (y, before.width - 1 - x),
-                        ImageTransform::Rotate180 => (before.width - 1 - x, before.height - 1 - y),
-                    };
-                    pixels[(ny * width + nx) as usize] =
-                        layer.pixels[(y * before.width + x) as usize];
+        let mut layers = before.layers.clone();
+        for layer in &mut layers {
+            let mut pixels = PixelStore::new(width, height, layer.pixels.background());
+            for (left, top, right, bottom) in layer.pixels.allocated_rects() {
+                for y in top..bottom {
+                    for x in left..right {
+                        let color = layer.pixels.get(x, y);
+                        if color == pixels.background() {
+                            continue;
+                        }
+                        let (nx, ny) = match transform {
+                            ImageTransform::FlipHorizontal => (before.width - 1 - x, y),
+                            ImageTransform::FlipVertical => (x, before.height - 1 - y),
+                            ImageTransform::RotateClockwise => (before.height - 1 - y, x),
+                            ImageTransform::RotateCounterClockwise => (y, before.width - 1 - x),
+                            ImageTransform::Rotate180 => {
+                                (before.width - 1 - x, before.height - 1 - y)
+                            }
+                        };
+                        pixels.set(nx, ny, color)?;
+                    }
                 }
             }
             layer.pixels = Arc::new(pixels);
         }
+        self.state.layers = layers;
         self.state.width = width;
         self.state.height = height;
         self.checkpoint(
@@ -217,7 +258,7 @@ impl Document {
             name: "Background".into(),
             visible: true,
             opacity: 255,
-            pixels: Arc::new(self.composite(false)),
+            pixels: Arc::new(self.flattened_pixels(None)?),
         }];
         self.state.selected = 0;
         self.checkpoint(before, "Flatten");

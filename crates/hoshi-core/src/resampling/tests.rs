@@ -1,4 +1,17 @@
 use super::*;
+// Retain the dense hand-computed reference fixtures while production filtering
+// reads sparse tiles and returns sparse tiles.
+fn resize(
+    input: &[Color],
+    source: (u32, u32),
+    target: (u32, u32),
+    options: ResizeOptions,
+) -> Vec<Color> {
+    let input = PixelStore::from_vec(source.0, source.1, input.to_vec()).unwrap();
+    super::resize(&input, source, target, options)
+        .unwrap()
+        .to_vec()
+}
 const METHODS: [Resampling; 8] = [
     Resampling::Bicubic,
     Resampling::BicubicSmooth,
@@ -209,4 +222,157 @@ fn fractional_area_in_two_dimensions_matches_hand_computed_coverage() {
         resize(&input, (3, 2), (2, 1), Resampling::Fant.into()),
         vec![Color::rgba(85, 43, 0, 255), Color::rgba(0, 43, 85, 255)]
     );
+}
+
+#[test]
+fn maximum_uniform_canvas_resizes_without_axis_or_image_buffers() {
+    let color = Color::rgba(29, 119, 211, 83);
+    let input = PixelStore::new(262_144, 262_144, color);
+    for method in METHODS {
+        let output = super::resize(
+            &input,
+            (262_144, 262_144),
+            (131_072, 262_144),
+            ResizeOptions {
+                method,
+                gamma_correction: true,
+            },
+        )
+        .unwrap();
+        assert!(output.is_uniform());
+        assert_eq!(output.get(131_071, 262_143), color);
+    }
+}
+#[test]
+fn maximum_sparse_canvas_filters_only_edited_regions() {
+    let mut input = PixelStore::new(262_144, 262_144, Color::TRANSPARENT);
+    input
+        .set(130_000, 170_000, Color::rgba(255, 30, 20, 255))
+        .unwrap();
+    let output = super::resize(
+        &input,
+        (262_144, 262_144),
+        (131_072, 131_072),
+        Resampling::Fant.into(),
+    )
+    .unwrap();
+    assert_eq!(output.get(65_000, 85_000), Color::rgba(255, 30, 20, 64));
+    assert_eq!(output.get(0, 0), Color::TRANSPARENT);
+    assert_eq!(output.get(131_071, 131_071), Color::TRANSPARENT);
+    assert!(output.allocated_rects().count() <= 4);
+}
+#[test]
+fn anisotropic_scanline_pass_order_preserves_transparent_colors() {
+    let mut input = PixelStore::new(4096, 2, Color::TRANSPARENT);
+    for x in 0..4096 {
+        input.set(x, 1, Color::rgba(30, 70, 180, 255)).unwrap();
+    }
+    for method in [Resampling::Fant, Resampling::Bilinear, Resampling::Lanczos] {
+        let output = super::resize(&input, (4096, 2), (2, 4096), method.into()).unwrap();
+        assert_eq!(output.get(0, 4095), Color::rgba(30, 70, 180, 255));
+        assert_eq!(output.get(1, 0), Color::TRANSPARENT);
+        assert!((output.get(0, 2048).a as i32 - 128).abs() <= 1);
+    }
+}
+
+#[test]
+fn shrinking_a_maximum_sparse_canvas_does_not_scan_its_implicit_background() {
+    let mut input = PixelStore::new(262_144, 262_144, Color::TRANSPARENT);
+    input
+        .set(130_000, 170_000, Color::rgba(255, 30, 20, 255))
+        .unwrap();
+    let output =
+        super::resize(&input, (262_144, 262_144), (2, 2), Resampling::Fant.into()).unwrap();
+    assert!(output.is_uniform());
+    assert_eq!(output.get(0, 0), Color::TRANSPARENT);
+}
+
+#[test]
+fn sparse_and_uniform_transparent_rgb_is_only_retained_by_copying_filters() {
+    let hidden = Color::rgba(19, 83, 204, 0);
+    let uniform = PixelStore::new(262_144, 262_144, hidden);
+    for method in METHODS {
+        let output = super::resize(
+            &uniform,
+            (262_144, 262_144),
+            (131_072, 262_144),
+            method.into(),
+        )
+        .unwrap();
+        assert_eq!(
+            output.get(0, 0),
+            if method == Resampling::Nearest {
+                hidden
+            } else {
+                Color::TRANSPARENT
+            }
+        );
+    }
+    let mut sparse = PixelStore::new(262_144, 262_144, Color::TRANSPARENT);
+    sparse.set(130_001, 170_001, hidden).unwrap();
+    for method in [Resampling::Nearest, Resampling::Fant] {
+        let output = super::resize(
+            &sparse,
+            (262_144, 262_144),
+            (131_072, 131_072),
+            method.into(),
+        )
+        .unwrap();
+        assert_eq!(
+            output.get(65_000, 85_000),
+            if method == Resampling::Nearest {
+                hidden
+            } else {
+                Color::TRANSPARENT
+            }
+        );
+        if method == Resampling::Fant {
+            assert!(output.is_uniform());
+        }
+    }
+}
+
+#[test]
+fn oversized_nonuniform_enlargement_fails_before_allocating_its_output() {
+    let input = PixelStore::from_vec(
+        2,
+        3,
+        vec![
+            Color::rgba(255, 0, 0, 255),
+            Color::rgba(0, 255, 0, 255),
+            Color::rgba(0, 0, 255, 255),
+            Color::rgba(0, 255, 255, 255),
+            Color::rgba(255, 0, 255, 255),
+            Color::rgba(255, 255, 0, 255),
+        ],
+    )
+    .unwrap();
+    for method in METHODS {
+        assert!(
+            matches!(
+                super::resize(&input, (2, 3), (65_536, 65_536), method.into()),
+                Err(Error::MemoryLimit)
+            ),
+            "{method:?}"
+        );
+    }
+}
+#[test]
+fn overlapping_filter_regions_are_only_budgeted_once() {
+    // Two rectangles occupy four tiles each, but their common tile column must
+    // not count twice in the memory estimate.
+    let (bytes, _) = output_footprint(&[(0, 0, 256, 256), (128, 0, 384, 256)], (384, 256)).unwrap();
+    assert_eq!(bytes, 6 * 128 * 128 * 4);
+}
+
+#[test]
+fn output_footprint_clips_partial_edge_tiles_to_actual_dimensions() {
+    for (width, height) in [(1, 262_144), (262_144, 1)] {
+        let (bytes, max_row) = output_footprint(&[(0, 0, width, height)], (width, height)).unwrap();
+        assert_eq!(bytes, 1024 * 1024);
+        assert_eq!(max_row, width);
+    }
+    let (bytes, max_row) = output_footprint(&[(0, 0, 129, 129)], (129, 129)).unwrap();
+    assert_eq!(bytes, 129 * 129 * 4);
+    assert_eq!(max_row, 129);
 }

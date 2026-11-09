@@ -9,7 +9,7 @@ pub mod color;
 pub use hoshi_core::{
     Anchor, Color, HistoryStep, ImageTransform, Resampling, ResizeOptions, ShapeStyle,
 };
-use hoshi_core::{Document, Error, Shape, ShapeKind};
+use hoshi_core::{Document, DocumentSnapshot, Error, Shape, ShapeKind};
 
 /// Drawing style retained for the next shape as well as the active preview.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -174,7 +174,7 @@ pub struct Controller {
     stroke_width: u32,
     aspect_lock: bool,
     last_pointer: Option<(f64, f64)>,
-    sample_snapshot: Option<Vec<Color>>,
+    sample_snapshot: Option<(DocumentSnapshot, Option<Shape>)>,
 }
 
 impl Default for Controller {
@@ -397,7 +397,8 @@ impl Controller {
             Tool::Eyedropper => {
                 // Freeze visible pixels for this drag so recoloring a translucent
                 // preview cannot feed back into subsequent samples.
-                self.sample_snapshot = Some(self.document.composite(true));
+                self.sample_snapshot =
+                    Some((self.document.snapshot(), self.document.active_shape()));
                 self.sample_color(point)?;
                 self.gesture = Some(Gesture::Sample);
             }
@@ -410,12 +411,11 @@ impl Controller {
             && point.1 >= 0.0
             && point.0 < f64::from(self.document.width())
             && point.1 < f64::from(self.document.height())
+            && let Some((snapshot, preview)) = &self.sample_snapshot
         {
-            let index = point.1.floor() as usize * self.document.width() as usize
-                + point.0.floor() as usize;
-            if let Some(pixels) = &self.sample_snapshot {
-                self.set_selected_color(pixels[index])?;
-            }
+            let color =
+                snapshot.composite_pixel(point.0.floor() as u32, point.1.floor() as u32, *preview);
+            self.set_selected_color(color)?;
         }
         Ok(())
     }
@@ -549,14 +549,14 @@ impl Controller {
                 } else {
                     (sx * (delta.0 * u.0 + delta.1 * u.1))
                         .round()
-                        .clamp(1.0, 65_536.0) as u32
+                        .clamp(1.0, f64::from(hoshi_core::MAX_DIMENSION)) as u32
                 };
                 let mut height = if sy == 0.0 {
                     original.height
                 } else {
                     (sy * (delta.0 * v.0 + delta.1 * v.1))
                         .round()
-                        .clamp(1.0, 65_536.0) as u32
+                        .clamp(1.0, f64::from(hoshi_core::MAX_DIMENSION)) as u32
                 };
                 if self.aspect_lock && sx != 0.0 && sy != 0.0 {
                     let w = f64::from(original.width);
@@ -565,10 +565,18 @@ impl Controller {
                     let desired_h = sy * (delta.0 * v.0 + delta.1 * v.1);
                     // Closest point on the original corner diagonal: one scale
                     // in shape-local axes, also after rotation and zoom.
-                    let scale = ((desired_w * w + desired_h * h) / (w * w + h * h))
-                        .clamp(1.0 / w.min(h), 65_536.0 / w.max(h));
-                    width = (w * scale).round().clamp(1.0, 65_536.0) as u32;
-                    height = (h * scale).round().clamp(1.0, 65_536.0) as u32;
+                    let scale = ((desired_w * w + desired_h * h) / (w * w + h * h)).clamp(
+                        1.0 / w.min(h),
+                        f64::from(hoshi_core::MAX_DIMENSION) / w.max(h),
+                    );
+                    width = (w * scale)
+                        .round()
+                        .clamp(1.0, f64::from(hoshi_core::MAX_DIMENSION))
+                        as u32;
+                    height = (h * scale)
+                        .round()
+                        .clamp(1.0, f64::from(hoshi_core::MAX_DIMENSION))
+                        as u32;
                 }
                 let new_center = (
                     fixed.0
@@ -690,7 +698,7 @@ impl Controller {
             return Err(ControllerError::InvalidInput);
         }
         let anchor = self.document_point(x, y)?;
-        let zoom = (self.viewport.zoom * factor).clamp(1.0 / 16.0, 32.0);
+        let zoom = (self.viewport.zoom * factor).clamp(1.0 / 4096.0, 32.0);
         let next = Viewport {
             zoom,
             offset_x: x - anchor.0 * zoom,
@@ -704,6 +712,28 @@ impl Controller {
             return Err(ControllerError::InvalidInput);
         }
         self.viewport = next;
+        Ok(())
+    }
+
+    /// Fit the whole image within a logical viewport, retaining a small workspace margin.
+    pub fn fit_viewport(&mut self, width: f64, height: f64) -> Result<(), ControllerError> {
+        if !width.is_finite() || !height.is_finite() || width <= 0. || height <= 0. {
+            return Err(ControllerError::InvalidInput);
+        }
+        let margin = 16.0_f64.min(width / 4.).min(height / 4.);
+        let zoom = ((width - margin * 2.) / f64::from(self.document.width()))
+            .min((height - margin * 2.) / f64::from(self.document.height()))
+            .clamp(1.0 / 4096.0, 32.);
+        let x = (width - f64::from(self.document.width()) * zoom) / 2.;
+        let y = (height - f64::from(self.document.height()) * zoom) / 2.;
+        if x.abs() > MAX_VIEW_OFFSET || y.abs() > MAX_VIEW_OFFSET {
+            return Err(ControllerError::InvalidInput);
+        }
+        self.viewport = Viewport {
+            zoom,
+            offset_x: x,
+            offset_y: y,
+        };
         Ok(())
     }
 
@@ -928,30 +958,173 @@ impl Controller {
         self.document.composite(true)
     }
 
-    /// One full-image CPU composite and one RGBA allocation per call. This is
-    /// intentionally a reference upload path, not a claim of GPU acceleration.
+    /// Bounded whole-image preview. Use `preview_size` to interpret its dimensions.
+    /// Actual canvas display uses `render_viewport` for large images.
     pub fn preview_rgba(&self) -> Vec<u8> {
-        let width = self.document.width() as usize;
-        let pixels = self.composite();
-        let mut output = Vec::with_capacity(pixels.len() * 4);
-        for (index, pixel) in pixels.into_iter().enumerate() {
-            if pixel.a == 255 {
-                output.extend_from_slice(&[pixel.r, pixel.g, pixel.b, 255]);
-                continue;
-            }
-            let background = if ((index % width) / 8 + (index / width) / 8).is_multiple_of(2) {
-                224
-            } else {
-                192
-            };
-            let channel = |value: u8| {
-                ((u32::from(value) * u32::from(pixel.a)
-                    + background * (255 - u32::from(pixel.a))
-                    + 127)
-                    / 255) as u8
-            };
-            output.extend_from_slice(&[channel(pixel.r), channel(pixel.g), channel(pixel.b), 255]);
-        }
-        output
+        let (width, height) = self.preview_size();
+        self.thumbnail(width, height).rgba
     }
+
+    pub fn preview_size(&self) -> (u32, u32) {
+        let width = self.document.width();
+        let height = self.document.height();
+        if u64::from(width) * u64::from(height) <= 1_048_576 {
+            return (width, height);
+        }
+        let scale = (1024. / f64::from(width)).min(1024. / f64::from(height));
+        (
+            (f64::from(width) * scale).round().max(1.) as u32,
+            (f64::from(height) * scale).round().max(1.) as u32,
+        )
+    }
+
+    /// Checkerboard-composited, aspect-preserving thumbnail with transparent margins.
+    /// Cost is proportional to the requested preview, never the document dimensions.
+    pub fn thumbnail(&self, width: u32, height: u32) -> PreviewImage {
+        let (width, height) = bounded_preview_size(width, height, 1.);
+        let mut rgba = vec![0; width as usize * height as usize * 4];
+        let fit = (f64::from(width) / f64::from(self.document.width()))
+            .min(f64::from(height) / f64::from(self.document.height()));
+        let fitted_width = (f64::from(self.document.width()) * fit).max(1.);
+        let fitted_height = (f64::from(self.document.height()) * fit).max(1.);
+        let left = (f64::from(width) - fitted_width) / 2.;
+        let top = (f64::from(height) - fitted_height) / 2.;
+        let sampler = self.document.sampler(true);
+        let xs = preview_axis(
+            width,
+            f64::from(width),
+            left,
+            self.document.width(),
+            fitted_width / f64::from(self.document.width()),
+        );
+        let ys = preview_axis(
+            height,
+            f64::from(height),
+            top,
+            self.document.height(),
+            fitted_height / f64::from(self.document.height()),
+        );
+        sample_preview(&mut rgba, width, &xs, &ys, |x, y| sampler.pixel(x, y));
+        PreviewImage {
+            width,
+            height,
+            rgba,
+        }
+    }
+
+    /// Rasterize only what is visible on screen, with a bounded HiDPI texture.
+    /// Screen coordinates remain logical; sampling resolution follows the scale factor.
+    pub fn render_viewport(
+        &self,
+        logical_width: u32,
+        logical_height: u32,
+        scale_factor: f64,
+    ) -> PreviewImage {
+        let (width, height) = bounded_preview_size(logical_width, logical_height, scale_factor);
+        let mut rgba = vec![0; width as usize * height as usize * 4];
+        let sampler = self.document.sampler(true);
+        let xs = preview_axis(
+            width,
+            f64::from(logical_width),
+            self.viewport.offset_x,
+            self.document.width(),
+            self.viewport.zoom,
+        );
+        let ys = preview_axis(
+            height,
+            f64::from(logical_height),
+            self.viewport.offset_y,
+            self.document.height(),
+            self.viewport.zoom,
+        );
+        sample_preview(&mut rgba, width, &xs, &ys, |x, y| sampler.pixel(x, y));
+        PreviewImage {
+            width,
+            height,
+            rgba,
+        }
+    }
+}
+
+/// A small CPU upload texture, independent of canvas storage size.
+#[derive(Debug)]
+pub struct PreviewImage {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+fn bounded_preview_size(width: u32, height: u32, scale_factor: f64) -> (u32, u32) {
+    let width = width.max(1);
+    let height = height.max(1);
+    let scale_factor = if scale_factor.is_finite() {
+        scale_factor.clamp(0.25, 4.)
+    } else {
+        1.
+    };
+    let scale = scale_factor
+        .min(4096. / f64::from(width))
+        .min(4096. / f64::from(height))
+        .min((4_194_304. / (f64::from(width) * f64::from(height))).sqrt());
+    (
+        (f64::from(width) * scale).floor().max(1.) as u32,
+        (f64::from(height) * scale).floor().max(1.) as u32,
+    )
+}
+/// A screen pixel that intersects a very thin image still samples that image.
+/// This keeps one-pixel-wide panoramas visible when fitting a huge canvas.
+fn preview_axis(
+    pixels: u32,
+    logical_extent: f64,
+    offset: f64,
+    image_extent: u32,
+    zoom: f64,
+) -> Vec<Option<u32>> {
+    let end = offset + f64::from(image_extent) * zoom;
+    (0..pixels)
+        .map(|p| {
+            let left = f64::from(p) * logical_extent / f64::from(pixels);
+            let right = f64::from(p + 1) * logical_extent / f64::from(pixels);
+            if right > offset && left < end {
+                Some(
+                    (((left + right) * 0.5 - offset) / zoom)
+                        .floor()
+                        .clamp(0., f64::from(image_extent - 1)) as u32,
+                )
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+fn sample_preview(
+    rgba: &mut [u8],
+    width: u32,
+    xs: &[Option<u32>],
+    ys: &[Option<u32>],
+    mut pixel: impl FnMut(u32, u32) -> Color,
+) {
+    for (y, sy) in ys.iter().enumerate() {
+        let Some(sy) = *sy else { continue };
+        for (x, sx) in xs.iter().enumerate() {
+            if let Some(sx) = *sx {
+                let index = (y * width as usize + x) * 4;
+                rgba[index..index + 4].copy_from_slice(&preview_pixel(pixel(sx, sy), sx, sy));
+            }
+        }
+    }
+}
+fn preview_pixel(pixel: Color, x: u32, y: u32) -> [u8; 4] {
+    if pixel.a == 255 {
+        return [pixel.r, pixel.g, pixel.b, 255];
+    }
+    let background = if (x / 8 + y / 8).is_multiple_of(2) {
+        224
+    } else {
+        192
+    };
+    let channel = |value: u8| {
+        ((u32::from(value) * u32::from(pixel.a) + background * (255 - u32::from(pixel.a)) + 127)
+            / 255) as u8
+    };
+    [channel(pixel.r), channel(pixel.g), channel(pixel.b), 255]
 }

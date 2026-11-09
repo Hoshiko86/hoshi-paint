@@ -49,6 +49,12 @@ jobs:
           SLINT_BACKEND: winit-software
           HOSHI_DOCUMENT_SNAPSHOT_DIR: target
         run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example documents_smoke --locked
+      - name: Native large sparse canvas and bounded viewport smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+          HOSHI_LARGE_SNAPSHOT_DIR: target
+        run: xvfb-run -a -s '-screen 0 1440x1080x24' cargo run --package hoshi-canvas-spike --example large_canvas_smoke --locked
       - name: Native image and canvas settings smoke test
         if: runner.os == 'Linux'
         env:
@@ -86,6 +92,8 @@ jobs:
                          "target/spike-documents.png", "target/spike-save-prompt.png",
                          "target/spike-save-configuration.png", "target/spike-image-new.png", "target/spike-image-resize.png",
                          "target/spike-canvas-size.png", "target/spike-image-edited.png",
+                         "target/spike-large-canvas-fit.png", "target/spike-large-canvas-edit.png",
+                         "target/spike-large-canvas-resized.png",
                          "LICENSE", "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)
               if path.is_file():
