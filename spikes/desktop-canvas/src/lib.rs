@@ -787,6 +787,7 @@ fn bind_rendering(ui: &AppWindow, state: SharedController) {
         let center_state = center_state.clone();
         slint::Timer::single_shot(std::time::Duration::ZERO, move || {
             if let Some(ui) = weak.upgrade()
+                && ui.window().is_visible()
                 && let Ok(mut state) = center_state.try_borrow_mut()
                 && state.has_document()
             {
