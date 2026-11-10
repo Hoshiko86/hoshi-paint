@@ -56,7 +56,7 @@ component NameSearch inherits Rectangle {
     height: 34px + root.results-height;
     changed query => { if !editor.has-focus { editor.text = root.query; } }
     HorizontalLayout {
-        height: 32px; spacing: 4px;
+        x: 0px; y: 0px; width: parent.width; height: 32px; spacing: 4px;
         editor := LineEdit {
             placeholder-text: "Color name…"; accessible-label: "Color name";
             init => { self.text = root.query; }

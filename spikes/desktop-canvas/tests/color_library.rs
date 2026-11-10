@@ -40,6 +40,7 @@ fn name_search_requires_selection_and_palette_slots_preserve_alpha() {
             .dispatch_event(WindowEvent::KeyReleased { text });
     };
     let original = app.controller.borrow().primary_color();
+    let search_top = picker.get_name_input_top();
     click(
         LogicalPosition::new(
             picker.get_name_input_left() + 12.,
@@ -48,6 +49,12 @@ fn name_search_requires_selection_and_palette_slots_preserve_alpha() {
         PointerEventButton::Left,
     );
     key("Rebecca".into());
+    picker.window().take_snapshot().unwrap();
+    assert_eq!(
+        picker.get_name_input_top(),
+        search_top,
+        "suggestions must not move the search field into their rows"
+    );
     assert_eq!(
         app.controller.borrow().primary_color(),
         original,
