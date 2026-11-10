@@ -41,6 +41,21 @@ impl Viewport {
 }
 
 impl Controller {
+    /// Center the document at the current zoom within a logical viewport.
+    pub fn center_viewport(&mut self, width: f64, height: f64) -> Result<(), ControllerError> {
+        if !width.is_finite() || !height.is_finite() || width <= 0. || height <= 0. {
+            return Err(ControllerError::InvalidInput);
+        }
+        let x = (width - f64::from(self.document.width()) * self.viewport.zoom) / 2.;
+        let y = (height - f64::from(self.document.height()) * self.viewport.zoom) / 2.;
+        if x.abs() > MAX_VIEW_OFFSET || y.abs() > MAX_VIEW_OFFSET {
+            return Err(ControllerError::InvalidInput);
+        }
+        self.viewport.offset_x = x;
+        self.viewport.offset_y = y;
+        Ok(())
+    }
+
     pub fn pan(&mut self, dx: f64, dy: f64) -> Result<(), ControllerError> {
         let x = self.viewport.offset_x + dx;
         let y = self.viewport.offset_y + dy;

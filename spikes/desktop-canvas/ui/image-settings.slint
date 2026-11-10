@@ -20,7 +20,7 @@ export component ImageSettings inherits Rectangle {
     callback percentage-selected(bool);
     callback apply();
     callback cancel();
-    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    background: #303338; border-width: 1px; border-color: #69778c; border-radius: 8px;
     init => { width-entry.focus(); }
     ScrollView {
         content-width: self.width;
@@ -33,7 +33,7 @@ export component ImageSettings inherits Rectangle {
         }
     VerticalLayout {
         padding: 20px; spacing: 10px;
-        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: #18253c; }
+        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: #eef2f7; }
         if root.kind == 1: HorizontalLayout {
             ComboBox { model: ["By absolute size", "By percentage"]; current-index: root.percentage ? 1 : 0;
                 accessible-label: "Resize sizing mode"; selected(value) => { root.percentage-selected(self.current-index == 1); } }
@@ -87,9 +87,9 @@ export component ImageSettings inherits Rectangle {
             ComboBox { model: root.kind == 0 ? ["White", "Transparent", "Secondary color"] : ["Transparent", "Secondary color"];
                 current-index <=> root.background-choice; accessible-label: "Image background fill"; }
         }
-        Text { text: root.summary; wrap: word-wrap; color: #526079; }
+        Text { text: root.summary; wrap: word-wrap; color: #b8c2d1; }
         Text { text: root.error; wrap: word-wrap; color: #a12828; min-height: 36px; }
-        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #526079; font-size: 12px; }
+        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #b8c2d1; font-size: 12px; }
         HorizontalLayout {
             spacing: 8px;
             Rectangle { horizontal-stretch: 1; }

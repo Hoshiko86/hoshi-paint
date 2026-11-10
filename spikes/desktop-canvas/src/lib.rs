@@ -41,14 +41,14 @@ slint::slint! {
         preferred-height: 760px;
         min-width: max(960px, root.layout-min-width * 1px + 32px);
         min-height: 680px;
-        background: #f2f4f8;
+        background: #202226;
         default-font-family: "DejaVu Sans";
-        default-font-size: 14px;
-        // Match widgets to the shell's fixed light surfaces on dark-themed Windows.
-        init => { Palette.color-scheme = ColorScheme.light; }
+        default-font-size: 13px;
+        init => { Palette.color-scheme = ColorScheme.dark; }
         in property <image> canvas-image;
         in property <bool> viewport-preview;
         callback render-viewport();
+        callback initialize-canvas-view();
         callback fit-canvas();
         in property <[ControlPoint]> control-points;
         in property <float> zoom: 1;
@@ -314,7 +314,14 @@ slint::slint! {
         out property <float> shapes-host-height: docked-shapes.height / 1px;
         out property <float> canvas-width: viewport.width / 1px;
         out property <float> canvas-height: viewport.height / 1px;
-        changed canvas-width => { root.render-viewport(); }
+        private property <bool> canvas-view-initialized;
+        changed canvas-width => {
+            root.render-viewport();
+            if !root.canvas-view-initialized && root.canvas-width > 0 && root.canvas-height > 0 {
+                root.canvas-view-initialized = true;
+                root.initialize-canvas-view();
+            }
+        }
         changed canvas-height => { root.render-viewport(); }
         out property <float> colors-host-left: docked-colors.absolute-position.x / 1px;
         out property <float> colors-host-top: docked-colors.absolute-position.y / 1px;
@@ -372,38 +379,46 @@ slint::slint! {
             file-action(value) => { root.file-action(value); }
             cycle-document(backward) => { root.cycle-document(backward); }
         VerticalLayout {
-            padding: 16px;
-            spacing: 12px;
+            padding: 6px;
+            spacing: 4px;
             HorizontalLayout {
-                height: 32px;
-                spacing: 16px;
-                Text { text: "HOSHI PAINT"; font-size: 22px; font-weight: 700; color: #18253c; }
+                height: 24px;
+                spacing: 6px;
+                Text { text: "Tool:"; font-size: 11px; color: #aeb8c8; vertical-alignment: center; }
+                Button { icon: @image-url("../icons/shapes.svg"); width: 28px; accessible-label: "Shapes"; enabled: root.has-document;
+                    Tooltip { text: @markdown("Shapes · Rectangle"); } clicked => { root.choose-tool(0); root.show-shape-properties(); } }
+                Rectangle { width: 1px; background: #555b65; }
+                Text { text: "Rectangle"; color: #e8edf5; vertical-alignment: center; }
+                Text { text: root.shape-mode == 0 ? "Fill" : root.shape-mode == 1 ? "Outline" : "Fill + Outline"; color: #aeb8c8; vertical-alignment: center; }
+                Text { text: "· " + root.stroke-width-pixels + " px"; color: #aeb8c8; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
+                Button { icon: @image-url("../icons/check.svg"); width: 28px; accessible-label: "Finish shape"; enabled: root.has-shape;
+                    opacity: self.enabled ? 1 : 0.4; Tooltip { text: @markdown("Finish shape · Enter"); } clicked => { root.action(2); } }
             }
             HorizontalLayout {
-                height: 40px;
-                spacing: 8px;
-                Button { icon: @image-url("../icons/undo-2.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                height: 34px;
+                spacing: 4px;
+                Button { icon: @image-url("../icons/undo-2.svg"); width: 34px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
-                Button { icon: @image-url("../icons/redo-2.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Button { icon: @image-url("../icons/redo-2.svg"); width: 34px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
-                Button { icon: @image-url("../icons/check.svg"); width: 40px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
-                Button { icon: @image-url("../icons/x.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
-                Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
+                Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: 34px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
+                Button { icon: @image-url("../icons/check.svg"); width: 34px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
+                Button { icon: @image-url("../icons/x.svg"); width: 34px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
+                Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: 34px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { icon: @image-url("../icons/zoom-out.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
-                Button { icon: @image-url("../icons/maximize.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
-                Button { icon: @image-url("../icons/crosshair.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
-                Button { icon: @image-url("../icons/zoom-in.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
+                Button { icon: @image-url("../icons/zoom-out.svg"); width: 34px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
+                Button { icon: @image-url("../icons/maximize.svg"); width: 34px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
+                Button { icon: @image-url("../icons/crosshair.svg"); width: 34px; accessible-label: "Reset view"; Tooltip { text: @markdown("Center canvas at 100%"); } clicked => { root.action(4); } }
+                Button { icon: @image-url("../icons/zoom-in.svg"); width: 34px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
             ScrollView {
-                height: 54px; content-height: 50px; content-width: max(self.width, root.document-tabs.length * 210px);
+                height: 44px; content-height: 40px; content-width: max(self.width, root.document-tabs.length * 184px);
                 HorizontalLayout { spacing: 6px; alignment: start;
                     for tab in root.document-tabs: Rectangle {
-                        width: 204px; background: tab.active ? #dbe8ff : #e5e9f0;
-                        border-width: tab.active ? 2px : 1px; border-color: tab.active ? #315cae : #b7c2d2; border-radius: 4px;
-                        HorizontalLayout { padding: 5px; spacing: 5px;
+                        width: 178px; background: tab.active ? #3b4657 : #2a2d32;
+                        border-width: tab.active ? 2px : 1px; border-color: tab.active ? #72a7f8 : #555b65; border-radius: 2px;
+                        HorizontalLayout { padding: 3px; spacing: 3px;
                             Button { text: tab.title + (tab.dirty ? " *" : ""); icon: tab.thumbnail;
                                 accessible-label: "Activate document " + tab.title;
                                 enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
@@ -417,10 +432,11 @@ slint::slint! {
             }
             workspace := Rectangle {
                 vertical-stretch: 1;
+                background: #36393d;
                 VerticalLayout {
                     x: 0px; y: 0px; width: 64px; height: parent.height;
                     spacing: 8px; alignment: start;
-                    Text { text: "TOOLS"; color: #6c778b; font-size: 11px; font-weight: 700; }
+                    Text { text: "TOOLS"; color: #aeb8c8; font-size: 11px; font-weight: 700; }
                     Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: #315cae; border-radius: 4px; background: transparent;
                         rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
                             icon: @image-url("../icons/shapes.svg"); accessible-label: "Shapes"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
@@ -430,7 +446,7 @@ slint::slint! {
                     }
                     Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: "Colors";
                         Tooltip { text: @markdown("Colors · Primary, Secondary and Color Picker"); } clicked => { root.show-colors(); } }
-                    Text { text: "COLORS"; color: #6c778b; font-size: 11px; font-weight: 700; }
+                    Text { text: "COLORS"; color: #aeb8c8; font-size: 11px; font-weight: 700; }
                     ColorSwatch { value: root.workspace-primary; label: "Primary color"; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
                     ColorSwatch { value: root.workspace-secondary; label: "Secondary color"; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
                     HorizontalLayout { spacing: 4px;
@@ -442,10 +458,10 @@ slint::slint! {
                 viewport := Rectangle {
                     x: root.canvas-layout-x * 1px; y: root.canvas-layout-y * 1px;
                     width: root.canvas-layout-width * 1px; height: root.canvas-layout-height * 1px;
-                    background: #dce2eb;
+                    background: #4a4d52;
                     clip: true;
                     border-width: 1px;
-                    border-color: #c6cfdd;
+                    border-color: #191b1e;
                     accessible-role: image;
                     accessible-label: "Drawing canvas. Drag to draw; Enter commits; Escape cancels.";
                     Image {
@@ -648,10 +664,12 @@ slint::slint! {
                     close-panel => { root.close-shape-properties(); }
                 }
             }
-            HorizontalLayout { height: 32px; spacing: 8px;
-                Text { text: root.status; color: #526079; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
-                Text { text: "Layer"; color: #526079; vertical-alignment: center; }
-                layer-input := LineEdit { width: 160px; enabled: root.has-document; text: root.layer-name; accessible-label: "Layer name";
+            HorizontalLayout { height: 28px; spacing: 8px;
+                Text { text: root.status; color: #c3ccda; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; }
+                Text { text: root.has-document ? root.image-width + " × " + root.image-height + " px" : ""; color: #aeb8c8; font-size: 11px; vertical-alignment: center; }
+                Text { text: round(root.zoom * 100) + "%"; color: #e8edf5; font-size: 11px; vertical-alignment: center; }
+                Text { text: "Layer"; color: #aeb8c8; font-size: 11px; vertical-alignment: center; }
+                layer-input := LineEdit { width: 140px; enabled: root.has-document; text: root.layer-name; accessible-label: "Layer name";
                     edited(value) => { root.rename(value); self.text = root.layer-name; }
                 }
             }
@@ -713,14 +731,16 @@ slint::slint! {
                     y: (parent.height - self.height) / 2;
                     width: 460px;
                     height: 360px;
-                    background: white;
-                    border-radius: 12px;
+                    background: #303338;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #69778c;
                     VerticalLayout {
                         padding: 24px;
                         spacing: 16px;
-                        Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
-                        Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #526079; }
-                        Text { text: "Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
+                        Text { text: "Hoshi Paint"; color: #eef2f7; font-size: 24px; font-weight: 700; }
+                        Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #b8c2d1; }
+                        Text { text: "Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #b8c2d1; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
                     }
@@ -760,6 +780,20 @@ fn render_canvas(ui: &AppWindow, controller: &Controller) {
     ui.set_canvas_image(slint::Image::from_rgba8(pixels));
 }
 fn bind_rendering(ui: &AppWindow, state: SharedController) {
+    let weak = ui.as_weak();
+    let center_state = state.clone();
+    ui.on_initialize_canvas_view(move || {
+        if let Some(ui) = weak.upgrade()
+            && let Ok(mut state) = center_state.try_borrow_mut()
+            && state.has_document()
+        {
+            let _ = state.center_viewport(
+                f64::from(ui.get_canvas_width()),
+                f64::from(ui.get_canvas_height()),
+            );
+            refresh(&ui, &state);
+        }
+    });
     let weak = ui.as_weak();
     let fit_state = state.clone();
     ui.on_fit_canvas(move || {
@@ -1064,6 +1098,12 @@ fn create_panels(
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_action(move |action| {
+        let canvas_size = weak.upgrade().map(|ui| {
+            (
+                f64::from(ui.get_canvas_width()),
+                f64::from(ui.get_canvas_height()),
+            )
+        });
         update(&weak, &state, |c| match action {
             0 => c.undo().map(|_| ()),
             1 => c.redo().map(|_| ()),
@@ -1074,7 +1114,7 @@ fn create_panels(
             }
             4 => {
                 c.reset_view();
-                Ok(())
+                canvas_size.map_or(Ok(()), |(width, height)| c.center_viewport(width, height))
             }
             5 => c.nudge_shape(-1, 0),
             6 => c.nudge_shape(1, 0),

@@ -88,8 +88,8 @@ export component ShapePropertiesWindow inherits Window {
     title: "Shape properties · Hoshi Paint";
     preferred-width: 340px; preferred-height: 560px;
     min-width: 300px; min-height: 240px;
-    background: #f2f4f8; default-font-size: 13px;
-    init => { Palette.color-scheme = ColorScheme.light; }
+    background: #303338; default-font-size: 13px;
+    init => { Palette.color-scheme = ColorScheme.dark; }
     in property <bool> has-document <=> panel.has-document;
     in property <bool> has-shape <=> panel.has-shape;
     in property <int> shape-mode <=> panel.shape-mode;
