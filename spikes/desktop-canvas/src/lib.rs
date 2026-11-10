@@ -783,16 +783,20 @@ fn bind_rendering(ui: &AppWindow, state: SharedController) {
     let weak = ui.as_weak();
     let center_state = state.clone();
     ui.on_initialize_canvas_view(move || {
-        if let Some(ui) = weak.upgrade()
-            && let Ok(mut state) = center_state.try_borrow_mut()
-            && state.has_document()
-        {
-            let _ = state.center_viewport(
-                f64::from(ui.get_canvas_width()),
-                f64::from(ui.get_canvas_height()),
-            );
-            refresh(&ui, &state);
-        }
+        let weak = weak.clone();
+        let center_state = center_state.clone();
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(ui) = weak.upgrade()
+                && let Ok(mut state) = center_state.try_borrow_mut()
+                && state.has_document()
+            {
+                let _ = state.center_viewport(
+                    f64::from(ui.get_canvas_width()),
+                    f64::from(ui.get_canvas_height()),
+                );
+                refresh(&ui, &state);
+            }
+        });
     });
     let weak = ui.as_weak();
     let fit_state = state.clone();
