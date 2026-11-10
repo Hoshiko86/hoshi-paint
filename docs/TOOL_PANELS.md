@@ -6,7 +6,7 @@ Click **Shapes** in the rail to select the shape tool and open its properties. T
 
 Shape Properties opens as a floating window. Its header can place it on the left, right, top or bottom, independently of Colors and History. Short docks scroll their content. Closing a panel hides it; reopening restores current values. Docking, floating and closing preserve the editable preview, rendering defaults, numeric aspect lock and undo history. Pending numeric field edits apply before a host is hidden.
 
-History, commit/cancel, zoom, fit, reset-view, Colors and the Shapes tool use icons with hover tooltips and accessible names. Document names, field labels, dropdown choices and menu entries retain text because those convey values or choices. The new icons use the same Font Awesome Free version and attribution as the existing Undo/Redo icons.
+History, commit/cancel, zoom, fit, reset-view, Colors and the Shapes tool use icons with hover tooltips and accessible names. Document names, field labels, dropdown choices and menu entries retain text because those convey values or choices. The UI uses Lucide 1.71.0 outline icons, including Undo/Redo; see THIRD_PARTY_NOTICES.md for the ISC and Feather MIT notices.
 
 ## Implementation boundaries
 

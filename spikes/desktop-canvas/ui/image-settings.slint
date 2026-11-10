@@ -63,7 +63,7 @@ export component ImageSettings inherits Rectangle {
         if root.kind == 1: HorizontalLayout {
             Text { text: "Resampling"; width: 100px; color: #273650; vertical-alignment: center; }
             ComboBox { model: ["Bicubic", "Bicubic (Smooth)", "Bilinear", "Bilinear (Low Quality)", "Adaptive (Sharp)", "Lanczos", "Fant", "Nearest Neighbor"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
-            Button { icon: @image-url("../icons/undo.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
+            Button { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
                 Tooltip { text: @markdown("Reset resampling to Bicubic"); }
                 clicked => { root.resampling = 0; } }
         }

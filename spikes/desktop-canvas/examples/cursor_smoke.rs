@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .success()
             );
             println!(
-                "PASS: the native desktop cursor is the outlined Font Awesome eyedropper, with the correct hotspot."
+                "PASS: the native desktop cursor is the outlined Lucide Color Picker, with the correct hotspot."
             );
             slint::quit_event_loop().unwrap();
         });

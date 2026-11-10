@@ -3,12 +3,14 @@
 use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
+mod color_library;
 mod colors;
 pub mod documents;
 pub mod files;
 mod history;
 mod image_settings;
 mod input;
+pub mod palette_store;
 mod panel_hosts;
 mod panel_layout;
 mod resources;
@@ -26,10 +28,10 @@ slint::slint! {
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
     import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
-    import { ColorPanel, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
+    import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
-    export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
+    export { ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "../ui/colors.slint";
     import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox, ScrollView } from "std-widgets.slint";
     export struct DocumentTabRow { id: int, title: string, detail: string, thumbnail: image, active: bool, dirty: bool, generation: int }
     export component AppWindow inherits Window {
@@ -194,6 +196,30 @@ slint::slint! {
         out property <float> docked-swatches-left: docked-colors.swatches-left;
         out property <float> docked-swatches-top: docked-colors.swatches-top;
         in property <[PaletteSwatch]> color-swatches;
+        in-out property <string> color-name-query;
+        in property <[NamedColorSuggestion]> color-name-suggestions;
+        in property <[string]> palette-names;
+        in property <int> palette-selected;
+        in property <string> palette-title;
+        in property <bool> palette-inserting;
+        in property <bool> palette-expanded;
+        in property <bool> palette-dirty;
+        in property <string> palette-error;
+        callback search-color-name(string);
+        callback choose-named-color(string);
+        callback select-palette-color(int, bool);
+        callback toggle-palette-insert();
+        callback select-palette(int);
+        callback save-palette-as();
+        callback import-palette();
+        callback export-palette();
+        callback open-palettes-folder();
+        callback reset-palette();
+        callback set-palette-expanded(bool);
+        callback import-palette-path(string);
+        callback save-palette-path(string);
+        callback export-palette-path(string);
+
         in property <int> colors-placement;
         in property <bool> colors-docked;
         in property <bool> colors-visible;
@@ -221,6 +247,7 @@ slint::slint! {
         callback toggle-color-dock();
         callback close-colors();
         callback show-colors();
+        callback refresh-palette-library();
         callback hide-colors();
         callback sync-color(int, int, int, int, bool);
         callback choose-color(int);
@@ -356,19 +383,19 @@ slint::slint! {
             HorizontalLayout {
                 height: 40px;
                 spacing: 8px;
-                Button { icon: @image-url("../icons/undo.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Button { icon: @image-url("../icons/undo-2.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
-                Button { icon: @image-url("../icons/redo.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Button { icon: @image-url("../icons/redo-2.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { icon: @image-url("../icons/clock-rotate-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
+                Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
                 Button { icon: @image-url("../icons/check.svg"); width: 40px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
-                Button { icon: @image-url("../icons/xmark.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
-                Button { icon: @image-url("../icons/sliders.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
+                Button { icon: @image-url("../icons/x.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
+                Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { icon: @image-url("../icons/magnifying-glass-minus.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
-                Button { icon: @image-url("../icons/expand.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
-                Button { icon: @image-url("../icons/crosshairs.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
-                Button { icon: @image-url("../icons/magnifying-glass-plus.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
+                Button { icon: @image-url("../icons/zoom-out.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
+                Button { icon: @image-url("../icons/maximize.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
+                Button { icon: @image-url("../icons/crosshair.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
+                Button { icon: @image-url("../icons/zoom-in.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
             ScrollView {
                 height: 54px; content-height: 50px; content-width: max(self.width, root.document-tabs.length * 210px);
@@ -382,7 +409,7 @@ slint::slint! {
                                 enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
                                 Tooltip { SwatchDetails { text: tab.detail; } }
                             }
-                            Button { icon: @image-url("../icons/xmark.svg"); width: 26px; accessible-label: "Close document " + tab.title;
+                            Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: "Close document " + tab.title;
                                 enabled: !root.modal-visible; clicked => { root.close-document(tab.id); } }
                         }
                     }
@@ -548,6 +575,24 @@ slint::slint! {
                     placement: root.colors-placement;
                     placement-selected(value) => { root.set-colors-placement(value); }
                     swatches: root.color-swatches;
+                    color-name-query <=> root.color-name-query;
+                    color-name-suggestions: root.color-name-suggestions;
+                    palette-names: root.palette-names; palette-selected: root.palette-selected;
+                    palette-title: root.palette-title; palette-inserting: root.palette-inserting;
+                    palette-expanded: root.palette-expanded; palette-dirty: root.palette-dirty;
+                    palette-error: root.palette-error;
+                    search-color-name(value) => { root.search-color-name(value); }
+                    choose-named-color(value) => { root.choose-named-color(value); }
+                    select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
+                    toggle-palette-insert => { root.toggle-palette-insert(); }
+                    select-palette(index) => { root.select-palette(index); }
+                    save-palette-as => { root.save-palette-as(); }
+                    import-palette => { root.import-palette(); }
+                    export-palette => { root.export-palette(); }
+                    open-palettes-folder => { root.open-palettes-folder(); }
+                    reset-palette => { root.reset-palette(); }
+                    set-palette-expanded(value) => { root.set-palette-expanded(value); }
+
                     red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
                     hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                     hex-value: root.color-hex; error: root.color-error;
@@ -675,7 +720,7 @@ slint::slint! {
                         spacing: 16px;
                         Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
                         Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #526079; }
-                        Text { text: "Icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
+                        Text { text: "Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
                     }
@@ -915,16 +960,16 @@ pub struct AppPanels {
 pub fn create_app_with_dialogs(
     dialogs: Rc<dyn documents::FileDialogs>,
 ) -> Result<(AppWindow, SharedController), slint::PlatformError> {
-    let app = create_panels(Some(dialogs))?;
+    let app = create_panels(Some(dialogs), None)?;
     Ok((app.ui, app.controller))
 }
 pub fn create_app_with_shape_properties()
 -> Result<(AppWindow, SharedController, Rc<ShapePropertiesWindow>), slint::PlatformError> {
-    let app = create_panels(None)?;
+    let app = create_panels(None, default_palette_root())?;
     Ok((app.ui, app.controller, app.shapes))
 }
 pub fn create_app_with_all_panels() -> Result<AppPanels, slint::PlatformError> {
-    create_panels(None)
+    create_panels(None, default_palette_root())
 }
 pub fn create_app_with_panels() -> Result<
     (
@@ -935,11 +980,20 @@ pub fn create_app_with_panels() -> Result<
     ),
     slint::PlatformError,
 > {
-    let app = create_panels(None)?;
+    let app = create_panels(None, default_palette_root())?;
     Ok((app.ui, app.controller, app.colors, app.history))
+}
+pub fn create_app_with_palette_root(
+    root: Option<std::path::PathBuf>,
+) -> Result<AppPanels, slint::PlatformError> {
+    create_panels(None, root)
+}
+fn default_palette_root() -> Option<std::path::PathBuf> {
+    documents::recent_store_path().and_then(|path| path.parent().map(std::path::Path::to_path_buf))
 }
 fn create_panels(
     dialogs: Option<Rc<dyn documents::FileDialogs>>,
+    palette_root: Option<std::path::PathBuf>,
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
@@ -1043,7 +1097,7 @@ fn create_panels(
             _ => Ok(()),
         })
     });
-    let picker = colors::bind_picker(&ui, controller.clone())?;
+    let picker = colors::bind_picker(&ui, controller.clone(), palette_root)?;
     let history = history::bind_window(&ui, controller.clone())?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
     documents::bind(&ui, controller.clone(), dialogs);

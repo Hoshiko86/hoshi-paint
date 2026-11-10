@@ -41,6 +41,17 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
         ui.get_docked_red_width() > 170.0,
         "narrow dock must have a readable full-width slider"
     );
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(
+                ui.get_colors_host_left() + ui.get_colors_host_width() - 30.,
+                ui.get_colors_host_top() + 200.,
+            ),
+            delta_x: 0.,
+            delta_y: 550. - ui.get_docked_red_top(),
+        });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
+    ui.window().take_snapshot().unwrap();
     click(
         ui.window(),
         ui.get_docked_red_left() + ui.get_docked_red_width() * 0.9,
@@ -50,8 +61,7 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
     assert_ne!(selected.r, 12, "docked slider must route actual input");
     assert_eq!(state.borrow().composite()[60 * 512 + 60], selected);
     assert_eq!(picker.get_red(), i32::from(selected.r));
-    // Narrow panels stack channels; scroll their body to the palette instead
-    // of assuming every control fits in the visible height.
+    // Panel scrolling must stay separate from canvas navigation.
     let viewport = state.borrow().viewport();
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
@@ -76,7 +86,7 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
                 ui.get_colors_host_top() + 100.0,
             ),
             delta_x: 0.0,
-            delta_y: 500.0,
+            delta_y: 10000.0,
         });
     i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
     let snapshot = ui.window().take_snapshot().unwrap();
@@ -86,14 +96,11 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
     let pixel = snapshot.as_slice()[(y * snapshot.width() + x) as usize];
     assert_eq!(
         (pixel.r, pixel.g, pixel.b),
-        (72, 136, 240),
+        (0, 0, 0),
         "swatch must show its actual RGB value"
     );
     click(ui.window(), x as f32, y as f32);
-    assert_eq!(
-        state.borrow().primary_color(),
-        Color::rgba(72, 136, 240, 255)
-    );
+    assert_eq!(state.borrow().primary_color(), Color::rgba(0, 0, 0, 255));
     ui.invoke_toggle_color_dock();
     assert!(!ui.get_colors_docked());
     assert!(picker.window().is_visible());

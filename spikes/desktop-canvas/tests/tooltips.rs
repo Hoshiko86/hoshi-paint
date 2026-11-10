@@ -20,9 +20,9 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
     picker.invoke_set_rgba(0, 0, 0, 128);
     picker.window().take_snapshot().unwrap();
     let swatch = picker.get_swatches().row_data(0).unwrap();
-    assert_eq!(swatch.label, "#4888F0");
-    assert!(swatch.description.starts_with("Blue\n"));
-    assert!(swatch.description.contains("RGB: 72, 136, 240"));
+    assert_eq!(swatch.label, "#000000FF");
+    assert!(swatch.description.starts_with("Black\n"));
+    assert!(swatch.description.contains("RGB: 0, 0, 0"));
     assert!(swatch.description.contains("HSV:"));
     assert!(
         ElementHandle::find_by_accessible_label(picker.as_ref(), "Color Picker")
@@ -69,10 +69,7 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
             position,
             button: slint::platform::PointerEventButton::Left,
         });
-    assert_eq!(
-        state.borrow().primary_color(),
-        Color::rgba(72, 136, 240, 128)
-    );
+    assert_eq!(state.borrow().primary_color(), Color::rgba(0, 0, 0, 255));
     picker
         .window()
         .dispatch_event(slint::platform::WindowEvent::PointerMoved {

@@ -98,6 +98,16 @@ fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
         "inactive main window must render the newly selected color"
     );
     let before_slider = state.borrow().primary_color();
+    // Scroll the shared Colors body before reaching a control below the palette.
+    picker
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(610., 200.),
+            delta_x: 0.,
+            delta_y: 440. - picker.get_red_slider_top(),
+        });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
+    picker.window().take_snapshot().unwrap();
     let position = slint::LogicalPosition::new(
         picker.get_red_slider_left() + picker.get_red_slider_width() * 0.9,
         picker.get_red_slider_top() + picker.get_red_slider_height() * 0.5,

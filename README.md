@@ -7,7 +7,8 @@ Targets: Windows, macOS, Ubuntu Linux, and eventually iOS/iPadOS.
 document engine and input controller. It supports rectangle preview/adjust/commit,
 undo/redo, Shift-constrained scaling, canvas navigation and RGB/HSV/hex/alpha
 color selection and history in floating/docked panels, rich color swatches,
-Paint.NET-style canvas navigation and a native Color Picker. This is not a completed v0.0.0 release.
+Paint.NET-style canvas navigation and a native Color Picker with named-color search
+and editable, saved palettes ([palette guide](PALETTES.md)). This is not a completed v0.0.0 release.
 
 Run `cargo run --package hoshi-canvas-spike --locked`. See the
 [spike guide](spikes/desktop-canvas/README.md) for platform prerequisites,
