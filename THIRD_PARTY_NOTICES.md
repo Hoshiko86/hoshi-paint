@@ -18,22 +18,23 @@ license inventory remains a release gate; this spike is not a packaged release.
 Fonts use the operating system's installed fonts; no font files are copied into
 the repository. The framework's bundled resources retain their original notices.
 
-## Font Awesome Free
+## Lucide
 
-The eye-dropper, rotate-left (Undo), rotate-right (Redo), shapes, sliders, clock-rotate-left, check, xmark, expand, crosshairs, palette, magnifying-glass-plus, magnifying-glass-minus, thumbtack, window-restore, plus, floppy-disk, folder-open, file-import, file-export and arrow-rotate-left SVGs are from **Font Awesome Free 6.7.2**, copyright 2024 Fonticons,
-Inc., https://fontawesome.com. SVG icons are licensed **CC BY 4.0**:
-https://creativecommons.org/licenses/by/4.0/ . The upstream notice is included at
-[licenses/Font-Awesome-Free-6.7.2.txt](licenses/Font-Awesome-Free-6.7.2.txt).
-Original sources: https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs/solid/ (eye-dropper.svg, rotate-left.svg, rotate-right.svg). The latter two are bundled unchanged as undo.svg and redo.svg.
+UI outline icons are from **Lucide 1.71.0**, pinned to upstream commit
+`3fef7aca71a50acc54bd2f24f0cc4747c22aa6d2`:
+https://github.com/lucide-icons/lucide/tree/3fef7aca71a50acc54bd2f24f0cc4747c22aa6d2/icons .
+Lucide uses ISC; icons derived from Feather retain MIT attribution. The complete
+upstream license, including both notices, is bundled in
+[licenses/Lucide-1.71.0.txt](licenses/Lucide-1.71.0.txt).
 
-The cursor derivative adds a 32px viewport and a dark fill/white outline for
-contrast; path geometry is unchanged. Attribution comments remain in both SVGs. The Windows `.cur` is a rasterized
-32×32 derivative with the same tip hotspot (3,29).
-Only Free SVGs are bundled, not Pro assets or font files. Hoshi Paint source
-is GPL-3.0-only; the icon retains its own CC BY 4.0 terms.
+Button SVGs retain Lucide's 24px viewport, rounded joins/caps and 2px outline;
+`currentColor` is replaced with Hoshi Paint's dark foreground for static SVG rendering.
+The pipette cursor is adapted to a 32px viewport with a white contrast halo and
+hotspot (3,29). The Windows `.cur` is a rasterized version of that SVG.
+See [the icon asset guide](spikes/desktop-canvas/icons/README.md).
 
-The swap-colors, reset-colors and rotate-shape-cursor SVGs are original Hoshi Paint artwork covered
-by GPL-3.0-only.
+The swap-colors, reset-colors and rotate-shape-cursor SVGs are original Hoshi Paint
+artwork covered by GPL-3.0-only.
 
 ## Image files and native dialogs
 

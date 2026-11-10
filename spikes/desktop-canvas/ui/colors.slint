@@ -118,12 +118,12 @@ export component ToolPanelFrame inherits Rectangle {
             }
             Button {
                 width: 32px;
-                icon: root.docked ? @image-url("../icons/window-restore.svg") : @image-url("../icons/thumbtack.svg");
+                icon: root.docked ? @image-url("../icons/panels-top-left.svg") : @image-url("../icons/pin.svg");
                 Tooltip { text: @markdown("Toggle floating or docked panel"); }
                 accessible-label: (root.docked ? "Float " : "Dock ") + root.title;
                 clicked => { root.placement-selected(root.placement == 0 ? root.last-nonzero-placement : 0); }
             }
-            Button { width: 28px; icon: @image-url("../icons/xmark.svg"); accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
+            Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
         }
         ScrollView {
             content-width: self.width;
@@ -237,7 +237,7 @@ export component ColorPanel inherits Rectangle {
                     Tooltip { text: @markdown("Restore original color"); }
                     clicked => { root.restore-original(); }
                 }
-                Button { icon: @image-url("../icons/eye-dropper.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
+                Button { icon: @image-url("../icons/pipette.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
                     Tooltip { text: @markdown("Color Picker"); }
                     clicked => { root.pick-screen(); }
                 }

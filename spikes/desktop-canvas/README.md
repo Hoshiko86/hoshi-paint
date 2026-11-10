@@ -197,13 +197,13 @@ command with `--example color_smoke` and optional `HOSHI_COLOR_SNAPSHOT` and
 
 ## Native cursors and icon attribution
 
-The application shows a real native cursor while awaiting screen selection with an outlined Font Awesome
-Free SVG and tip hotspot, tested under X11 at 1x and 2x scale. Slint 1.18.1's
+The application shows a real native cursor while awaiting screen selection with an outlined Lucide pipette
+SVG and tip hotspot, tested under X11 at 1x and 2x scale. Slint 1.18.1's
 `MouseCursor.custom` is experimental; `.cargo/config.toml` enables its compiler
 flag and the exact toolkit version remains pinned. CI builds once without a
 scale override, then tests that same binary at runtime scales 1 and 2; setting
 SLINT_SCALE_FACTOR during compilation can pin the generated UI scale. Recheck native cursors on
-toolkit upgrades. Font Awesome Free 6.7.2 SVG icons use CC BY 4.0; see
+toolkit upgrades. Lucide 1.71.0 SVG icons use ISC / Feather MIT; see
 [third-party notices](../../THIRD_PARTY_NOTICES.md) for attribution and changes.
 
 ## Screen sampling

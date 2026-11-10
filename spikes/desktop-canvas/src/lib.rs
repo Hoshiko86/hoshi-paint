@@ -383,19 +383,19 @@ slint::slint! {
             HorizontalLayout {
                 height: 40px;
                 spacing: 8px;
-                Button { icon: @image-url("../icons/undo.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Button { icon: @image-url("../icons/undo-2.svg"); width: 40px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
-                Button { icon: @image-url("../icons/redo.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Button { icon: @image-url("../icons/redo-2.svg"); width: 40px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
                     Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { icon: @image-url("../icons/clock-rotate-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
+                Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: 40px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
                 Button { icon: @image-url("../icons/check.svg"); width: 40px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
-                Button { icon: @image-url("../icons/xmark.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
-                Button { icon: @image-url("../icons/sliders.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
+                Button { icon: @image-url("../icons/x.svg"); width: 40px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
+                Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: 40px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
                 Rectangle { horizontal-stretch: 1; }
-                Button { icon: @image-url("../icons/magnifying-glass-minus.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
-                Button { icon: @image-url("../icons/expand.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
-                Button { icon: @image-url("../icons/crosshairs.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
-                Button { icon: @image-url("../icons/magnifying-glass-plus.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
+                Button { icon: @image-url("../icons/zoom-out.svg"); width: 40px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
+                Button { icon: @image-url("../icons/maximize.svg"); width: 40px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
+                Button { icon: @image-url("../icons/crosshair.svg"); width: 40px; accessible-label: "Reset view"; Tooltip { text: @markdown("Reset canvas view · 100%"); } clicked => { root.action(4); } }
+                Button { icon: @image-url("../icons/zoom-in.svg"); width: 40px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
             }
             ScrollView {
                 height: 54px; content-height: 50px; content-width: max(self.width, root.document-tabs.length * 210px);
@@ -409,7 +409,7 @@ slint::slint! {
                                 enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
                                 Tooltip { SwatchDetails { text: tab.detail; } }
                             }
-                            Button { icon: @image-url("../icons/xmark.svg"); width: 26px; accessible-label: "Close document " + tab.title;
+                            Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: "Close document " + tab.title;
                                 enabled: !root.modal-visible; clicked => { root.close-document(tab.id); } }
                         }
                     }
@@ -720,7 +720,7 @@ slint::slint! {
                         spacing: 16px;
                         Text { text: "Hoshi Paint"; color: #18253c; font-size: 24px; font-weight: 700; }
                         Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #526079; }
-                        Text { text: "Icons: Font Awesome Free 6.7.2, Fonticons, Inc.\nCC BY 4.0 · fontawesome.com\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
+                        Text { text: "Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #526079; font-size: 11px; }
                         AboutSlint { }
                         Button { text: "Close"; clicked => { root.close-about(); } }
                     }

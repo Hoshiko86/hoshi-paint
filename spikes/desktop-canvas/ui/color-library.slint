@@ -75,7 +75,7 @@ component NameSearch inherits Rectangle {
             }
             Tooltip { text: @markdown("Type a color name. Use Up/Down and Enter, or select a swatch-prefixed suggestion. Typing alone does not change the color."); }
         }
-        Button { width: 28px; icon: @image-url("../icons/xmark.svg"); accessible-label: "Clear color name search";
+        Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: "Clear color name search";
             clicked => { root.query = ""; editor.text = ""; root.open = false; root.search(""); }
             Tooltip { text: @markdown("Clear color name search"); }
         }
@@ -151,11 +151,11 @@ export component ColorLibrary inherits Rectangle {
                 }
                 Preview { x: 20px; y: 20px; width: 9px; height: 9px; value: root.current-color; }
             }
-            Button { width: 30px; icon: @image-url("../icons/floppy-disk.svg"); accessible-label: "Save current palette as"; clicked => { root.save-palette-as(); } Tooltip { text: @markdown("Save Current Palette As…"); } }
-            Button { width: 30px; icon: @image-url("../icons/file-import.svg"); accessible-label: "Import palette"; clicked => { root.import-palette(); } Tooltip { text: @markdown("Import a Paint.NET palette file"); } }
-            Button { width: 30px; icon: @image-url("../icons/file-export.svg"); accessible-label: "Export palette"; clicked => { root.export-palette(); } Tooltip { text: @markdown("Export the current palette"); } }
+            Button { width: 30px; icon: @image-url("../icons/save.svg"); accessible-label: "Save current palette as"; clicked => { root.save-palette-as(); } Tooltip { text: @markdown("Save Current Palette As…"); } }
+            Button { width: 30px; icon: @image-url("../icons/file-input.svg"); accessible-label: "Import palette"; clicked => { root.import-palette(); } Tooltip { text: @markdown("Import a Paint.NET palette file"); } }
+            Button { width: 30px; icon: @image-url("../icons/file-output.svg"); accessible-label: "Export palette"; clicked => { root.export-palette(); } Tooltip { text: @markdown("Export the current palette"); } }
             Button { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: "Open palettes folder"; clicked => { root.open-palettes-folder(); } Tooltip { text: @markdown("Open Palettes Folder"); } }
-            Button { width: 30px; icon: @image-url("../icons/arrow-rotate-left.svg"); accessible-label: "Reset to default palette"; clicked => { root.reset-palette(); } Tooltip { text: @markdown("Reset to Default Palette"); } }
+            Button { width: 30px; icon: @image-url("../icons/rotate-ccw.svg"); accessible-label: "Reset to default palette"; clicked => { root.reset-palette(); } Tooltip { text: @markdown("Reset to Default Palette"); } }
         }
         Text { height: 18px; text: root.palette-inserting ? "Choose a slot to replace with the active color" : root.palette-title; color: #526079; font-size: 11px; }
         swatch-grid := Rectangle {

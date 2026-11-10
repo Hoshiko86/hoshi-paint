@@ -104,7 +104,7 @@ NSColorSampler, or the Linux desktop portal. Sampled screen colors are opaque.
 A private D-Bus smoke passes the request/response contract, including immediate
 response, cancellation, errors and request cleanup; it does not replace a real
 GNOME/KDE screen-selection test. Linux native cursor checks pass at 1x and 2x
-with the outlined Font Awesome Free eyedropper. Windows/macOS screen sampling
+with the outlined Lucide Color Picker cursor. Windows/macOS screen sampling
 and mixed-DPI devices still need native manual verification.
 A native winit/software `color_smoke` run passes HSV/hex editing, Dock/Float
 transitions, live RGB refinement and actual window snapshot checks. New cross-platform CI must be
