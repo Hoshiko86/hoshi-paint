@@ -1,4 +1,5 @@
 use hoshi_canvas_spike::{ShapePropertiesWindow, create_app_with_shape_properties};
+use hoshi_controller::{FillPattern, LineStyle};
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
 
@@ -67,6 +68,34 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
     properties.invoke_select_shape_mode(2);
     properties.invoke_edit_stroke_width_pixels(4.5);
     assert_eq!(ui.get_stroke_width_pixels(), 4.5);
+    let line_selector = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+        &*properties,
+        "Outline line style",
+    )
+    .next()
+    .unwrap();
+    assert_eq!(line_selector.accessible_value().as_deref(), Some("Solid"));
+    line_selector.invoke_accessible_expand_action();
+    properties.window().take_snapshot().unwrap();
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&*properties, "Dash dot")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    assert_eq!(state.borrow().line_style(), LineStyle::DashDot);
+
+    let fill_selector = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+        &*properties,
+        "Shape fill pattern",
+    )
+    .next()
+    .unwrap();
+    fill_selector.invoke_accessible_expand_action();
+    properties.window().take_snapshot().unwrap();
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&*properties, "Checkerboard")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    assert_eq!(state.borrow().fill_pattern(), FillPattern::Checkerboard);
     type_bound(&properties, "Shape X position", "-12");
     assert_eq!(state.borrow().document().active_shape().unwrap().x, -12);
     assert_eq!(
