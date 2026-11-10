@@ -89,8 +89,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController) {
                 c.set_aspect_lock(false).expect("gesture has ended");
             }
             ui.invoke_clear_navigation_state();
-            ui.invoke_hide_colors();
-            ui.invoke_close_history();
+            crate::panel_hosts::close_adjustment_panels(&ui);
             let c = controller.borrow();
             let document = c.document();
             let size = (document.width(), document.height());

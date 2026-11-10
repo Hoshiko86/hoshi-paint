@@ -2,20 +2,32 @@
 import { LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
 component BoundsEntry inherits HorizontalLayout {
     in property <string> label;
+    in property <length> label-width;
     in property <string> value;
     in property <string> description;
     in property <bool> active;
     callback submit(string);
+    private property <bool> skip-next-blur;
+    public function finish-edit() {
+        if entry.has-focus {
+            root.submit(entry.text);
+            entry.text = root.value;
+            root.skip-next-blur = true;
+        }
+    }
     spacing: 4px;
-    Text { text: root.label; color: #526079; vertical-alignment: center; }
+    Text { min-width: root.label-width; text: root.label; color: #526079; vertical-alignment: center; }
     entry := LineEdit {
         enabled: root.active;
         accessible-label: root.description;
         min-width: 82px;
         init => { self.text = root.value; }
         changed has-focus => {
-            if !self.has-focus {
-                root.submit(self.text);
+            if self.has-focus {
+                root.skip-next-blur = false;
+            } else {
+                if !root.skip-next-blur { root.submit(self.text); }
+                root.skip-next-blur = false;
                 self.text = root.value;
             }
         }
@@ -26,6 +38,7 @@ component BoundsEntry inherits HorizontalLayout {
 }
 export component ShapeBounds inherits Rectangle {
     in property <bool> active;
+    in property <bool> compact;
     in property <string> x-value;
     in property <string> y-value;
     in property <string> width-value;
@@ -33,21 +46,45 @@ export component ShapeBounds inherits Rectangle {
     callback edit(int, string, bool);
     in-out property <bool> locked;
     background: #f1f3f8;
-    height: 62px;
+    height: root.compact ? 118px : 62px;
+    public function finish-edits() {
+        x-entry.finish-edit(); y-entry.finish-edit();
+        width-entry.finish-edit(); height-entry.finish-edit();
+    }
     ScrollView {
         width: parent.width; height: parent.height;
-        content-width: max(self.width - 2px, 650px); content-height: 38px;
-        HorizontalLayout {
-            width: parent.width; height: 36px; spacing: 10px;
-            BoundsEntry { label: "X"; value: root.x-value; active: root.active;
-                description: "Shape X position"; submit(value) => { root.edit(0,value,root.locked); } }
-            BoundsEntry { label: "Y"; value: root.y-value; active: root.active;
-                description: "Shape Y position"; submit(value) => { root.edit(1,value,root.locked); } }
-            BoundsEntry { label: "Width"; value: root.width-value; active: root.active;
-                description: "Shape width"; submit(value) => { root.edit(2,value,root.locked); } }
-            BoundsEntry { label: "Height"; value: root.height-value; active: root.active;
-                description: "Shape height"; submit(value) => { root.edit(3,value,root.locked); } }
-            CheckBox { text: "Lock ratio"; checked <=> root.locked;
+        content-width: root.compact ? self.width : max(self.width - 2px, 730px);
+        content-height: root.compact ? 118px : 38px;
+        Rectangle {
+            width: parent.width; height: root.compact ? 118px : 38px;
+            // Each field has one instance and one focus buffer in both layouts.
+            x-entry := BoundsEntry {
+                x: 0px; y: 0px; width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
+                label-width: root.compact ? 40px : 0px; label: "X"; value: root.x-value; active: root.active;
+                description: "Shape X position"; submit(value) => { root.edit(0,value,root.locked); }
+            }
+            y-entry := BoundsEntry {
+                x: root.compact ? (parent.width + 8px) / 2 : 150px; y: 0px;
+                width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
+                label-width: root.compact ? 40px : 0px; label: "Y"; value: root.y-value; active: root.active;
+                description: "Shape Y position"; submit(value) => { root.edit(1,value,root.locked); }
+            }
+            width-entry := BoundsEntry {
+                x: root.compact ? 0px : 300px; y: root.compact ? 38px : 0px;
+                width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
+                label-width: root.compact ? 40px : 0px; label: "Width"; value: root.width-value; active: root.active;
+                description: "Shape width"; submit(value) => { root.edit(2,value,root.locked); }
+            }
+            height-entry := BoundsEntry {
+                x: root.compact ? (parent.width + 8px) / 2 : 450px; y: root.compact ? 38px : 0px;
+                width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
+                label-width: root.compact ? 40px : 0px; label: "Height"; value: root.height-value; active: root.active;
+                description: "Shape height"; submit(value) => { root.edit(3,value,root.locked); }
+            }
+            CheckBox {
+                x: root.compact ? 0px : 600px; y: root.compact ? 80px : 0px;
+                width: root.compact ? parent.width : 120px; height: 32px;
+                text: "Lock ratio"; checked <=> root.locked;
                 accessible-label: "Lock shape aspect ratio";
                 Tooltip { text: @markdown("Keep width and height in proportion when entering a dimension. Rounded to whole canvas pixels."); }
             }

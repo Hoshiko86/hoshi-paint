@@ -8,9 +8,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = weak.upgrade().unwrap();
-        let x = ui.get_canvas_left();
-        let y = ui.get_canvas_top();
-        let point = |dx, dy| LogicalPosition::new(x + dx, y + dy);
+        // Native font/window layout may still be settling on a fresh runner.
+        // Paint before generating input, and use the current viewport origin
+        // rather than retaining coordinates across view-model/layout changes.
+        ui.window().take_snapshot().expect("settle native layout");
+        let point =
+            |dx, dy| LogicalPosition::new(ui.get_canvas_left() + dx, ui.get_canvas_top() + dy);
         ui.window().dispatch_event(WindowEvent::PointerPressed {
             position: point(96.0, 120.0),
             button: PointerEventButton::Left,
@@ -26,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ui.get_has_shape(),
             "desktop pointer events must reach the controller"
         );
+        ui.window().take_snapshot().expect("paint editable handles");
         let corner = controller.borrow().handle_positions()[4];
         ui.window().dispatch_event(WindowEvent::PointerPressed {
             position: point(corner.x as f32, corner.y as f32),
@@ -40,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
         let shape = controller.borrow().document().active_shape().unwrap();
         assert_eq!((shape.width, shape.height), (256, 176));
+        ui.window().take_snapshot().expect("paint resized handles");
         let knob = controller.borrow().handle_positions()[8];
         let center = (224.0_f64, 208.0_f64);
         let radius = center.1 - knob.y;
@@ -92,6 +97,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .window()
                 .take_snapshot()
                 .expect("desktop software snapshot");
+            let x = ui.get_canvas_left();
+            let y = ui.get_canvas_top();
             let sample = snapshot.as_slice()
                 [((y as usize + 208) * snapshot.width() as usize) + x as usize + 224];
             assert_eq!((sample.r, sample.g, sample.b), (0, 0, 0));

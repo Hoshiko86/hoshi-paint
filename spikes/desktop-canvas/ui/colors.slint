@@ -116,12 +116,13 @@ export component ToolPanelFrame inherits Rectangle {
                 selected(value) => { root.placement-selected(self.current-index); }
             }
             Button {
-                width: 48px;
-                text: root.docked ? "Float" : "Dock";
+                width: 32px;
+                icon: root.docked ? @image-url("../icons/window-restore.svg") : @image-url("../icons/thumbtack.svg");
+                Tooltip { text: @markdown("Toggle floating or docked panel"); }
                 accessible-label: (root.docked ? "Float " : "Dock ") + root.title;
                 clicked => { root.placement-selected(root.placement == 0 ? root.last-nonzero-placement : 0); }
             }
-            Button { width: 28px; text: "×"; accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
+            Button { width: 28px; icon: @image-url("../icons/xmark.svg"); accessible-label: "Close adjustment panel"; Tooltip { text: @markdown("Close adjustment panel"); } clicked => { root.close-panel(); } }
         }
         ScrollView {
             content-width: self.width;

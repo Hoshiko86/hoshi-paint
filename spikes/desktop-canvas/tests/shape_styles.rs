@@ -1,4 +1,4 @@
-use hoshi_canvas_spike::create_app_with_colors;
+use hoshi_canvas_spike::create_app_with_all_panels;
 use hoshi_controller::ShapeStyle;
 use hoshi_controller::{Color, ColorSlot};
 use slint::{ComponentHandle, LogicalSize};
@@ -13,26 +13,33 @@ fn style_controls_and_both_color_hosts_edit_separate_channels_without_committing
         },
     )))
     .unwrap();
-    let (ui, state, picker) = create_app_with_colors().unwrap();
+    let app = create_app_with_all_panels().unwrap();
+    let (ui, state, picker, properties) = (app.ui, app.controller, app.colors, app.shapes);
     ui.window().set_size(LogicalSize::new(1120., 760.));
     ui.show().unwrap();
     ui.invoke_pointer_down(40., 40.);
     ui.invoke_pointer_move(160., 140.);
     ui.invoke_pointer_up(160., 140.);
     ui.window().take_snapshot().unwrap();
-    let style =
-        i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Shape style")
-            .next()
-            .unwrap();
+    ui.invoke_show_shape_properties();
+    properties.window().take_snapshot().unwrap();
+    let style = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+        properties.as_ref(),
+        "Shape style",
+    )
+    .next()
+    .unwrap();
     style.mock_single_click(slint::platform::PointerEventButton::Left);
     for key in [
         slint::platform::Key::DownArrow,
         slint::platform::Key::DownArrow,
         slint::platform::Key::Return,
     ] {
-        ui.window()
+        properties
+            .window()
             .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: key.into() });
-        ui.window()
+        properties
+            .window()
             .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: key.into() });
     }
     assert_eq!(ui.get_shape_mode(), 2);

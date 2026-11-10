@@ -49,7 +49,7 @@ canvas display work follows the viewport instead of the document dimensions.
 - Drag on the checkerboard to draw a rectangle. Release keeps it editable.
   Hold Shift while drawing to create a square; press/release Shift during the drag
   to toggle the constraint live. Squares stop at the canvas boundary. Alt draws from the center; centered bounds may extend outside the canvas.
-- Choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
+- Open Shape Properties with the Shapes or sliders icon; choose Fill, Outline, or Fill and outline in Shape style. Outline width is in
   canvas pixels (0.01–65,536), inset inside the bounds; a wide stroke can consume
   the interior. Settings apply live to the active preview and to future shapes.
 - Primary and Secondary are shared workspace colors, initially black and white.
@@ -250,3 +250,5 @@ physical display-latency or release acceptance results.
 Shared shape editing architecture and extension guide: [SHAPE_EDITING.md](../../docs/SHAPE_EDITING.md).
 
 [Shared shape rendering](../../docs/SHAPE_RENDERING.md) covers decimal outlines, antialiasing, dash styles and two-color pattern fills.
+
+[Tool panels and shell layout](../../docs/TOOL_PANELS.md) describes the compact icon rail and independently floating/docked Shape Properties, Colors and History.

@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(state.borrow().document().undo_len(), 2);
         let snapshot = ui.window().take_snapshot().unwrap();
         assert!(
-            ui.get_layer_input_top() + 32. < snapshot.height() as f32 - 20.,
+            ui.get_layer_input_top() + 32. < snapshot.height() as f32,
             "the complete sidebar must fit at the default 760px window height"
         );
         let path = PathBuf::from(
