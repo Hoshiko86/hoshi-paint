@@ -4,6 +4,8 @@
 //! This controller owns document mutations; views receive immutable state and
 //! an RGBA image. It has no windowing, rendering-framework, or filesystem dependency.
 
+mod bounds;
+pub use bounds::BoundsField;
 pub mod color;
 mod editing;
 mod input;
@@ -307,11 +309,18 @@ impl Controller {
             .document
             .active_shape()
             .ok_or(ControllerError::NoActiveShape)?;
+        let dx = f64::from(x) - f64::from(shape.x);
+        let dy = f64::from(y) - f64::from(shape.y);
         shape.x = x;
         shape.y = y;
         shape.width = width;
         shape.height = height;
         self.document.adjust_shape(shape)?;
+        self.edit_state.pivot = self.edit_state.pivot.map(|p| p.translated(dx, dy));
+        // Numeric edits replace an unfinished pointer gesture, so its stale
+        // drag-start frame cannot overwrite the entered bounds on release.
+        self.gesture = None;
+        self.edit_state.numeric_ratio = None;
         Ok(())
     }
 

@@ -1,0 +1,56 @@
+// Numeric bounds are a shared shape control, independent of primitive geometry.
+import { LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
+component BoundsEntry inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> description;
+    in property <bool> active;
+    callback submit(string);
+    spacing: 4px;
+    Text { text: root.label; color: #526079; vertical-alignment: center; }
+    entry := LineEdit {
+        enabled: root.active;
+        accessible-label: root.description;
+        min-width: 82px;
+        init => { self.text = root.value; }
+        changed has-focus => {
+            if !self.has-focus {
+                root.submit(self.text);
+                self.text = root.value;
+            }
+        }
+        accepted => { root.submit(self.text); self.text = root.value; }
+        Tooltip { text: @markdown("Whole canvas pixels. X/Y locate the top-left of the unrotated bounds. Apply with Enter or Tab."); }
+    }
+    changed value => { if !entry.has-focus { entry.text = root.value; } }
+}
+export component ShapeBounds inherits Rectangle {
+    in property <bool> active;
+    in property <string> x-value;
+    in property <string> y-value;
+    in property <string> width-value;
+    in property <string> height-value;
+    callback edit(int, string, bool);
+    in-out property <bool> locked;
+    background: #f1f3f8;
+    height: 62px;
+    ScrollView {
+        width: parent.width; height: parent.height;
+        content-width: max(self.width - 2px, 650px); content-height: 38px;
+        HorizontalLayout {
+            width: parent.width; height: 36px; spacing: 10px;
+            BoundsEntry { label: "X"; value: root.x-value; active: root.active;
+                description: "Shape X position"; submit(value) => { root.edit(0,value,root.locked); } }
+            BoundsEntry { label: "Y"; value: root.y-value; active: root.active;
+                description: "Shape Y position"; submit(value) => { root.edit(1,value,root.locked); } }
+            BoundsEntry { label: "Width"; value: root.width-value; active: root.active;
+                description: "Shape width"; submit(value) => { root.edit(2,value,root.locked); } }
+            BoundsEntry { label: "Height"; value: root.height-value; active: root.active;
+                description: "Shape height"; submit(value) => { root.edit(3,value,root.locked); } }
+            CheckBox { text: "Lock ratio"; checked <=> root.locked;
+                accessible-label: "Lock shape aspect ratio";
+                Tooltip { text: @markdown("Keep width and height in proportion when entering a dimension. Rounded to whole canvas pixels."); }
+            }
+        }
+    }
+}

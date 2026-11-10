@@ -11,10 +11,12 @@ mod image_settings;
 mod input;
 mod resources;
 mod screen_pick;
+mod shape_bounds;
 mod shape_rendering;
 pub mod workspace;
 
 slint::slint! {
+    import { ShapeBounds } from "../ui/shape-bounds.slint";
     import { ShapeRendering } from "../ui/shape-rendering.slint";
     import { ShapeControls, ControlPoint } from "../ui/shape-controls.slint";
     export { ControlPoint } from "../ui/shape-controls.slint";
@@ -53,6 +55,14 @@ slint::slint! {
         in property <bool> can-undo;
         in property <bool> can-redo;
         in property <int> selected-tool;
+        in property <string> shape-x-text;
+        in property <string> shape-y-text;
+        in property <string> shape-width-text;
+        in property <string> shape-height-text;
+        callback edit-shape-bound(int, string, bool);
+        in-out property <bool> shape-bounds-locked;
+        callback bounds-lock-changed(bool);
+        changed shape-bounds-locked => { root.bounds-lock-changed(root.shape-bounds-locked); }
         in property <int> shape-mode;
         in property <int> stroke-width: 2;
         in property <float> stroke-width-pixels: 2;
@@ -236,7 +246,7 @@ slint::slint! {
         private property <bool> has-top-dock: (root.color-host-visible && root.colors-placement == 3) || (root.history-host-visible && root.history-placement == 3);
         private property <bool> has-bottom-dock: (root.color-host-visible && root.colors-placement == 4) || (root.history-host-visible && root.history-placement == 4);
         private property <int> dock-row-count: (root.has-top-dock ? 1 : 0) + (root.has-bottom-dock ? 1 : 0);
-        private property <length> dock-row-height: min(264px, (workspace.height - 200px) / max(1, root.dock-row-count));
+        private property <length> dock-row-height: min(264px, (workspace.height - bounds-bar.height - 200px) / max(1, root.dock-row-count));
         private property <length> dock-top-height: root.has-top-dock ? root.dock-row-height : 0px;
         private property <length> dock-bottom-height: root.has-bottom-dock ? root.dock-row-height : 0px;
         out property <float> canvas-width: viewport.width / 1px;
@@ -383,11 +393,20 @@ slint::slint! {
                     Rectangle { vertical-stretch: 1; }
 
                 }
-                viewport := Rectangle {
+                bounds-bar := ShapeBounds {
                     x: 204px + root.dock-left-width;
                     y: root.dock-top-height;
                     width: parent.width - 204px - root.dock-left-width - root.dock-right-width;
-                    height: parent.height - root.dock-top-height - root.dock-bottom-height;
+                    active: root.has-shape; locked <=> root.shape-bounds-locked;
+                    x-value: root.shape-x-text; y-value: root.shape-y-text;
+                    width-value: root.shape-width-text; height-value: root.shape-height-text;
+                    edit(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
+                }
+                viewport := Rectangle {
+                    x: 204px + root.dock-left-width;
+                    y: root.dock-top-height + bounds-bar.height;
+                    width: parent.width - 204px - root.dock-left-width - root.dock-right-width;
+                    height: parent.height - root.dock-top-height - root.dock-bottom-height - bounds-bar.height;
                     background: #dce2eb;
                     clip: true;
                     border-width: 1px;
@@ -736,6 +755,7 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
     });
     ui.set_stroke_width(controller.stroke_width() as i32);
     shape_rendering::refresh(ui, controller);
+    shape_bounds::refresh(ui, controller);
     ui.set_color_slot(if controller.color_slot() == ColorSlot::Primary {
         0
     } else {
@@ -897,6 +917,7 @@ fn create_panels(
     refresh(&ui, &controller.borrow());
     input::bind(&ui, controller.clone());
     shape_rendering::bind(&ui, controller.clone());
+    shape_bounds::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
         if tool == 3 {
