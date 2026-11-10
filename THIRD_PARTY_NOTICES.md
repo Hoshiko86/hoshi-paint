@@ -20,7 +20,7 @@ the repository. The framework's bundled resources retain their original notices.
 
 ## Font Awesome Free
 
-The eye-dropper, rotate-left (Undo), rotate-right (Redo), shapes, sliders, clock-rotate-left, check, xmark, expand, crosshairs, palette, magnifying-glass-plus, magnifying-glass-minus, thumbtack and window-restore SVGs are from **Font Awesome Free 6.7.2**, copyright 2024 Fonticons,
+The eye-dropper, rotate-left (Undo), rotate-right (Redo), shapes, sliders, clock-rotate-left, check, xmark, expand, crosshairs, palette, magnifying-glass-plus, magnifying-glass-minus, thumbtack, window-restore, plus, floppy-disk, folder-open, file-import, file-export and arrow-rotate-left SVGs are from **Font Awesome Free 6.7.2**, copyright 2024 Fonticons,
 Inc., https://fontawesome.com. SVG icons are licensed **CC BY 4.0**:
 https://creativecommons.org/licenses/by/4.0/ . The upstream notice is included at
 [licenses/Font-Awesome-Free-6.7.2.txt](licenses/Font-Awesome-Free-6.7.2.txt).

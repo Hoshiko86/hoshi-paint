@@ -3,12 +3,14 @@
 use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
+mod color_library;
 mod colors;
 pub mod documents;
 pub mod files;
 mod history;
 mod image_settings;
 mod input;
+pub mod palette_store;
 mod panel_hosts;
 mod panel_layout;
 mod resources;
@@ -26,10 +28,10 @@ slint::slint! {
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
     import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
-    import { ColorPanel, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
+    import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
-    export { ColorPickerWindow, PaletteSwatch } from "../ui/colors.slint";
+    export { ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "../ui/colors.slint";
     import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox, ScrollView } from "std-widgets.slint";
     export struct DocumentTabRow { id: int, title: string, detail: string, thumbnail: image, active: bool, dirty: bool, generation: int }
     export component AppWindow inherits Window {
@@ -194,6 +196,30 @@ slint::slint! {
         out property <float> docked-swatches-left: docked-colors.swatches-left;
         out property <float> docked-swatches-top: docked-colors.swatches-top;
         in property <[PaletteSwatch]> color-swatches;
+        in-out property <string> color-name-query;
+        in property <[NamedColorSuggestion]> color-name-suggestions;
+        in property <[string]> palette-names;
+        in property <int> palette-selected;
+        in property <string> palette-title;
+        in property <bool> palette-inserting;
+        in property <bool> palette-expanded;
+        in property <bool> palette-dirty;
+        in property <string> palette-error;
+        callback search-color-name(string);
+        callback choose-named-color(string);
+        callback select-palette-color(int, bool);
+        callback toggle-palette-insert();
+        callback select-palette(int);
+        callback save-palette-as();
+        callback import-palette();
+        callback export-palette();
+        callback open-palettes-folder();
+        callback reset-palette();
+        callback set-palette-expanded(bool);
+        callback import-palette-path(string);
+        callback save-palette-path(string);
+        callback export-palette-path(string);
+
         in property <int> colors-placement;
         in property <bool> colors-docked;
         in property <bool> colors-visible;
@@ -221,6 +247,7 @@ slint::slint! {
         callback toggle-color-dock();
         callback close-colors();
         callback show-colors();
+        callback refresh-palette-library();
         callback hide-colors();
         callback sync-color(int, int, int, int, bool);
         callback choose-color(int);
@@ -548,6 +575,24 @@ slint::slint! {
                     placement: root.colors-placement;
                     placement-selected(value) => { root.set-colors-placement(value); }
                     swatches: root.color-swatches;
+                    color-name-query <=> root.color-name-query;
+                    color-name-suggestions: root.color-name-suggestions;
+                    palette-names: root.palette-names; palette-selected: root.palette-selected;
+                    palette-title: root.palette-title; palette-inserting: root.palette-inserting;
+                    palette-expanded: root.palette-expanded; palette-dirty: root.palette-dirty;
+                    palette-error: root.palette-error;
+                    search-color-name(value) => { root.search-color-name(value); }
+                    choose-named-color(value) => { root.choose-named-color(value); }
+                    select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
+                    toggle-palette-insert => { root.toggle-palette-insert(); }
+                    select-palette(index) => { root.select-palette(index); }
+                    save-palette-as => { root.save-palette-as(); }
+                    import-palette => { root.import-palette(); }
+                    export-palette => { root.export-palette(); }
+                    open-palettes-folder => { root.open-palettes-folder(); }
+                    reset-palette => { root.reset-palette(); }
+                    set-palette-expanded(value) => { root.set-palette-expanded(value); }
+
                     red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
                     hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                     hex-value: root.color-hex; error: root.color-error;
@@ -915,16 +960,16 @@ pub struct AppPanels {
 pub fn create_app_with_dialogs(
     dialogs: Rc<dyn documents::FileDialogs>,
 ) -> Result<(AppWindow, SharedController), slint::PlatformError> {
-    let app = create_panels(Some(dialogs))?;
+    let app = create_panels(Some(dialogs), None)?;
     Ok((app.ui, app.controller))
 }
 pub fn create_app_with_shape_properties()
 -> Result<(AppWindow, SharedController, Rc<ShapePropertiesWindow>), slint::PlatformError> {
-    let app = create_panels(None)?;
+    let app = create_panels(None, default_palette_root())?;
     Ok((app.ui, app.controller, app.shapes))
 }
 pub fn create_app_with_all_panels() -> Result<AppPanels, slint::PlatformError> {
-    create_panels(None)
+    create_panels(None, default_palette_root())
 }
 pub fn create_app_with_panels() -> Result<
     (
@@ -935,11 +980,20 @@ pub fn create_app_with_panels() -> Result<
     ),
     slint::PlatformError,
 > {
-    let app = create_panels(None)?;
+    let app = create_panels(None, default_palette_root())?;
     Ok((app.ui, app.controller, app.colors, app.history))
+}
+pub fn create_app_with_palette_root(
+    root: Option<std::path::PathBuf>,
+) -> Result<AppPanels, slint::PlatformError> {
+    create_panels(None, root)
+}
+fn default_palette_root() -> Option<std::path::PathBuf> {
+    documents::recent_store_path().and_then(|path| path.parent().map(std::path::Path::to_path_buf))
 }
 fn create_panels(
     dialogs: Option<Rc<dyn documents::FileDialogs>>,
+    palette_root: Option<std::path::PathBuf>,
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
@@ -1043,7 +1097,7 @@ fn create_panels(
             _ => Ok(()),
         })
     });
-    let picker = colors::bind_picker(&ui, controller.clone())?;
+    let picker = colors::bind_picker(&ui, controller.clone(), palette_root)?;
     let history = history::bind_window(&ui, controller.clone())?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
     documents::bind(&ui, controller.clone(), dialogs);

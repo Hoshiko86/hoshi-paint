@@ -1,0 +1,174 @@
+// Shared name search and palette controls for floating and docked Colors hosts.
+import { Button, ComboBox, LineEdit, Palette } from "std-widgets.slint";
+export struct NamedColorSuggestion { name: string, preview: color, description: string }
+export struct PaletteSwatch { red: int, green: int, blue: int, alpha: int, index: int, label: string, description: string }
+component ColorTip inherits Rectangle {
+    in property <string> description;
+    background: Palette.alternate-background; border-color: Palette.border;
+    border-width: 1px; border-radius: 4px;
+    VerticalLayout { padding: 8px; Text { text: root.description; color: Palette.foreground; } }
+}
+component Preview inherits Rectangle {
+    in property <color> value;
+    background: #e0e0e0; clip: true;
+    Rectangle { x: parent.width / 2; width: parent.width / 2; height: parent.height / 2; background: #b8b8b8; }
+    Rectangle { y: parent.height / 2; width: parent.width / 2; height: parent.height / 2; background: #b8b8b8; }
+    Rectangle { background: root.value; }
+    Rectangle { background: transparent; border-width: 1px; border-color: #526079; }
+}
+component PaletteEntry inherits FocusScope {
+    in property <color> value;
+    in property <string> label;
+    in property <string> description;
+    callback choose(bool);
+    accessible-role: button; accessible-label: root.label; accessible-description: root.description;
+    accessible-action-default => { root.choose(false); }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space {
+            root.choose(event.modifiers.shift); return accept;
+        }
+        return reject;
+    }
+    Preview { x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px; value: root.value; }
+    Rectangle { background: transparent; border-width: root.has-focus || touch.has-hover ? 2px : 0px; border-color: #315cae; }
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down { root.focus(); }
+            if event.kind == PointerEventKind.up && self.mouse-x >= 0px && self.mouse-y >= 0px
+                && self.mouse-x < self.width && self.mouse-y < self.height
+                && (event.button == PointerEventButton.left || event.button == PointerEventButton.right) {
+                root.choose(event.button == PointerEventButton.right);
+            }
+        }
+    }
+    Tooltip { ColorTip { description: root.description; } }
+}
+component NameSearch inherits Rectangle {
+    in-out property <string> query;
+    in property <[NamedColorSuggestion]> suggestions;
+    callback search(string);
+    callback choose(string);
+    out property <float> input-left: editor.absolute-position.x / 1px;
+    out property <float> input-top: editor.absolute-position.y / 1px;
+    private property <int> highlight;
+    private property <bool> open;
+    out property <length> results-height: root.open && root.query != "" ? max(1,min(8,root.suggestions.length)) * 30px : 0px;
+    height: 34px + root.results-height;
+    changed query => { if !editor.has-focus { editor.text = root.query; } }
+    HorizontalLayout {
+        height: 32px; spacing: 4px;
+        editor := LineEdit {
+            placeholder-text: "Color name…"; accessible-label: "Color name";
+            init => { self.text = root.query; }
+            edited(value) => { root.query = value; root.highlight = 0; root.open = value != ""; root.search(value); }
+            key-pressed(event) => {
+                if event.text == Key.DownArrow { root.open = true; root.highlight = min(root.highlight + 1,min(8,root.suggestions.length) - 1); return accept; }
+                if event.text == Key.UpArrow { root.highlight = max(0,root.highlight - 1); return accept; }
+                if event.text == Key.Escape { root.open = false; return accept; }
+                return reject;
+            }
+            accepted(value) => {
+                if root.open && root.suggestions.length > 0 {
+                    root.choose(root.suggestions[max(0,root.highlight)].name);
+                } else { root.choose(value); }
+                root.open = false; self.text = root.query;
+            }
+            Tooltip { text: @markdown("Type a color name. Use Up/Down and Enter, or select a swatch-prefixed suggestion. Typing alone does not change the color."); }
+        }
+        Button { width: 28px; icon: @image-url("../icons/xmark.svg"); accessible-label: "Clear color name search";
+            clicked => { root.query = ""; editor.text = ""; root.open = false; root.search(""); }
+            Tooltip { text: @markdown("Clear color name search"); }
+        }
+    }
+    if root.results-height > 0px: Rectangle {
+        y: 34px; width: parent.width; height: root.results-height;
+        background: #e8edf5; border-width: 1px; border-color: #b7c2d2;
+        if root.suggestions.length == 0: Text { text: "No matching color names"; color: #526079; vertical-alignment: center; x: 8px; }
+        for suggestion[index] in root.suggestions: Rectangle {
+            visible: index < 8;
+            y: index * 30px; width: parent.width; height: 30px;
+            background: index == root.highlight ? #dbe8ff : transparent;
+            Button { width: parent.width; height: parent.height; accessible-label: "Use color " + suggestion.name;
+                clicked => { root.choose(suggestion.name); root.open = false; editor.text = root.query; }
+            }
+            Rectangle { background: transparent; border-width: index == root.highlight ? 2px : 0px; border-color: #315cae; }
+            Preview { x: 6px; y: 5px; width: 20px; height: 20px; value: suggestion.preview; }
+            Text { x: 34px; y: 0px; width: parent.width - 40px; height: parent.height; text: suggestion.name; color: #273650; vertical-alignment: center; }
+            Tooltip { ColorTip { description: suggestion.description; } }
+        }
+    }
+}
+export component ColorLibrary inherits Rectangle {
+    in-out property <string> color-name-query;
+    in property <[NamedColorSuggestion]> color-name-suggestions;
+    in property <[PaletteSwatch]> swatches;
+    in property <[string]> palette-names;
+    in property <int> palette-selected;
+    in property <string> palette-title;
+    in property <bool> palette-inserting;
+    in property <bool> palette-expanded;
+    in property <bool> palette-dirty;
+    in property <string> palette-error;
+    in property <color> current-color;
+    callback search-color-name(string);
+    callback choose-named-color(string);
+    callback select-palette-color(int,bool);
+    callback toggle-palette-insert();
+    callback select-palette(int);
+    callback save-palette-as();
+    callback import-palette();
+    callback export-palette();
+    callback open-palettes-folder();
+    callback reset-palette();
+    callback set-palette-expanded(bool);
+    out property <float> name-input-left: names.input-left;
+    out property <float> name-input-top: names.input-top;
+    out property <float> swatches-left: swatch-grid.absolute-position.x / 1px;
+    out property <float> swatches-top: swatch-grid.absolute-position.y / 1px;
+    private property <length> cell: 26px;
+    private property <int> rows: root.palette-expanded ? 12 : 4;
+    height: 150px + root.rows * root.cell + names.results-height + (root.palette-error != "" ? 32px : 0px);
+    changed palette-selected => { palette-choice.current-index = root.palette-selected; }
+    VerticalLayout {
+        spacing: 5px;
+        names := NameSearch { query <=> root.color-name-query; suggestions: root.color-name-suggestions;
+            search(value) => { root.search-color-name(value); } choose(value) => { root.choose-named-color(value); } }
+        HorizontalLayout { height: 30px; spacing: 6px;
+            palette-choice := ComboBox { model: root.palette-names; current-index: root.palette-selected; accessible-label: "Color palette";
+                selected(value) => { root.select-palette(self.current-index); }
+            }
+            Text { text: root.palette-dirty ? "*" : ""; color: #526079; vertical-alignment: center; }
+            Button { text: root.palette-expanded ? "32" : "96"; width: 36px; accessible-label: root.palette-expanded ? "Show first 32 palette colors" : "Show all 96 palette colors";
+                clicked => { root.set-palette-expanded(!root.palette-expanded); }
+                Tooltip { text: @markdown("Show 32 or all 96 palette colors"); }
+            }
+        }
+        HorizontalLayout { height: 30px; spacing: 4px; alignment: start;
+            Rectangle { width: 30px; height: 30px; background: root.palette-inserting ? #c8ddff : transparent; border-width: root.palette-inserting ? 2px : 0px; border-color: #315cae;
+                Button { width: parent.width; height: parent.height; icon: @image-url("../icons/plus.svg"); accessible-label: "Add active color to palette";
+                    clicked => { root.toggle-palette-insert(); }
+                    Tooltip { text: @markdown("Add active color: enable, then click a palette slot to replace it. Click again to cancel insertion."); }
+                }
+                Preview { x: 20px; y: 20px; width: 9px; height: 9px; value: root.current-color; }
+            }
+            Button { width: 30px; icon: @image-url("../icons/floppy-disk.svg"); accessible-label: "Save current palette as"; clicked => { root.save-palette-as(); } Tooltip { text: @markdown("Save Current Palette As…"); } }
+            Button { width: 30px; icon: @image-url("../icons/file-import.svg"); accessible-label: "Import palette"; clicked => { root.import-palette(); } Tooltip { text: @markdown("Import a Paint.NET palette file"); } }
+            Button { width: 30px; icon: @image-url("../icons/file-export.svg"); accessible-label: "Export palette"; clicked => { root.export-palette(); } Tooltip { text: @markdown("Export the current palette"); } }
+            Button { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: "Open palettes folder"; clicked => { root.open-palettes-folder(); } Tooltip { text: @markdown("Open Palettes Folder"); } }
+            Button { width: 30px; icon: @image-url("../icons/arrow-rotate-left.svg"); accessible-label: "Reset to default palette"; clicked => { root.reset-palette(); } Tooltip { text: @markdown("Reset to Default Palette"); } }
+        }
+        Text { height: 18px; text: root.palette-inserting ? "Choose a slot to replace with the active color" : root.palette-title; color: #526079; font-size: 11px; }
+        swatch-grid := Rectangle {
+            height: root.rows * root.cell; border-width: root.palette-inserting ? 2px : 0px; border-color: #315cae;
+            for swatch[index] in root.swatches: PaletteEntry {
+                visible: index < (root.palette-expanded ? 96 : 32);
+                x: mod(index,8) * root.cell; y: floor(index / 8) * root.cell;
+                width: root.cell; height: root.cell;
+                value: rgba(swatch.red,swatch.green,swatch.blue,swatch.alpha / 255);
+                label: swatch.label; description: swatch.description;
+                choose(inactive) => { root.select-palette-color(swatch.index,inactive); }
+            }
+        }
+        if root.palette-error != "": Text { height: 32px; text: root.palette-error; color: #a12828; wrap: word-wrap; }
+    }
+}

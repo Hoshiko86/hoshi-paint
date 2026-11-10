@@ -1,3 +1,5 @@
+import { ColorLibrary, PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
+export { PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 import { FileShortcuts } from "file-shortcuts.slint";
 import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
@@ -22,7 +24,6 @@ component Channel inherits Rectangle {
         }
     }
 }
-export struct PaletteSwatch { red: int, green: int, blue: int, label: string, description: string }
 export component SwatchDetails inherits Rectangle {
     in property <string> text;
     background: Palette.alternate-background;
@@ -140,11 +141,29 @@ export component ColorPanel inherits Rectangle {
     callback reset-colors();
     in property <int> color-slot;
     callback select-color-slot(int);
-    in property <[PaletteSwatch]> swatches: [
-        { red: 72, green: 136, blue: 240, label: "#4888F0", description: "" },
-        { red: 232, green: 104, blue: 92, label: "#E8685C", description: "" },
-        { red: 54, green: 167, blue: 140, label: "#36A78C", description: "" },
-    ];
+    in property <[PaletteSwatch]> swatches;
+    in-out property <string> color-name-query;
+    in property <[NamedColorSuggestion]> color-name-suggestions;
+    in property <[string]> palette-names;
+    in property <int> palette-selected;
+    in property <string> palette-title;
+    in property <bool> palette-inserting;
+    in property <bool> palette-expanded;
+    in property <bool> palette-dirty;
+    in property <string> palette-error;
+    callback search-color-name(string);
+    callback choose-named-color(string);
+    callback select-palette-color(int,bool);
+    callback toggle-palette-insert();
+    callback select-palette(int);
+    callback save-palette-as();
+    callback import-palette();
+    callback export-palette();
+    callback open-palettes-folder();
+    callback reset-palette();
+    callback set-palette-expanded(bool);
+    out property <float> name-input-left: library.name-input-left;
+    out property <float> name-input-top: library.name-input-top;
     in property <int> red;
     in property <int> green;
     in property <int> blue;
@@ -173,8 +192,8 @@ export component ColorPanel inherits Rectangle {
     out property <float> sv-top: sv.absolute-position.y / 1px;
     out property <float> sv-width: sv.width / 1px;
     out property <float> sv-height: sv.height / 1px;
-    out property <float> swatches-left: swatch-strip.absolute-position.x / 1px;
-    out property <float> swatches-top: swatch-strip.absolute-position.y / 1px;
+    out property <float> swatches-left: library.swatches-left;
+    out property <float> swatches-top: library.swatches-top;
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback set-hex(string);
@@ -188,7 +207,7 @@ export component ColorPanel inherits Rectangle {
     preferred-height: 720px;
     ToolPanelFrame {
         title: "Colors"; docked: root.docked; placement: root.placement;
-        body-height: root.width < 560px ? 880px : 728px;
+        body-height: (root.width < 560px ? 880px : 728px) - 40px + library.height;
         placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
@@ -223,18 +242,23 @@ export component ColorPanel inherits Rectangle {
                     clicked => { root.pick-screen(); }
                 }
             }
-            swatch-strip := Rectangle {
-                height: 40px;
-                HorizontalLayout {
-                    alignment: start;
-                    spacing: 6px;
-                    for swatch in root.swatches : ColorSwatch {
-                        value: rgb(swatch.red, swatch.green, swatch.blue);
-                        label: swatch.label;
-                        description: swatch.description;
-                        clicked => { root.set-rgba(swatch.red, swatch.green, swatch.blue, root.alpha); }
-                    }
-                }
+            library := ColorLibrary {
+                color-name-query <=> root.color-name-query; color-name-suggestions: root.color-name-suggestions;
+                swatches: root.swatches; current-color: root.current-color;
+                palette-names: root.palette-names; palette-selected: root.palette-selected;
+                palette-title: root.palette-title; palette-inserting: root.palette-inserting;
+                palette-expanded: root.palette-expanded; palette-dirty: root.palette-dirty; palette-error: root.palette-error;
+                search-color-name(value) => { root.search-color-name(value); }
+                choose-named-color(value) => { root.choose-named-color(value); }
+                select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
+                toggle-palette-insert => { root.toggle-palette-insert(); }
+                select-palette(index) => { root.select-palette(index); }
+                save-palette-as => { root.save-palette-as(); }
+                import-palette => { root.import-palette(); }
+                export-palette => { root.export-palette(); }
+                open-palettes-folder => { root.open-palettes-folder(); }
+                reset-palette => { root.reset-palette(); }
+                set-palette-expanded(value) => { root.set-palette-expanded(value); }
             }
             sv := Rectangle {
                 height: 180px;
@@ -309,6 +333,29 @@ export component ColorPickerWindow inherits Window {
     background: #f2f4f8; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.light; }
     in property <[PaletteSwatch]> swatches <=> panel.swatches;
+    in-out property <string> color-name-query <=> panel.color-name-query;
+    in property <[NamedColorSuggestion]> color-name-suggestions <=> panel.color-name-suggestions;
+    in property <[string]> palette-names <=> panel.palette-names;
+    in property <int> palette-selected <=> panel.palette-selected;
+    in property <string> palette-title <=> panel.palette-title;
+    in property <bool> palette-inserting <=> panel.palette-inserting;
+    in property <bool> palette-expanded <=> panel.palette-expanded;
+    in property <bool> palette-dirty <=> panel.palette-dirty;
+    in property <string> palette-error <=> panel.palette-error;
+    out property <float> name-input-left: panel.name-input-left;
+    out property <float> name-input-top: panel.name-input-top;
+    callback search-color-name(string);
+    callback choose-named-color(string);
+    callback select-palette-color(int,bool);
+    callback toggle-palette-insert();
+    callback select-palette(int);
+    callback save-palette-as();
+    callback import-palette();
+    callback export-palette();
+    callback open-palettes-folder();
+    callback reset-palette();
+    callback set-palette-expanded(bool);
+
     in property <int> red <=> panel.red;
     in property <int> green <=> panel.green;
     in property <int> blue <=> panel.blue;
@@ -354,6 +401,18 @@ export component ColorPickerWindow inherits Window {
         file-action(value) => { root.file-action(value); }
         cycle-document(backward) => { root.cycle-document(backward); }
     panel := ColorPanel {
+        search-color-name(value) => { root.search-color-name(value); }
+        choose-named-color(value) => { root.choose-named-color(value); }
+        select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
+        toggle-palette-insert => { root.toggle-palette-insert(); }
+        select-palette(index) => { root.select-palette(index); }
+        save-palette-as => { root.save-palette-as(); }
+        import-palette => { root.import-palette(); }
+        export-palette => { root.export-palette(); }
+        open-palettes-folder => { root.open-palettes-folder(); }
+        reset-palette => { root.reset-palette(); }
+        set-palette-expanded(value) => { root.set-palette-expanded(value); }
+
         swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }
         select-color-slot(value) => { root.select-color-slot(value); }
         placement-selected(value) => { root.placement-selected(value); }

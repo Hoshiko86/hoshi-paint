@@ -3,6 +3,16 @@ use hoshi_controller::Color;
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
 
+fn scroll(window: &slint::Window, delta: f32) {
+    window.dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+        position: LogicalPosition::new(window.size().width as f32 - 30., 200.),
+        delta_x: 0.,
+        delta_y: delta,
+    });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(1000));
+    window.take_snapshot().unwrap();
+}
+
 fn slint_color(c: Color) -> slint::Color {
     slint::Color::from_argb_u8(c.a, c.r, c.g, c.b)
 }
@@ -28,6 +38,7 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
     let shape = state.borrow().document().active_shape().unwrap();
     assert_eq!(picker.get_original_color(), slint_color(original));
     picker.window().take_snapshot().unwrap();
+    scroll(picker.window(), 440. - picker.get_red_slider_top());
     let position = LogicalPosition::new(
         picker.get_red_slider_left() + picker.get_red_slider_width() * 0.9,
         picker.get_red_slider_top() + picker.get_red_slider_height() * 0.5,
@@ -46,6 +57,7 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
         });
     assert_ne!(state.borrow().primary_color(), original);
     assert_eq!(picker.get_original_color(), slint_color(original));
+    scroll(picker.window(), 10000.);
     let restore =
         ElementHandle::find_by_accessible_label(picker.as_ref(), "Restore original color")
             .next()
@@ -75,6 +87,7 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
     );
     assert_eq!(picker.get_hex_value(), "#010203FF");
     picker.window().take_snapshot().unwrap();
+    scroll(picker.window(), -10000.);
     let hex = ElementHandle::find_by_accessible_label(picker.as_ref(), "Hex RGB or RGBA color")
         .next()
         .unwrap();

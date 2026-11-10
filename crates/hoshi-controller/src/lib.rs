@@ -9,6 +9,8 @@ pub use bounds::BoundsField;
 pub mod color;
 mod editing;
 mod input;
+pub mod named_colors;
+pub mod palette;
 mod preview;
 mod rendering;
 mod viewport;

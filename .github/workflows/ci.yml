@@ -43,6 +43,11 @@ jobs:
           HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
           HOSHI_DOCK_SNAPSHOT: target/spike-colors-docked.png
         run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
+      - name: Native named colors and palette smoke test
+        if: runner.os == 'Linux'
+        env:
+          SLINT_BACKEND: winit-software
+        run: xvfb-run -a -s '-screen 0 1600x1200x24' cargo run --package hoshi-canvas-spike --example color_library_smoke --locked
       - name: Native shared shape editing controls smoke test
         if: runner.os == 'Linux'
         env:

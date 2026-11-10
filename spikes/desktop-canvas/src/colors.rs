@@ -1,4 +1,4 @@
-use crate::{AppWindow, ColorPickerWindow, PaletteSwatch, SharedController, refresh, update};
+use crate::{AppWindow, ColorPickerWindow, SharedController, refresh, update};
 use hoshi_controller::{
     Color,
     color::{self, Hsv},
@@ -57,6 +57,7 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
 pub(super) fn bind_picker(
     ui: &AppWindow,
     controller: SharedController,
+    palette_root: Option<std::path::PathBuf>,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
     let original = Rc::new(Cell::new(controller.borrow().selected_color()));
@@ -158,26 +159,6 @@ pub(super) fn bind_picker(
             ui.invoke_reset_colors();
         }
     });
-    let swatches = [
-        (72, 136, 240, "Blue"),
-        (232, 104, 92, "Coral"),
-        (54, 167, 140, "Mint"),
-    ]
-    .into_iter()
-    .map(|(r, g, b, name)| {
-        let value = Color::rgba(r, g, b, 255);
-        PaletteSwatch {
-            red: r.into(),
-            green: g.into(),
-            blue: b.into(),
-            label: swatch_hex(value).into(),
-            description: describe_swatch(value, Some(name)).into(),
-        }
-    })
-    .collect::<Vec<_>>();
-    let model: slint::ModelRc<PaletteSwatch> = Rc::new(slint::VecModel::from(swatches)).into();
-    picker.set_swatches(model.clone());
-    ui.set_color_swatches(model);
     // Both hosts edit the same controller and use the same panel component.
     let weak = picker.as_weak();
     ui.on_edit_rgba(move |r, g, b, a| {
@@ -234,6 +215,7 @@ pub(super) fn bind_picker(
                 c.pointer_up().expect("finish gesture before docking");
                 c.set_aspect_lock(false).expect("gesture ended");
             }
+            ui.invoke_refresh_palette_library();
             if !ui.get_colors_visible() {
                 baselines.set([
                     state.borrow().primary_color(),
@@ -325,6 +307,7 @@ pub(super) fn bind_picker(
             if ui.get_modal_visible() {
                 return;
             }
+            ui.invoke_refresh_palette_library();
             if !ui.get_colors_visible() {
                 baselines.set([
                     state.borrow().primary_color(),
@@ -509,6 +492,7 @@ pub(super) fn bind_picker(
             let _ = p.hide();
         }
     });
+    crate::color_library::bind(ui, &picker, controller.clone(), palette_root);
     Ok(picker)
 }
 
@@ -542,7 +526,7 @@ fn swatch_hex(value: Color) -> String {
     }
 }
 
-fn describe_swatch(value: Color, name: Option<&str>) -> String {
+pub(super) fn describe_swatch(value: Color, name: Option<&str>) -> String {
     let hsv = color::color_to_hsv(value);
     let heading = name
         .filter(|name| !name.is_empty())
@@ -597,14 +581,7 @@ fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
 }
 
 pub(super) fn describe_workspace_color(value: Color, slot: &str) -> String {
-    let name = match (value.r, value.g, value.b) {
-        (0, 0, 0) => Some("Black"),
-        (255, 255, 255) => Some("White"),
-        (72, 136, 240) => Some("Blue"),
-        (232, 104, 92) => Some("Coral"),
-        (54, 167, 140) => Some("Mint"),
-        _ => None,
-    };
+    let name = hoshi_controller::named_colors::name_for(value);
     format!("{slot} color\n{}", describe_swatch(value, name))
 }
 
