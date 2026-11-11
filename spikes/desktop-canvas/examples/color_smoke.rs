@@ -49,10 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let selected = state.borrow().primary_color();
         assert_eq!(state.borrow().composite()[128 * 512 + 128], selected);
         let canvas = ui.window().take_snapshot().unwrap();
-        let pixel = canvas.as_slice()[(ui.get_canvas_top() as usize + 128)
-            * canvas.width() as usize
-            + ui.get_canvas_left() as usize
-            + 128];
+        let document_pixel = document_point(128.0, 128.0);
+        let pixel_x = (ui.get_canvas_left() + document_pixel.0).round() as usize;
+        let pixel_y = (ui.get_canvas_top() + document_pixel.1).round() as usize;
+        let pixel = canvas.as_slice()[pixel_y * canvas.width() as usize + pixel_x];
         assert_eq!(
             (pixel.r, pixel.g, pixel.b),
             (selected.r, selected.g, selected.b)
