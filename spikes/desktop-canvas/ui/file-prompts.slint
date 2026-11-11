@@ -1,5 +1,6 @@
 import { Button, SpinBox, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
 export component SavePrompt inherits Rectangle {
     in property <string> name;
     callback response(int);
@@ -8,13 +9,13 @@ export component SavePrompt inherits Rectangle {
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape { root.response(2); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 14px;
-            Text { text: "Save changes?"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
-            Text { text: "Save changes to “" + root.name + "” before closing?"; wrap: word-wrap; color: DesktopTheme.text; }
-            Text { text: "Changes will be lost if you choose Don’t Save."; wrap: word-wrap; color: DesktopTheme.muted-text; }
+            Text { text: Translations.save-changes-title; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+            Text { text: Translations.save-changes-prefix + "“" + root.name + "”" + Translations.save-changes-suffix; wrap: word-wrap; color: DesktopTheme.text; }
+            Text { text: Translations.unsaved-changes-warning; wrap: word-wrap; color: DesktopTheme.muted-text; }
             HorizontalLayout { spacing: 8px;
-                Button { text: "Save"; accessible-label: "Save changes before closing"; clicked => { root.response(0); } }
-                Button { text: "Don’t Save"; accessible-label: "Discard changes and close"; clicked => { root.response(1); } }
-                Button { text: "Cancel"; accessible-label: "Cancel closing document"; clicked => { root.response(2); } }
+                Button { text: Translations.save; accessible-label: Translations.save-before-closing; clicked => { root.response(0); } }
+                Button { text: Translations.dont-save; accessible-label: Translations.discard-and-close; clicked => { root.response(1); } }
+                Button { text: Translations.cancel; accessible-label: Translations.cancel-closing-document; clicked => { root.response(2); } }
             }
         }
     }
@@ -30,16 +31,16 @@ export component SaveConfiguration inherits Rectangle {
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape { root.cancel(); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 14px;
-            Text { text: "Save Configuration"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+            Text { text: Translations.save-configuration; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
             Text { text: root.warning; wrap: word-wrap; color: DesktopTheme.text; }
             if root.jpeg: HorizontalLayout {
-                Text { text: "JPEG quality"; color: DesktopTheme.text; vertical-alignment: center; }
-                SpinBox { minimum: 1; maximum: 100; value <=> root.quality; accessible-label: "JPEG quality"; }
+                Text { text: Translations.jpeg-quality; color: DesktopTheme.text; vertical-alignment: center; }
+                SpinBox { minimum: 1; maximum: 100; value <=> root.quality; accessible-label: Translations.jpeg-quality; }
             }
-            Text { text: "Use a .hoshi project to preserve layers. PNG preserves transparency. Flattening remains undoable."; wrap: word-wrap; color: DesktopTheme.muted-text; }
+            Text { text: Translations.save-format-guidance; wrap: word-wrap; color: DesktopTheme.muted-text; }
             HorizontalLayout { spacing: 8px;
-                Button { text: "Cancel"; clicked => { root.cancel(); } }
-                Button { text: "Save"; accessible-label: "Confirm file format and save"; clicked => { root.save(); } }
+                Button { text: Translations.cancel; clicked => { root.cancel(); } }
+                Button { text: Translations.save; accessible-label: Translations.confirm-format-and-save; clicked => { root.save(); } }
             }
         }
     }
@@ -53,11 +54,11 @@ export component FileErrorPrompt inherits Rectangle {
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape || event.text == Key.Return { root.dismiss(); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 12px;
-            Text { text: "File operation failed"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+            Text { text: Translations.file-operation-failed; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
             ScrollView { vertical-stretch: 1; content-width: self.visible-width;
                 Text { width: parent.width; text: root.message; wrap: word-wrap; color: DesktopTheme.error-text; }
             }
-            Button { text: "OK"; clicked => { root.dismiss(); } }
+            Button { text: Translations.ok; clicked => { root.dismiss(); } }
         }
     }
 }

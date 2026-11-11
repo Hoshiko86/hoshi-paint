@@ -84,6 +84,15 @@ plural forms, and text direction belong to the locale layer rather than document
 or controller code. Until those formatters are implemented, the migrated shell
 uses locale-neutral numeric display and catalog-backed unit labels.
 
+Slint translation globals are scoped to a component tree. The desktop adapter
+therefore creates one immutable, schema-validated locale snapshot and explicitly
+applies it to every independently constructed root window before that window is
+bound or shown. Secondary windows must never copy strings through the main
+window or detect a locale themselves. Native dialog adapters receive the same
+narrow snapshot by injection. This keeps locale and platform access out of file,
+document, and controller policy while ensuring every visible tree resolves the
+same catalog.
+
 ## Accepted: Rust core independent of UI
 
 `hoshi-core` owns raster documents, layers, compositing, tool geometry and history.

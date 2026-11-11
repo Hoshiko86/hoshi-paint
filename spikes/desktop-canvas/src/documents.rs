@@ -1,7 +1,7 @@
 //! Native file workflow and queued Save / Don't Save / Cancel decisions.
 use crate::{
-    AppWindow, DocumentTabRow, SharedController, files::FileFormat, refresh as refresh_app,
-    workspace::Workspace,
+    AppWindow, DocumentTabRow, SharedController, files::FileFormat, localization::Localizer,
+    refresh as refresh_app, workspace::Workspace,
 };
 use slint::{ComponentHandle, Model};
 use std::{
@@ -30,26 +30,28 @@ pub trait FileDialogs {
     fn open(&self, owner: &slint::Window) -> Option<Vec<PathBuf>>;
     fn save(&self, owner: &slint::Window, suggested: &Path) -> Option<PathBuf>;
 }
-struct NativeDialogs;
+struct NativeDialogs {
+    text: Localizer,
+}
 impl FileDialogs for NativeDialogs {
     fn open(&self, owner: &slint::Window) -> Option<Vec<PathBuf>> {
         rfd::FileDialog::new()
             .set_parent(&owner.window_handle())
-            .set_title("Open Image")
+            .set_title(self.text.text("open_image"))
             .add_filter(
-                "Images and Hoshi projects",
+                self.text.text("images_hoshi_projects"),
                 &[
                     "hoshi", "png", "jpg", "jpeg", "jpe", "jfif", "bmp", "gif", "tif", "tiff",
                     "tga", "webp", "ico",
                 ],
             )
-            .add_filter("All files", &["*"])
+            .add_filter(self.text.text("all_files"), &["*"])
             .pick_files()
     }
     fn save(&self, owner: &slint::Window, suggested: &Path) -> Option<PathBuf> {
         let mut dialog = rfd::FileDialog::new()
             .set_parent(&owner.window_handle())
-            .set_title("Save As")
+            .set_title(self.text.text("save_as"))
             .set_file_name(suggested.file_name().unwrap_or_default().to_string_lossy());
         if let Some(parent) = suggested.parent().filter(|p| p.is_dir()) {
             dialog = dialog.set_directory(parent)
@@ -57,19 +59,19 @@ impl FileDialogs for NativeDialogs {
         let preferred = FileFormat::for_path(suggested).unwrap_or(FileFormat::Project);
         let filters = match preferred {
             FileFormat::Project => vec![
-                ("Hoshi layered project", vec!["hoshi"]),
-                ("PNG image", vec!["png"]),
-                ("JPEG image", vec!["jpg", "jpeg"]),
+                (self.text.text("hoshi_layered_project"), vec!["hoshi"]),
+                (self.text.text("png_image"), vec!["png"]),
+                (self.text.text("jpeg_image"), vec!["jpg", "jpeg"]),
             ],
             FileFormat::Png => vec![
-                ("PNG image", vec!["png"]),
-                ("Hoshi layered project", vec!["hoshi"]),
-                ("JPEG image", vec!["jpg", "jpeg"]),
+                (self.text.text("png_image"), vec!["png"]),
+                (self.text.text("hoshi_layered_project"), vec!["hoshi"]),
+                (self.text.text("jpeg_image"), vec!["jpg", "jpeg"]),
             ],
             FileFormat::Jpeg => vec![
-                ("JPEG image", vec!["jpg", "jpeg"]),
-                ("Hoshi layered project", vec!["hoshi"]),
-                ("PNG image", vec!["png"]),
+                (self.text.text("jpeg_image"), vec!["jpg", "jpeg"]),
+                (self.text.text("hoshi_layered_project"), vec!["hoshi"]),
+                (self.text.text("png_image"), vec!["png"]),
             ],
         };
         for (name, extensions) in filters {
@@ -108,6 +110,7 @@ struct Manager {
     state: SharedController,
     flow: RefCell<Flow>,
     dialogs: Rc<dyn FileDialogs>,
+    text: Localizer,
 }
 impl Manager {
     fn cancel(&self, ui: &AppWindow) {
@@ -266,7 +269,7 @@ impl Manager {
         if self.state.borrow().active_id() != Some(id) {
             self.error(
                 ui,
-                "The active document changed before saving. Nothing was written.".into(),
+                self.text.text("save_target_changed_before_write").into(),
             );
             return;
         }
@@ -282,7 +285,15 @@ impl Manager {
                     .into(),
             );
             ui.set_save_config_jpeg(format == FileFormat::Jpeg);
-            ui.set_save_config_warning(if format==FileFormat::Jpeg{"JPEG uses lossy compression. Layers will be flattened, transparency will be composited over white, and resolution is rounded to whole pixels/inch."}else{"This image format stores a single flat image. Saving will flatten the layers."}.into());
+            ui.set_save_config_warning(
+                self.text
+                    .text(if format == FileFormat::Jpeg {
+                        "jpeg_lossy_warning"
+                    } else {
+                        "save_flatten_warning"
+                    })
+                    .into(),
+            );
             self.flow.borrow_mut().save = Some(SaveRequest { id, path });
             ui.set_save_config_visible(true);
             return;
@@ -291,10 +302,7 @@ impl Manager {
     }
     fn write(&self, ui: &AppWindow, id: u32, path: PathBuf, flatten: bool) {
         if self.state.borrow().active_id() != Some(id) {
-            self.error(
-                ui,
-                "The active document changed. Nothing was written.".into(),
-            );
+            self.error(ui, self.text.text("save_target_changed").into());
             return;
         }
         ui.set_file_busy(true);
@@ -308,9 +316,9 @@ impl Manager {
             Ok(()) => self.saved(ui, id),
             Err(error) => self.error(
                 ui,
-                format!(
-                    "Could not save {}: {error}\nThe image remains open with its undo history.",
-                    path.display()
+                self.text.format(
+                    "save_failed_preserved",
+                    &[("path", &path.display().to_string()), ("error", &error)],
                 ),
             ),
         }
@@ -356,11 +364,17 @@ impl Manager {
         }
     }
 }
-pub(super) fn bind(ui: &AppWindow, state: SharedController, dialogs: Option<Rc<dyn FileDialogs>>) {
+pub(super) fn bind(
+    ui: &AppWindow,
+    state: SharedController,
+    dialogs: Option<Rc<dyn FileDialogs>>,
+    text: Localizer,
+) {
     let manager = Rc::new(Manager {
         state: state.clone(),
         flow: RefCell::new(Flow::default()),
-        dialogs: dialogs.unwrap_or_else(|| Rc::new(NativeDialogs)),
+        dialogs: dialogs.unwrap_or_else(|| Rc::new(NativeDialogs { text: text.clone() })),
+        text,
     });
     let (main, m) = (ui.as_weak(), manager.clone());
     ui.on_file_action(move |action| {
