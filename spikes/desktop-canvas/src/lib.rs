@@ -28,12 +28,14 @@ slint::slint! {
     import { FileShortcuts } from "../ui/file-shortcuts.slint";
     import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "../ui/file-prompts.slint";
     import { ImageSettings } from "../ui/image-settings.slint";
-    import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch, SwatchDetails } from "../ui/colors.slint";
+    import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch } from "../ui/colors.slint";
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
+    import { DesktopCommandBars, DocumentTabs, DesktopStatusBar, DocumentTabRow } from "../ui/app-chrome.slint";
+    import { DesktopTheme } from "../ui/theme.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "../ui/colors.slint";
-    import { Button, LineEdit, AboutSlint, Palette, ComboBox, SpinBox, ScrollView } from "std-widgets.slint";
-    export struct DocumentTabRow { id: int, title: string, detail: string, thumbnail: image, active: bool, dirty: bool, generation: int }
+    import { Button, AboutSlint, Palette, ComboBox, SpinBox } from "std-widgets.slint";
+    export { DocumentTabRow } from "../ui/app-chrome.slint";
     export component AppWindow inherits Window {
         in property <string> document-title: "Untitled · Hoshi Paint";
         title: root.document-title;
@@ -41,7 +43,7 @@ slint::slint! {
         preferred-height: 760px;
         min-width: max(960px, root.layout-min-width * 1px + 32px);
         min-height: 680px;
-        background: #202226;
+        background: DesktopTheme.window-background;
         default-font-family: "DejaVu Sans";
         default-font-size: 13px;
         init => { Palette.color-scheme = ColorScheme.dark; }
@@ -381,63 +383,31 @@ slint::slint! {
         VerticalLayout {
             padding: 6px;
             spacing: 4px;
-            HorizontalLayout {
-                height: 24px;
-                spacing: 6px;
-                Text { text: "Tool:"; font-size: 11px; color: #aeb8c8; vertical-alignment: center; }
-                Button { icon: @image-url("../icons/shapes.svg"); width: 28px; accessible-label: "Shapes"; enabled: root.has-document;
-                    Tooltip { text: @markdown("Shapes · Rectangle"); } clicked => { root.choose-tool(0); root.show-shape-properties(); } }
-                Rectangle { width: 1px; background: #555b65; }
-                Text { text: "Rectangle"; color: #e8edf5; vertical-alignment: center; }
-                Text { text: root.shape-mode == 0 ? "Fill" : root.shape-mode == 1 ? "Outline" : "Fill + Outline"; color: #aeb8c8; vertical-alignment: center; }
-                Text { text: "· " + root.stroke-width-pixels + " px"; color: #aeb8c8; vertical-alignment: center; }
-                Rectangle { horizontal-stretch: 1; }
-                Button { icon: @image-url("../icons/check.svg"); width: 28px; accessible-label: "Finish shape"; enabled: root.has-shape;
-                    opacity: self.enabled ? 1 : 0.4; Tooltip { text: @markdown("Finish shape · Enter"); } clicked => { root.action(2); } }
+            DesktopCommandBars {
+                has-document: root.has-document; has-shape: root.has-shape;
+                can-undo: root.can-undo; can-redo: root.can-redo;
+                modal-visible: root.modal-visible; shape-mode: root.shape-mode;
+                stroke-width-pixels: root.stroke-width-pixels;
+                action(value) => { root.action(value); }
+                select-shapes => { root.choose-tool(0); root.show-shape-properties(); }
+                show-history => { root.show-history(); }
+                show-shape-properties => { root.show-shape-properties(); }
+                zoom(delta) => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, delta); }
+                fit-canvas => { root.fit-canvas(); }
             }
-            HorizontalLayout {
-                height: 34px;
-                spacing: 4px;
-                Button { icon: @image-url("../icons/undo-2.svg"); width: 34px; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
-                    Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
-                Button { icon: @image-url("../icons/redo-2.svg"); width: 34px; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
-                    Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
-                Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: 34px; accessible-label: "History"; Tooltip { text: @markdown("History"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-history(); } }
-                Button { icon: @image-url("../icons/check.svg"); width: 34px; accessible-label: "Commit shape"; Tooltip { text: @markdown("Commit shape · Enter"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(2); } }
-                Button { icon: @image-url("../icons/x.svg"); width: 34px; accessible-label: "Cancel shape"; Tooltip { text: @markdown("Cancel shape · Escape"); } enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4; clicked => { root.action(3); } }
-                Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: 34px; accessible-label: "Shape Properties"; Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } enabled: root.has-document; opacity: self.enabled ? 1 : 0.4; clicked => { root.show-shape-properties(); } }
-                Rectangle { horizontal-stretch: 1; }
-                Button { icon: @image-url("../icons/zoom-out.svg"); width: 34px; accessible-label: "Zoom out"; Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, -1); } }
-                Button { icon: @image-url("../icons/maximize.svg"); width: 34px; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window"; Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
-                Button { icon: @image-url("../icons/crosshair.svg"); width: 34px; accessible-label: "Reset view"; Tooltip { text: @markdown("Center canvas at 100%"); } clicked => { root.action(4); } }
-                Button { icon: @image-url("../icons/zoom-in.svg"); width: 34px; accessible-label: "Zoom in"; Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, 1); } }
-            }
-            ScrollView {
-                height: 44px; content-height: 40px; content-width: max(self.width, root.document-tabs.length * 184px);
-                HorizontalLayout { spacing: 6px; alignment: start;
-                    for tab in root.document-tabs: Rectangle {
-                        width: 178px; background: tab.active ? #3b4657 : #2a2d32;
-                        border-width: tab.active ? 2px : 1px; border-color: tab.active ? #72a7f8 : #555b65; border-radius: 2px;
-                        HorizontalLayout { padding: 3px; spacing: 3px;
-                            Button { text: tab.title + (tab.dirty ? " *" : ""); icon: tab.thumbnail;
-                                accessible-label: "Activate document " + tab.title;
-                                enabled: !root.modal-visible; clicked => { root.activate-document(tab.id); }
-                                Tooltip { SwatchDetails { text: tab.detail; } }
-                            }
-                            Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: "Close document " + tab.title;
-                                enabled: !root.modal-visible; clicked => { root.close-document(tab.id); } }
-                        }
-                    }
-                }
+            DocumentTabs {
+                tabs: root.document-tabs; modal-visible: root.modal-visible;
+                activate(id) => { root.activate-document(id); }
+                close(id) => { root.close-document(id); }
             }
             workspace := Rectangle {
                 vertical-stretch: 1;
-                background: #36393d;
+                background: DesktopTheme.workspace-background;
                 VerticalLayout {
-                    x: 0px; y: 0px; width: 64px; height: parent.height;
+                    x: 0px; y: 0px; width: DesktopTheme.tool-rail-width; height: parent.height;
                     spacing: 8px; alignment: start;
-                    Text { text: "TOOLS"; color: #aeb8c8; font-size: 11px; font-weight: 700; }
-                    Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: #315cae; border-radius: 4px; background: transparent;
+                    Text { text: "TOOLS"; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
+                    Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: DesktopTheme.selected-tool; border-radius: 4px; background: transparent;
                         rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
                             icon: @image-url("../icons/shapes.svg"); accessible-label: "Shapes"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
                             Tooltip { text: @markdown("Shapes · Rectangle"); }
@@ -446,7 +416,7 @@ slint::slint! {
                     }
                     Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: "Colors";
                         Tooltip { text: @markdown("Colors · Primary, Secondary and Color Picker"); } clicked => { root.show-colors(); } }
-                    Text { text: "COLORS"; color: #aeb8c8; font-size: 11px; font-weight: 700; }
+                    Text { text: "COLORS"; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
                     ColorSwatch { value: root.workspace-primary; label: "Primary color"; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
                     ColorSwatch { value: root.workspace-secondary; label: "Secondary color"; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
                     HorizontalLayout { spacing: 4px;
@@ -458,10 +428,10 @@ slint::slint! {
                 viewport := Rectangle {
                     x: root.canvas-layout-x * 1px; y: root.canvas-layout-y * 1px;
                     width: root.canvas-layout-width * 1px; height: root.canvas-layout-height * 1px;
-                    background: #4a4d52;
+                    background: DesktopTheme.pasteboard-background;
                     clip: true;
                     border-width: 1px;
-                    border-color: #191b1e;
+                    border-color: DesktopTheme.strong-border;
                     accessible-role: image;
                     accessible-label: "Drawing canvas. Drag to draw; Enter commits; Escape cancels.";
                     Image {
@@ -664,14 +634,11 @@ slint::slint! {
                     close-panel => { root.close-shape-properties(); }
                 }
             }
-            HorizontalLayout { height: 28px; spacing: 8px;
-                Text { text: root.status; color: #c3ccda; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; }
-                Text { text: root.has-document ? root.image-width + " × " + root.image-height + " px" : ""; color: #aeb8c8; font-size: 11px; vertical-alignment: center; }
-                Text { text: round(root.zoom * 100) + "%"; color: #e8edf5; font-size: 11px; vertical-alignment: center; }
-                Text { text: "Layer"; color: #aeb8c8; font-size: 11px; vertical-alignment: center; }
-                layer-input := LineEdit { width: 140px; enabled: root.has-document; text: root.layer-name; accessible-label: "Layer name";
-                    edited(value) => { root.rename(value); self.text = root.layer-name; }
-                }
+            DesktopStatusBar {
+                status: root.status; has-document: root.has-document;
+                image-width: root.image-width; image-height: root.image-height;
+                zoom: root.zoom; layer-name: root.layer-name;
+                rename(value) => { root.rename(value); }
             }
         }
         if root.file-prompt-visible: Rectangle {

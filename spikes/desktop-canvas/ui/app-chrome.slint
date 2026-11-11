@@ -1,0 +1,115 @@
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
+
+export struct DocumentTabRow {
+    id: int,
+    title: string,
+    detail: string,
+    thumbnail: image,
+    active: bool,
+    dirty: bool,
+    generation: int,
+}
+
+export component DesktopCommandBars inherits Rectangle {
+    in property <bool> has-document;
+    in property <bool> has-shape;
+    in property <bool> can-undo;
+    in property <bool> can-redo;
+    in property <bool> modal-visible;
+    in property <int> shape-mode;
+    in property <float> stroke-width-pixels;
+    callback action(int);
+    callback select-shapes();
+    callback show-history();
+    callback show-shape-properties();
+    callback zoom(float);
+    callback fit-canvas();
+
+    VerticalLayout {
+        spacing: 4px;
+        HorizontalLayout {
+            height: 24px; spacing: 6px;
+            Text { text: "Tool:"; font-size: 11px; color: DesktopTheme.muted-text; vertical-alignment: center; }
+            Button { icon: @image-url("../icons/shapes.svg"); width: DesktopTheme.small-button-size; accessible-label: "Shapes"; enabled: root.has-document;
+                Tooltip { text: @markdown("Shapes · Rectangle"); } clicked => { root.select-shapes(); } }
+            Rectangle { width: 1px; background: DesktopTheme.border; }
+            Text { text: "Rectangle"; color: DesktopTheme.text; vertical-alignment: center; }
+            Text { text: root.shape-mode == 0 ? "Fill" : root.shape-mode == 1 ? "Outline" : "Fill + Outline"; color: DesktopTheme.muted-text; vertical-alignment: center; }
+            Text { text: "· " + root.stroke-width-pixels + " px"; color: DesktopTheme.muted-text; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Button { icon: @image-url("../icons/check.svg"); width: DesktopTheme.small-button-size; accessible-label: "Finish shape"; enabled: root.has-shape;
+                opacity: self.enabled ? 1 : 0.4; Tooltip { text: @markdown("Finish shape · Enter"); } clicked => { root.action(2); } }
+        }
+        HorizontalLayout {
+            height: DesktopTheme.compact-button-size; spacing: 4px;
+            Button { icon: @image-url("../icons/undo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Undo"; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("Undo · Ctrl/Cmd+Z"); } clicked => { root.action(0); } }
+            Button { icon: @image-url("../icons/redo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Redo"; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("Redo · Ctrl/Cmd+Shift+Z"); } clicked => { root.action(1); } }
+            Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: DesktopTheme.compact-button-size; accessible-label: "History"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("History"); } clicked => { root.show-history(); } }
+            Button { icon: @image-url("../icons/check.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Commit shape"; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("Commit shape · Enter"); } clicked => { root.action(2); } }
+            Button { icon: @image-url("../icons/x.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Cancel shape"; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("Cancel shape · Escape"); } clicked => { root.action(3); } }
+            Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Shape Properties"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+                Tooltip { text: @markdown("Shape Properties · size, position and rendering"); } clicked => { root.show-shape-properties(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { icon: @image-url("../icons/zoom-out.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Zoom out";
+                Tooltip { text: @markdown("Zoom out"); } clicked => { root.zoom(-1); } }
+            Button { icon: @image-url("../icons/maximize.svg"); width: DesktopTheme.compact-button-size; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: "Fit canvas in window";
+                Tooltip { text: @markdown("Fit the whole image in the canvas viewport"); } clicked => { root.fit-canvas(); } }
+            Button { icon: @image-url("../icons/crosshair.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Reset view";
+                Tooltip { text: @markdown("Center canvas at 100%"); } clicked => { root.action(4); } }
+            Button { icon: @image-url("../icons/zoom-in.svg"); width: DesktopTheme.compact-button-size; accessible-label: "Zoom in";
+                Tooltip { text: @markdown("Zoom in"); } clicked => { root.zoom(1); } }
+        }
+    }
+}
+
+export component DocumentTabs inherits ScrollView {
+    in property <[DocumentTabRow]> tabs;
+    in property <bool> modal-visible;
+    callback activate(int);
+    callback close(int);
+    height: 44px;
+    content-height: 40px;
+    content-width: max(self.width, root.tabs.length * 184px);
+    HorizontalLayout {
+        spacing: 6px; alignment: start;
+        for tab in root.tabs: Rectangle {
+            width: 178px;
+            background: tab.active ? DesktopTheme.raised-background : DesktopTheme.tab-background;
+            border-width: tab.active ? 2px : 1px;
+            border-color: tab.active ? DesktopTheme.accent : DesktopTheme.border;
+            border-radius: 2px;
+            HorizontalLayout {
+                padding: 3px; spacing: 3px;
+                Button { text: tab.title + (tab.dirty ? " *" : ""); icon: tab.thumbnail;
+                    accessible-label: "Activate document " + tab.title; enabled: !root.modal-visible;
+                    clicked => { root.activate(tab.id); } Tooltip { text: @markdown(tab.detail); } }
+                Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: "Close document " + tab.title;
+                    enabled: !root.modal-visible; clicked => { root.close(tab.id); } }
+            }
+        }
+    }
+}
+
+export component DesktopStatusBar inherits HorizontalLayout {
+    in property <string> status;
+    in property <bool> has-document;
+    in property <int> image-width;
+    in property <int> image-height;
+    in property <float> zoom;
+    in property <string> layer-name;
+    callback rename(string);
+    height: DesktopTheme.status-height;
+    spacing: 8px;
+    Text { text: root.status; color: #c3ccda; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; }
+    Text { text: root.has-document ? root.image-width + " × " + root.image-height + " px" : ""; color: DesktopTheme.muted-text; font-size: 11px; vertical-alignment: center; }
+    Text { text: round(root.zoom * 100) + "%"; color: DesktopTheme.text; font-size: 11px; vertical-alignment: center; }
+    Text { text: "Layer"; color: DesktopTheme.muted-text; font-size: 11px; vertical-alignment: center; }
+    layer-input := LineEdit { width: 140px; enabled: root.has-document; text: root.layer-name; accessible-label: "Layer name";
+        edited(value) => { root.rename(value); self.text = root.layer-name; } }
+}

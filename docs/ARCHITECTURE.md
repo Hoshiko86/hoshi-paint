@@ -1,5 +1,36 @@
 # Architecture decisions
 
+## Required: architecture quality gate
+
+Every major feature or structural change includes a short review of these
+principles in its pull request:
+
+- **SOLID:** each module and component has one clear reason to change; public
+  interfaces are small; extensions do not require modifying unrelated tools;
+  implementations preserve their interface contracts; callers depend on the
+  narrowest useful interface; orchestration depends on core abstractions.
+- **DRY:** rules and semantic design values have one source of truth. Similar
+  code may remain separate when it represents different behavior and would
+  otherwise create a misleading abstraction.
+- **Atomicity:** a user edit either commits one complete history operation or
+  leaves the document unchanged. File replacement and persistent settings must
+  not expose partial writes.
+- **Consistency, isolation, durability:** document invariants are checked at
+  command boundaries; previews do not corrupt committed state; independent
+  documents and jobs do not leak state; successful saves and history records
+  survive the lifetime promised by their storage interface. These ACID ideas
+  apply to state transitions and persistence rather than every UI interaction.
+- **Inversion of control:** UI and platform adapters emit commands and receive
+  models through callbacks. Editing policy belongs in `hoshi-controller` or
+  `hoshi-core`; operating-system details stay behind adapter interfaces.
+
+The review records evidence, exceptions, and any follow-up issue. Passing tests
+alone does not satisfy this gate.
+
+Semantic UI colors and dimensions live in `ui/theme.slint`. Shell components
+consume those roles rather than duplicating literal values in application
+composition or tests.
+
 ## Accepted: Rust core independent of UI
 
 `hoshi-core` owns raster documents, layers, compositing, tool geometry and history.
