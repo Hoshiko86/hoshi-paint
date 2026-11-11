@@ -20,10 +20,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = weak.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         for (x, y) in [(40.0, 40.0), (200.0, 180.0)] {
-            ui.invoke_pointer_down(x, y);
-            ui.invoke_pointer_move(x + 100.0, y + 60.0);
-            ui.invoke_pointer_up(x + 100.0, y + 60.0);
+            let start = point(x, y);
+            let end = point(x + 100.0, y + 60.0);
+            ui.invoke_pointer_down(start.0, start.1);
+            ui.invoke_pointer_move(end.0, end.1);
+            ui.invoke_pointer_up(end.0, end.1);
             ui.invoke_action(2);
         }
         ui.invoke_show_colors();
