@@ -8,14 +8,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let main = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = main.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let document_point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         picker.invoke_set_hex("#3C87E080".into());
-        ui.invoke_pointer_down(10.0, 10.0);
-        ui.invoke_pointer_move(30.0, 30.0);
-        ui.invoke_pointer_up(30.0, 30.0);
+        let start = document_point(10.0, 10.0);
+        let end = document_point(30.0, 30.0);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         ui.invoke_action(2);
         picker.invoke_set_rgba(72, 136, 240, 255);
-        ui.invoke_pointer_down(64.0, 64.0);
-        ui.invoke_pointer_move(256.0, 224.0);
+        let start = document_point(64.0, 64.0);
+        let end = document_point(256.0, 224.0);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
         ui.invoke_show_colors();
         assert!(picker.get_has_active_shape());
         picker.window().take_snapshot().unwrap();
