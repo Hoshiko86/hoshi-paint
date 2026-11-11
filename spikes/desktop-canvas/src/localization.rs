@@ -3,7 +3,8 @@
 use crate::Translations;
 use serde_json::Value;
 use slint::ComponentHandle;
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 const EN_US: &str = include_str!("../i18n/en-US.json");
 const ES_ES: &str = include_str!("../i18n/es-ES.json");
@@ -113,6 +114,21 @@ impl Localizer {
 
     pub(super) fn format(&self, key: &str, arguments: &[(&str, &str)]) -> String {
         let template = self.text(key);
+        let expected = placeholder_names(template).unwrap_or_else(|error| {
+            panic!("invalid {} catalog key {key}: {error}", self.locale.tag())
+        });
+        let supplied: BTreeSet<&str> = arguments.iter().map(|(name, _)| *name).collect();
+        assert_eq!(
+            supplied.len(),
+            arguments.len(),
+            "duplicate argument for catalog key {key}"
+        );
+        assert_eq!(
+            supplied,
+            expected.iter().map(String::as_str).collect(),
+            "arguments do not match placeholders for {} catalog key {key}",
+            self.locale.tag()
+        );
         let mut value = String::with_capacity(template.len());
         let mut rest = template;
         while let Some(open) = rest.find('{') {
@@ -140,6 +156,31 @@ impl Localizer {
         value.push_str(rest);
         value
     }
+}
+
+fn placeholder_names(template: &str) -> Result<BTreeSet<String>, String> {
+    let mut names = BTreeSet::new();
+    let mut rest = template;
+    while let Some(open) = rest.find(['{', '}']) {
+        if rest.as_bytes()[open] == b'}' {
+            return Err("closing brace has no opening brace".into());
+        }
+        let placeholder = &rest[open + 1..];
+        let close = placeholder
+            .find('}')
+            .ok_or_else(|| "placeholder has no closing brace".to_owned())?;
+        let name = &placeholder[..close];
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|character| character.is_ascii_lowercase() || character == '_')
+        {
+            return Err(format!("invalid placeholder name {{{name}}}"));
+        }
+        names.insert(name.to_owned());
+        rest = &placeholder[close + 1..];
+    }
+    Ok(names)
 }
 
 fn supported_locale(requested: &str) -> Option<SupportedLocale> {
@@ -208,6 +249,26 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
         "embedded {} catalog does not match the required schema",
         locale.tag()
     );
+    let Value::Object(english_entries) =
+        serde_json::from_str(EN_US).expect("embedded en-US catalog")
+    else {
+        unreachable!("catalog root is an object")
+    };
+    for (key, value) in &values {
+        let actual = placeholder_names(value)
+            .unwrap_or_else(|error| panic!("invalid {} catalog key {key}: {error}", locale.tag()));
+        let reference = english_entries[key]
+            .as_str()
+            .expect("catalog values are strings");
+        let expected = placeholder_names(reference)
+            .unwrap_or_else(|error| panic!("invalid en-US catalog key {key}: {error}"));
+        assert_eq!(
+            actual,
+            expected,
+            "placeholder schema differs for {} catalog key {key}",
+            locale.tag()
+        );
+    }
     values
 }
 
@@ -309,5 +370,16 @@ mod tests {
         );
         assert!(rendered.contains("{error}.png"));
         assert!(rendered.contains("disk {path} unavailable"));
+    }
+
+    #[test]
+    fn placeholder_schema_rejects_malformed_names_and_braces() {
+        assert!(placeholder_names("missing {close").is_err());
+        assert!(placeholder_names("stray close}").is_err());
+        assert!(placeholder_names("bad {Error}").is_err());
+        assert_eq!(
+            placeholder_names("{path}: {error}; again {path}").unwrap(),
+            BTreeSet::from(["error".to_owned(), "path".to_owned()])
+        );
     }
 }

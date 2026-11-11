@@ -31,9 +31,9 @@ export component HistoryPanel inherits Rectangle {
             HorizontalLayout {
                 alignment: start; spacing: 8px;
                 Button { icon: @image-url("../icons/undo-2.svg"); width: 40px; enabled: root.can-undo; opacity: self.enabled ? 1 : 0.4; accessible-label: Translations.undo;
-                    Tooltip { Text { text: Translations.undo + " · " + Translations.shortcut-undo; } } clicked => { root.undo(); } }
+                    Tooltip { Text { text: Translations.undo + " · " + Translations.shortcut-undo; color: Palette.foreground; } } clicked => { root.undo(); } }
                 Button { icon: @image-url("../icons/redo-2.svg"); width: 40px; enabled: root.can-redo; opacity: self.enabled ? 1 : 0.4; accessible-label: Translations.redo;
-                    Tooltip { Text { text: Translations.redo + " · " + Translations.shortcut-redo; } } clicked => { root.redo(); } }
+                    Tooltip { Text { text: Translations.redo + " · " + Translations.shortcut-redo; color: Palette.foreground; } } clicked => { root.redo(); } }
             }
             Text { text: root.status-text; wrap: word-wrap; color: DesktopTheme.muted-text; min-height: 56px; vertical-stretch: 0; }
             entries := ListView {

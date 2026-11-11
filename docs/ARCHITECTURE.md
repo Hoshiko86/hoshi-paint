@@ -69,7 +69,10 @@ composition or tests.
 Localization is being introduced at the presentation boundary through
 `ui/localization.slint` and locale catalogs under `spikes/desktop-canvas/i18n`.
 The first migrated surface is `ui/app-chrome.slint`; every user-facing literal
-in that component uses the catalog. Rust selects the first supported system
+in that component uses the catalog. File-prompt and History chrome, native
+Open/Save dialog labels, and selected save-workflow messages are the next
+migrated slice. History action/status semantics and remaining file-domain errors
+still require locale-neutral message IDs at the adapter boundary. Rust selects the first supported system
 locale, applies a deterministic fallback, and supplies a complete catalog before
 showing the main component tree. Existing menus, panels, prompts, native dialogs,
 and adapter status messages are an explicitly tracked migration gap. New or

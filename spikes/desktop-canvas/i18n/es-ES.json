@@ -37,7 +37,7 @@
   "cancel_closing_document": "Cancelar el cierre del documento",
   "save_configuration": "Configuración de guardado",
   "jpeg_quality": "Calidad JPEG",
-  "save_format_guidance": "Use un proyecto .hoshi para conservar las capas. PNG conserva la transparencia. Aplanar sigue siendo reversible.",
+  "save_format_guidance": "Use un proyecto .hoshi para conservar las capas. PNG conserva la transparencia. El aplanado se puede deshacer.",
   "confirm_format_and_save": "Confirmar el formato de archivo y guardar",
   "file_operation_failed": "Error en la operación de archivo",
   "ok": "Aceptar",
