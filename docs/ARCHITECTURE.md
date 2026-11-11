@@ -31,9 +31,36 @@ principles in its pull request:
   types, traits, Slint components, and injected callbacks. Inheritance is limited
   to framework-required visual primitives and must not become the mechanism for
   sharing editing policy or application state.
+- **Separation of concerns:** document semantics, application orchestration,
+  presentation, persistence, and operating-system integration remain distinct.
+  A change in one concern must not require unrelated layers to change.
+- **Dependency direction:** dependencies point toward stable domain code.
+  `hoshi-core` has no UI, controller, filesystem-dialog, or platform dependency;
+  `hoshi-controller` may depend on the core but not on a presentation framework;
+  adapters depend on those layers rather than the reverse.
+- **Explicit invariants:** dimensions, memory budgets, coordinate spaces,
+  document validity, preview state, and history rules are checked at command or
+  storage boundaries and covered by tests.
+- **Make invalid states unrepresentable:** use Rust types, enums, constructors,
+  and private fields to prevent contradictory modes, malformed dimensions, and
+  partially configured operations whenever practical. Validation at an external
+  boundary must produce a valid domain value before entering the core.
+- **Observability and diagnosability:** failures carry actionable context without
+  leaking platform details into domain code. Long-running work exposes progress
+  and cancellation where users or operators need them.
+- **Command-query separation:** an operation either changes state or returns
+  information unless an explicitly documented transaction requires both. Queries
+  do not cause hidden document, history, filesystem, or UI mutations.
+- **Idempotency:** operations that can be retried—recovery, synchronization,
+  autosave, migration, and project-management automation—produce the same valid
+  result when repeated with the same input.
+- **Least authority:** plugins, file handlers, background jobs, and platform
+  services receive only the data and capabilities required for their task.
 
-The review records evidence, exceptions, and any follow-up issue. Passing tests
-alone does not satisfy this gate.
+The pull-request template enforces this review for every major feature or
+structural change. Each criterion records evidence or an explicit reason it is
+not applicable, plus exceptions and follow-up issues. Passing tests alone does
+not satisfy this gate.
 
 Semantic UI colors and dimensions live in `ui/theme.slint`. Shell components
 consume those roles rather than duplicating literal values in application
