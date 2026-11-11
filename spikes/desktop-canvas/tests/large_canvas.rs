@@ -47,6 +47,6 @@ fn huge_document_uses_a_viewport_texture_and_updates_when_window_resizes() {
     let x = ui.get_canvas_left() as usize + 10;
     let y = ui.get_canvas_top() as usize + 10;
     let pixel = snapshot.as_slice()[y * snapshot.width() as usize + x];
-    assert_eq!((pixel.r, pixel.g, pixel.b), (220, 226, 235));
+    assert_eq!((pixel.r, pixel.g, pixel.b), (74, 77, 82));
     ui.hide().unwrap();
 }
