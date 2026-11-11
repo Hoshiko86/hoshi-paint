@@ -66,15 +66,23 @@ Semantic UI colors and dimensions live in `ui/theme.slint`. Shell components
 consume those roles rather than duplicating literal values in application
 composition or tests.
 
-User-facing text crosses the presentation boundary through
+Localization is being introduced at the presentation boundary through
 `ui/localization.slint` and locale catalogs under `spikes/desktop-canvas/i18n`.
-Rust selects and validates a locale, applies a deterministic fallback, and
-supplies complete catalog values to Slint. New UI components must not introduce
-unlocalized user-facing literals. Commands, file formats, project data, log
-fields, and internal error identifiers remain locale-neutral; adapters translate
-them for display. Formatting rules for numbers, dates, units, plural forms, and
-text direction belong to the locale layer rather than document or controller
-code.
+The first migrated surface is `ui/app-chrome.slint`; every user-facing literal
+in that component uses the catalog. Rust selects the first supported system
+locale, applies a deterministic fallback, and supplies a complete catalog before
+showing the main component tree. Existing menus, panels, prompts, native dialogs,
+and adapter status messages are an explicitly tracked migration gap. New or
+migrated UI components must not introduce user-facing literals outside the
+catalog.
+
+The target invariant is that all user-facing text, including accessibility
+labels and displayed errors, crosses this boundary. Commands, file formats,
+project data, log fields, and internal error identifiers remain locale-neutral;
+adapters translate them for display. Formatting rules for numbers, dates, units,
+plural forms, and text direction belong to the locale layer rather than document
+or controller code. Until those formatters are implemented, the migrated shell
+uses locale-neutral numeric display and catalog-backed unit labels.
 
 ## Accepted: Rust core independent of UI
 

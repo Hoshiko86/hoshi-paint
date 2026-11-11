@@ -19,5 +19,10 @@
   "activate_document": "Activate document",
   "close_document": "Close document",
   "layer": "Layer",
-  "layer_name": "Layer name"
+  "layer_name": "Layer name",
+  "unit_pixels": "px",
+  "key_commit": "Enter",
+  "key_cancel": "Escape",
+  "shortcut_undo": "Ctrl/Cmd+Z",
+  "shortcut_redo": "Ctrl/Cmd+Shift+Z"
 }

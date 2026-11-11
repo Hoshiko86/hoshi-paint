@@ -19,5 +19,10 @@
   "activate_document": "Activar documento",
   "close_document": "Cerrar documento",
   "layer": "Capa",
-  "layer_name": "Nombre de capa"
+  "layer_name": "Nombre de capa",
+  "unit_pixels": "px",
+  "key_commit": "Intro",
+  "key_cancel": "Escape",
+  "shortcut_undo": "Ctrl/Cmd+Z",
+  "shortcut_redo": "Ctrl/Cmd+Mayús+Z"
 }

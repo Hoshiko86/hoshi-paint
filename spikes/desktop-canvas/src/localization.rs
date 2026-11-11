@@ -5,42 +5,102 @@ use serde_json::Value;
 use slint::ComponentHandle;
 use std::collections::BTreeMap;
 
-const DEFAULT_LOCALE: &str = "en-US";
 const EN_US: &str = include_str!("../i18n/en-US.json");
 const ES_ES: &str = include_str!("../i18n/es-ES.json");
+const REQUIRED_KEYS: &[&str] = &[
+    "activate_document",
+    "cancel_shape",
+    "close_document",
+    "commit_shape",
+    "fill",
+    "fill_and_outline",
+    "finish_shape",
+    "fit_canvas",
+    "history",
+    "key_cancel",
+    "key_commit",
+    "layer",
+    "layer_name",
+    "outline",
+    "rectangle",
+    "redo",
+    "reset_view",
+    "shape_properties",
+    "shapes",
+    "shortcut_redo",
+    "shortcut_undo",
+    "tool",
+    "undo",
+    "unit_pixels",
+    "zoom_in",
+    "zoom_out",
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SupportedLocale {
+    EnglishUnitedStates,
+    SpanishSpain,
+}
+
+impl SupportedLocale {
+    fn tag(self) -> &'static str {
+        match self {
+            Self::EnglishUnitedStates => "en-US",
+            Self::SpanishSpain => "es-ES",
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocaleSelection {
-    pub requested: String,
-    pub resolved: &'static str,
+    requested: Vec<String>,
+    resolved: SupportedLocale,
 }
 
-pub fn select(requested: &str) -> LocaleSelection {
-    let normalized = requested.replace('_', "-");
+fn supported_locale(requested: &str) -> Option<SupportedLocale> {
+    let normalized = requested.trim().replace('_', "-");
     let language = normalized.split('-').next().unwrap_or_default();
-    let resolved = match normalized.as_str() {
-        "es-ES" => "es-ES",
-        "en-US" => "en-US",
-        _ if language.eq_ignore_ascii_case("es") => "es-ES",
-        _ => DEFAULT_LOCALE,
-    };
+    match language {
+        value if value.eq_ignore_ascii_case("es") => Some(SupportedLocale::SpanishSpain),
+        value if value.eq_ignore_ascii_case("en") => Some(SupportedLocale::EnglishUnitedStates),
+        _ => None,
+    }
+}
+
+pub fn select_preferred<I, S>(requested: I) -> LocaleSelection
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let requested: Vec<String> = requested
+        .into_iter()
+        .map(|value| value.as_ref().trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .collect();
+    let resolved = requested
+        .iter()
+        .find_map(|value| supported_locale(value))
+        .unwrap_or(SupportedLocale::EnglishUnitedStates);
     LocaleSelection {
-        requested: requested.to_owned(),
+        requested,
         resolved,
     }
 }
 
 pub fn system_selection() -> LocaleSelection {
-    let requested = std::env::var("HOSHI_LOCALE")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(sys_locale::get_locale)
-        .unwrap_or_else(|| DEFAULT_LOCALE.to_owned());
-    select(&requested)
+    if let Ok(override_locale) = std::env::var("HOSHI_LOCALE") {
+        if !override_locale.trim().is_empty() {
+            return select_preferred([override_locale]);
+        }
+    }
+    select_preferred(sys_locale::get_locales())
 }
 
-fn catalog(locale: &str) -> BTreeMap<String, String> {
-    let source = if locale == "es-ES" { ES_ES } else { EN_US };
+fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
+    let source = match locale {
+        SupportedLocale::EnglishUnitedStates => EN_US,
+        SupportedLocale::SpanishSpain => ES_ES,
+    };
     let Value::Object(entries) = serde_json::from_str(source).expect("embedded locale catalog")
     else {
         unreachable!("catalog root is an object")
@@ -69,7 +129,7 @@ pub fn apply(ui: &AppWindow, selection: &LocaleSelection) {
             .into()
     };
     let translations = ui.global::<Translations>();
-    translations.set_locale(selection.resolved.into());
+    translations.set_locale(selection.resolved.tag().into());
     translations.set_tool(text("tool"));
     translations.set_rectangle(text("rectangle"));
     translations.set_fill(text("fill"));
@@ -91,6 +151,11 @@ pub fn apply(ui: &AppWindow, selection: &LocaleSelection) {
     translations.set_close_document(text("close_document"));
     translations.set_layer(text("layer"));
     translations.set_layer_name(text("layer_name"));
+    translations.set_unit_pixels(text("unit_pixels"));
+    translations.set_key_commit(text("key_commit"));
+    translations.set_key_cancel(text("key_cancel"));
+    translations.set_shortcut_undo(text("shortcut_undo"));
+    translations.set_shortcut_redo(text("shortcut_redo"));
 }
 
 #[cfg(test)]
@@ -99,16 +164,20 @@ mod tests {
 
     #[test]
     fn locale_selection_normalizes_tags_and_falls_back_deterministically() {
-        assert_eq!(select("es_MX").resolved, "es-ES");
-        assert_eq!(select("es-ES").resolved, "es-ES");
-        assert_eq!(select("en-GB").resolved, "en-US");
-        assert_eq!(select("invalid").resolved, DEFAULT_LOCALE);
+        assert_eq!(select_preferred(["es_MX"]).resolved.tag(), "es-ES");
+        assert_eq!(select_preferred([" es-ES "]).resolved.tag(), "es-ES");
+        assert_eq!(select_preferred(["en-GB"]).resolved.tag(), "en-US");
+        assert_eq!(
+            select_preferred(["invalid", "es-MX"]).resolved.tag(),
+            "es-ES"
+        );
+        assert_eq!(select_preferred(["invalid"]).resolved.tag(), "en-US");
     }
 
     #[test]
     fn every_catalog_has_the_same_nonempty_keys() {
-        let english = catalog("en-US");
-        let spanish = catalog("es-ES");
+        let english = catalog(SupportedLocale::EnglishUnitedStates);
+        let spanish = catalog(SupportedLocale::SpanishSpain);
         assert_eq!(
             english.keys().collect::<Vec<_>>(),
             spanish.keys().collect::<Vec<_>>()
@@ -118,6 +187,10 @@ mod tests {
                 .values()
                 .chain(spanish.values())
                 .all(|value| !value.trim().is_empty())
+        );
+        assert_eq!(
+            english.keys().map(String::as_str).collect::<Vec<_>>(),
+            REQUIRED_KEYS
         );
     }
 }
