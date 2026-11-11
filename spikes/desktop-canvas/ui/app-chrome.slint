@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView, Palette } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 
 export struct DocumentTabRow {
@@ -88,7 +88,9 @@ export component DocumentTabs inherits ScrollView {
                 padding: 3px; spacing: 3px;
                 Button { text: tab.title + (tab.dirty ? " *" : ""); icon: tab.thumbnail;
                     accessible-label: "Activate document " + tab.title; enabled: !root.modal-visible;
-                    clicked => { root.activate(tab.id); } Tooltip { text: @markdown(tab.detail); } }
+                    clicked => { root.activate(tab.id); }
+                    Tooltip { Text { text: tab.detail; color: Palette.foreground; } }
+                }
                 Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: "Close document " + tab.title;
                     enabled: !root.modal-visible; clicked => { root.close(tab.id); } }
             }
@@ -104,9 +106,12 @@ export component DesktopStatusBar inherits HorizontalLayout {
     in property <float> zoom;
     in property <string> layer-name;
     callback rename(string);
+    out property <float> input-left: layer-input.absolute-position.x / 1px;
+    out property <float> input-top: layer-input.absolute-position.y / 1px;
+    out property <string> edit-text: layer-input.text;
     height: DesktopTheme.status-height;
     spacing: 8px;
-    Text { text: root.status; color: #c3ccda; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; }
+    Text { text: root.status; color: DesktopTheme.status-text; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; }
     Text { text: root.has-document ? root.image-width + " × " + root.image-height + " px" : ""; color: DesktopTheme.muted-text; font-size: 11px; vertical-alignment: center; }
     Text { text: round(root.zoom * 100) + "%"; color: DesktopTheme.text; font-size: 11px; vertical-alignment: center; }
     Text { text: "Layer"; color: DesktopTheme.muted-text; font-size: 11px; vertical-alignment: center; }

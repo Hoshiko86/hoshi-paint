@@ -47,6 +47,9 @@ fn huge_document_uses_a_viewport_texture_and_updates_when_window_resizes() {
     let x = ui.get_canvas_left() as usize + 10;
     let y = ui.get_canvas_top() as usize + 10;
     let pixel = snapshot.as_slice()[y * snapshot.width() as usize + x];
-    assert_eq!((pixel.r, pixel.g, pixel.b), (74, 77, 82));
+    assert_eq!(
+        slint::Color::from_rgb_u8(pixel.r, pixel.g, pixel.b),
+        ui.get_pasteboard_color()
+    );
     ui.hide().unwrap();
 }

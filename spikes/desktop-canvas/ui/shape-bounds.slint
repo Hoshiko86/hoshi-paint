@@ -1,5 +1,6 @@
 // Numeric bounds are a shared shape control, independent of primitive geometry.
 import { LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
 component BoundsEntry inherits HorizontalLayout {
     in property <string> label;
     in property <length> label-width;
@@ -16,7 +17,7 @@ component BoundsEntry inherits HorizontalLayout {
         }
     }
     spacing: 4px;
-    Text { min-width: root.label-width; text: root.label; color: #b8c2d1; vertical-alignment: center; }
+    Text { min-width: root.label-width; text: root.label; color: DesktopTheme.muted-text; vertical-alignment: center; }
     entry := LineEdit {
         enabled: root.active;
         accessible-label: root.description;

@@ -151,9 +151,10 @@ slint::slint! {
         out property <bool> modal-visible: root.about-open || root.image-dialog-kind >= 0 || root.file-prompt-visible || root.save-config-visible || root.file-error != "" || root.file-busy;
         out property <float> canvas-left: viewport.absolute-position.x / 1px;
         out property <float> canvas-top: viewport.absolute-position.y / 1px;
-        out property <float> layer-input-left: layer-input.absolute-position.x / 1px;
-        out property <float> layer-input-top: layer-input.absolute-position.y / 1px;
-        out property <string> layer-edit-text: layer-input.text;
+        out property <color> pasteboard-color: DesktopTheme.pasteboard-background;
+        out property <float> layer-input-left: status-bar.input-left;
+        out property <float> layer-input-top: status-bar.input-top;
+        out property <string> layer-edit-text: status-bar.edit-text;
         out property <float> rectangle-tool-left: rectangle-tool.absolute-position.x / 1px;
         out property <float> rectangle-tool-top: rectangle-tool.absolute-position.y / 1px;
         out property <float> rectangle-tool-width: rectangle-tool.width / 1px;
@@ -634,7 +635,7 @@ slint::slint! {
                     close-panel => { root.close-shape-properties(); }
                 }
             }
-            DesktopStatusBar {
+            status-bar := DesktopStatusBar {
                 status: root.status; has-document: root.has-document;
                 image-width: root.image-width; image-height: root.image-height;
                 zoom: root.zoom; layer-name: root.layer-name;

@@ -1,6 +1,7 @@
 import { ColorLibrary, PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 export { PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 import { FileShortcuts } from "file-shortcuts.slint";
+import { DesktopTheme } from "theme.slint";
 import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
     preferred-height: 34px;
@@ -15,7 +16,7 @@ component Channel inherits Rectangle {
     changed value => { slider.value = root.value; spin.value = round(root.value); }
     HorizontalLayout {
         spacing: 4px;
-        Text { text: root.label; width: 40px; color: #273650; vertical-alignment: center; }
+        Text { text: root.label; width: 40px; color: DesktopTheme.text; vertical-alignment: center; }
         slider := Slider { minimum: 0; maximum: root.maximum; value: root.value; accessible-label: root.label;
             changed(v) => { root.edited(v); }
         }
@@ -102,12 +103,12 @@ export component ToolPanelFrame inherits Rectangle {
         if root.placement > 0 { root.last-nonzero-placement = root.placement; }
         placement-choice.current-index = root.placement;
     }
-    background: #303338;
+    background: DesktopTheme.panel-background;
     VerticalLayout {
         padding: 8px; spacing: 8px;
         HorizontalLayout {
             height: 32px; spacing: 8px;
-            Text { text: root.title; font-size: 20px; font-weight: 700; color: #eef2f7; }
+            Text { text: root.title; font-size: 20px; font-weight: 700; color: DesktopTheme.text; }
             Rectangle { horizontal-stretch: 1; }
             placement-choice := ComboBox {
                 width: 92px;
@@ -221,14 +222,14 @@ export component ColorPanel inherits Rectangle {
                 select(value) => { root.select-color-slot(value); }
                 swap => { root.swap-colors(); } reset => { root.reset-colors(); }
             }
-            Text { text: root.color-slot == 0 ? "Editing Primary" : "Editing Secondary"; color: #b8c2d1; height: 20px; }
+            Text { text: root.color-slot == 0 ? "Editing Primary" : "Editing Secondary"; color: DesktopTheme.muted-text; height: 20px; }
             HorizontalLayout {
                 height: 40px; spacing: 6px;
-                Text { text: "Original"; color: #b8c2d1; vertical-alignment: center; }
+                Text { text: "Original"; color: DesktopTheme.muted-text; vertical-alignment: center; }
                 Rectangle { width: 32px; height: 40px;
                     ColorPreview { y: 4px; value: root.original-color; label: "Original color"; description: root.original-description; }
                 }
-                Text { text: "Current"; color: #b8c2d1; vertical-alignment: center; }
+                Text { text: "Current"; color: DesktopTheme.muted-text; vertical-alignment: center; }
                 Rectangle { width: 32px; height: 40px;
                     ColorPreview { y: 4px; value: root.current-color; label: "Current color"; description: root.current-description; }
                 }
@@ -287,7 +288,7 @@ export component ColorPanel inherits Rectangle {
                     x: 0px; y: 0px;
                     width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
                     height: 136px;
-                    Text { text: "RGB · 0–255"; color: #b8c2d1; }
+                    Text { text: "RGB · 0–255"; color: DesktopTheme.muted-text; }
                     red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
                     green-channel := Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
                     blue-channel := Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
@@ -297,7 +298,7 @@ export component ColorPanel inherits Rectangle {
                     y: root.width < 560px ? 152px : 0px;
                     width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
                     height: 136px;
-                    Text { text: "HSV · ° / % / %"; color: #b8c2d1; }
+                    Text { text: "HSV · ° / % / %"; color: DesktopTheme.muted-text; }
                     Channel { label: "H"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
                     Channel { label: "S"; maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
                     Channel { label: "V"; maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
@@ -305,11 +306,11 @@ export component ColorPanel inherits Rectangle {
             }
             Channel { label: "Alpha"; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
             HorizontalLayout {
-                Text { text: "Hex"; width: 32px; vertical-alignment: center; color: #273650; }
+                Text { text: "Hex"; width: 32px; vertical-alignment: center; color: DesktopTheme.text; }
                 hex-entry := LineEdit { text <=> root.hex-value; accessible-label: "Hex RGB or RGBA color"; accessible-description: "Press Enter to apply the hex value"; Tooltip { text: @markdown("Press Enter to apply the hex value"); } accepted(text) => { root.set-hex(text); } }
             }
             Text { text: root.error != "" ? root.error : root.has-active-shape ? "Editing the active shape · Color changes apply immediately." : "Next drawing color · Committed pixels will not change.";
-                color: root.error == "" ? #b8c2d1 : #f08c8c; height: 36px; wrap: word-wrap; }
+                color: root.error == "" ? DesktopTheme.muted-text : DesktopTheme.error-text; height: 36px; wrap: word-wrap; }
             HorizontalLayout {
                 Button { text: "Close"; clicked => { root.close-picker(); } }
             }
@@ -330,7 +331,7 @@ export component ColorPickerWindow inherits Window {
     title: (root.color-slot == 0 ? "Primary color" : "Secondary color") + " · Hoshi Paint";
     preferred-width: 640px; preferred-height: 720px;
     min-width: 380px; min-height: 680px;
-    background: #303338; default-font-size: 13px;
+    background: DesktopTheme.panel-background; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.dark; }
     in property <[PaletteSwatch]> swatches <=> panel.swatches;
     in-out property <string> color-name-query <=> panel.color-name-query;

@@ -4,6 +4,7 @@ import { ToolPanelFrame } from "colors.slint";
 import { ShapeBounds } from "shape-bounds.slint";
 import { ShapeRendering } from "shape-rendering.slint";
 import { FileShortcuts } from "file-shortcuts.slint";
+import { DesktopTheme } from "theme.slint";
 
 export component ShapePropertiesPanel inherits Rectangle {
     in property <bool> has-document;
@@ -47,12 +48,12 @@ export component ShapePropertiesPanel inherits Rectangle {
         close-panel => { root.close-panel(); }
         VerticalLayout {
             padding: 8px; spacing: 6px;
-            Text { text: "SHAPE"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            Text { text: "SHAPE"; color: DesktopTheme.muted-text; font-size: 12px; font-weight: 700; }
             ComboBox { model: ["Rectangle"]; enabled: root.has-document;
                 accessible-label: "Shape kind";
                 Tooltip { text: @markdown("Rectangle. Additional shapes will share these properties."); }
             }
-            Text { text: "BOUNDS"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            Text { text: "BOUNDS"; color: DesktopTheme.muted-text; font-size: 12px; font-weight: 700; }
             bounds := ShapeBounds {
                 compact: true; active: root.has-shape;
                 x-value: root.shape-x-text; y-value: root.shape-y-text;
@@ -60,7 +61,7 @@ export component ShapePropertiesPanel inherits Rectangle {
                 locked <=> root.shape-bounds-locked;
                 edit(field,value,locked) => { root.edit-shape-bound(field,value,locked); }
             }
-            Text { text: "STYLE"; color: #6c778b; font-size: 12px; font-weight: 700; }
+            Text { text: "STYLE"; color: DesktopTheme.muted-text; font-size: 12px; font-weight: 700; }
             mode := ComboBox {
                 model: ["Fill", "Outline", "Fill and outline"];
                 enabled: root.has-document; current-index: root.shape-mode;
@@ -88,7 +89,7 @@ export component ShapePropertiesWindow inherits Window {
     title: "Shape properties · Hoshi Paint";
     preferred-width: 340px; preferred-height: 560px;
     min-width: 300px; min-height: 240px;
-    background: #303338; default-font-size: 13px;
+    background: DesktopTheme.panel-background; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.dark; }
     in property <bool> has-document <=> panel.has-document;
     in property <bool> has-shape <=> panel.has-shape;
