@@ -68,6 +68,14 @@ Dependencies point inward only: `spikes/desktop-canvas` → `hoshi-controller` �
 - Keep `hoshi-core` deterministic: no clocks, threads, or global mutable state
   added in new code.
 
+**Atomicity**
+- If the task touches saving/loading (`files.rs`, `project.rs`, `documents.rs`),
+  history/undo (`history.rs`, `history_store.rs`), palettes or settings
+  persistence, first read the Atomicity and ACID bullets in
+  `docs/ARCHITECTURE.md` and follow them: a failed edit or write leaves the
+  prior valid state; one user edit = one history entry; files are replaced via
+  temp file + sync + rename, never written in place.
+
 **Style**
 - Functions ≤ ~60 lines, files ≤ ~600 lines for new code. Prefer a new focused
   module over growing `lib.rs`.
