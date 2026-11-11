@@ -1,15 +1,16 @@
 import { Button, SpinBox, ScrollView } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
 export component SavePrompt inherits Rectangle {
     in property <string> name;
     callback response(int);
-    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    background: DesktopTheme.panel-background; border-width: 1px; border-color: DesktopTheme.panel-border; border-radius: 8px;
     FocusScope { width: parent.width; height: parent.height;
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape { root.response(2); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 14px;
-            Text { text: "Save changes?"; font-size: 22px; font-weight: 700; color: #18253c; }
-            Text { text: "Save changes to “" + root.name + "” before closing?"; wrap: word-wrap; color: #273650; }
-            Text { text: "Changes will be lost if you choose Don’t Save."; wrap: word-wrap; color: #526079; }
+            Text { text: "Save changes?"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+            Text { text: "Save changes to “" + root.name + "” before closing?"; wrap: word-wrap; color: DesktopTheme.text; }
+            Text { text: "Changes will be lost if you choose Don’t Save."; wrap: word-wrap; color: DesktopTheme.muted-text; }
             HorizontalLayout { spacing: 8px;
                 Button { text: "Save"; accessible-label: "Save changes before closing"; clicked => { root.response(0); } }
                 Button { text: "Don’t Save"; accessible-label: "Discard changes and close"; clicked => { root.response(1); } }
@@ -24,18 +25,18 @@ export component SaveConfiguration inherits Rectangle {
     in-out property <int> quality: 95;
     callback save();
     callback cancel();
-    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    background: DesktopTheme.panel-background; border-width: 1px; border-color: DesktopTheme.panel-border; border-radius: 8px;
     FocusScope { width: parent.width; height: parent.height;
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape { root.cancel(); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 14px;
-            Text { text: "Save Configuration"; font-size: 22px; font-weight: 700; color: #18253c; }
-            Text { text: root.warning; wrap: word-wrap; color: #273650; }
+            Text { text: "Save Configuration"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+            Text { text: root.warning; wrap: word-wrap; color: DesktopTheme.text; }
             if root.jpeg: HorizontalLayout {
-                Text { text: "JPEG quality"; color: #273650; vertical-alignment: center; }
+                Text { text: "JPEG quality"; color: DesktopTheme.text; vertical-alignment: center; }
                 SpinBox { minimum: 1; maximum: 100; value <=> root.quality; accessible-label: "JPEG quality"; }
             }
-            Text { text: "Use a .hoshi project to preserve layers. PNG preserves transparency. Flattening remains undoable."; wrap: word-wrap; color: #526079; }
+            Text { text: "Use a .hoshi project to preserve layers. PNG preserves transparency. Flattening remains undoable."; wrap: word-wrap; color: DesktopTheme.muted-text; }
             HorizontalLayout { spacing: 8px;
                 Button { text: "Cancel"; clicked => { root.cancel(); } }
                 Button { text: "Save"; accessible-label: "Confirm file format and save"; clicked => { root.save(); } }
@@ -47,14 +48,14 @@ export component SaveConfiguration inherits Rectangle {
 export component FileErrorPrompt inherits Rectangle {
     in property <string> message;
     callback dismiss();
-    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    background: DesktopTheme.panel-background; border-width: 1px; border-color: DesktopTheme.panel-border; border-radius: 8px;
     FocusScope { width: parent.width; height: parent.height;
         init => { self.focus(); }
         key-pressed(event) => { if event.text == Key.Escape || event.text == Key.Return { root.dismiss(); return accept; } reject }
         VerticalLayout { padding: 20px; spacing: 12px;
-            Text { text: "File operation failed"; font-size: 22px; font-weight: 700; color: #18253c; }
+            Text { text: "File operation failed"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
             ScrollView { vertical-stretch: 1; content-width: self.visible-width;
-                Text { width: parent.width; text: root.message; wrap: word-wrap; color: #273650; }
+                Text { width: parent.width; text: root.message; wrap: word-wrap; color: DesktopTheme.error-text; }
             }
             Button { text: "OK"; clicked => { root.dismiss(); } }
         }

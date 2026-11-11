@@ -114,13 +114,14 @@ fn image_dialogs_validate_cancel_and_apply_with_real_shortcuts_and_dynamic_canva
     ui.invoke_apply_image_settings();
     assert_eq!((ui.get_image_width(), ui.get_image_height()), (64, 64));
     let snapshot = ui.window().take_snapshot().unwrap();
-    let x = ui.get_canvas_left() as usize + 70;
-    let y = ui.get_canvas_top() as usize + 30;
+    let view = state.borrow().viewport();
+    let x = (f64::from(ui.get_canvas_left()) + view.offset_x + 70.).round() as usize;
+    let y = (f64::from(ui.get_canvas_top()) + view.offset_y + 30.).round() as usize;
     let pixel = snapshot.as_slice()[y * snapshot.width() as usize + x];
     assert_eq!(
-        (pixel.r, pixel.g, pixel.b),
-        (220, 226, 235),
-        "image display must use the new dimensions"
+        slint::Color::from_rgb_u8(pixel.r, pixel.g, pixel.b),
+        ui.get_pasteboard_color(),
+        "pixels beyond the resized image must show the canvas pasteboard"
     );
     // Unit switching and percentage previews never mutate the image before Apply.
     ui.invoke_show_image_settings(1);

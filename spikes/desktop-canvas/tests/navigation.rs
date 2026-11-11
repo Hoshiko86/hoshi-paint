@@ -175,9 +175,11 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
     );
     ui.invoke_action(4);
     let before_draw = state.borrow().viewport();
-    down(&ui, 200.0, 220.0, Button::Left);
-    moved(&ui, 220.0, 240.0);
-    up(&ui, 220.0, 240.0, Button::Left);
+    let start = before_draw.to_logical(200., 220.);
+    let end = before_draw.to_logical(220., 240.);
+    down(&ui, start.0 as f32, start.1 as f32, Button::Left);
+    moved(&ui, end.0 as f32, end.1 as f32);
+    up(&ui, end.0 as f32, end.1 as f32, Button::Left);
     key(&ui, Key::Space, false);
     assert_eq!(
         state.borrow().viewport(),

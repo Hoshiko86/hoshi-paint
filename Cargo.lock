@@ -1612,6 +1612,7 @@ dependencies = [
  "rfd",
  "serde_json",
  "slint",
+ "sys-locale",
  "sysinfo",
  "tempfile",
  "windows-sys 0.61.2",

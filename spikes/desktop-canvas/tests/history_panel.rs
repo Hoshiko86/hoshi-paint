@@ -15,9 +15,11 @@ fn history_window_tracks_rows_navigates_redo_and_preserves_pending_shapes() {
     let (ui, state, colors, history) = create_app_with_panels().unwrap();
     ui.show().unwrap();
     for (x, y) in [(10.0, 10.0), (100.0, 100.0)] {
-        ui.invoke_pointer_down(x, y);
-        ui.invoke_pointer_move(x + 30.0, y + 30.0);
-        ui.invoke_pointer_up(x + 30.0, y + 30.0);
+        let start = state.borrow().viewport().to_logical(x, y);
+        let end = state.borrow().viewport().to_logical(x + 30.0, y + 30.0);
+        ui.invoke_pointer_down(start.0 as f32, start.1 as f32);
+        ui.invoke_pointer_move(end.0 as f32, end.1 as f32);
+        ui.invoke_pointer_up(end.0 as f32, end.1 as f32);
         ui.invoke_action(2);
     }
     ui.invoke_show_history();
@@ -46,9 +48,11 @@ fn history_window_tracks_rows_navigates_redo_and_preserves_pending_shapes() {
     ui.invoke_history_jump(2);
     assert_eq!(state.borrow().history_position(), 2);
     assert_eq!(state.borrow().composite()[110 * 512 + 110].a, 255);
-    ui.invoke_pointer_down(200.0, 200.0);
-    ui.invoke_pointer_move(240.0, 240.0);
-    ui.invoke_pointer_up(240.0, 240.0);
+    let start = state.borrow().viewport().to_logical(200., 200.);
+    let end = state.borrow().viewport().to_logical(240., 240.);
+    ui.invoke_pointer_down(start.0 as f32, start.1 as f32);
+    ui.invoke_pointer_move(end.0 as f32, end.1 as f32);
+    ui.invoke_pointer_up(end.0 as f32, end.1 as f32);
     let shape = state.borrow().document().active_shape().unwrap();
     assert!(!ui.get_history_can_jump() && !history.get_can_jump());
     ui.invoke_history_jump(0);

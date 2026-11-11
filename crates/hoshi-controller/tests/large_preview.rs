@@ -96,6 +96,20 @@ fn fit_view_makes_the_maximum_canvas_accessible_and_keeps_zoom_anchored() {
 }
 
 #[test]
+fn center_view_keeps_one_to_one_zoom_and_places_the_document_in_the_workspace() {
+    let mut c = Controller::new(320, 200).unwrap();
+    c.center_viewport(1000., 700.).unwrap();
+    let view = c.viewport();
+    assert_eq!(view.zoom, 1.);
+    assert_eq!(view.offset_x, 340.);
+    assert_eq!(view.offset_y, 250.);
+
+    let before = view;
+    assert!(c.center_viewport(0., 700.).is_err());
+    assert_eq!(c.viewport(), before);
+}
+
+#[test]
 fn very_thin_images_remain_visible_in_thumbnails_and_fit_view() {
     for (width, height) in [(262_144, 1), (1, 262_144)] {
         let mut c = Controller::new(width, height).unwrap();

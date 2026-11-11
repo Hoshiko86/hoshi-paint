@@ -1,4 +1,5 @@
 import { Button, LineEdit, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
 export component ImageSettings inherits Rectangle {
     in property <int> kind;
     in-out property <string> width-text;
@@ -20,7 +21,7 @@ export component ImageSettings inherits Rectangle {
     callback percentage-selected(bool);
     callback apply();
     callback cancel();
-    background: #f2f4f8; border-width: 1px; border-color: #7b8ca7; border-radius: 8px;
+    background: DesktopTheme.panel-background; border-width: 1px; border-color: DesktopTheme.panel-border; border-radius: 8px;
     init => { width-entry.focus(); }
     ScrollView {
         content-width: self.width;
@@ -33,35 +34,35 @@ export component ImageSettings inherits Rectangle {
         }
     VerticalLayout {
         padding: 20px; spacing: 10px;
-        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: #18253c; }
+        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
         if root.kind == 1: HorizontalLayout {
             ComboBox { model: ["By absolute size", "By percentage"]; current-index: root.percentage ? 1 : 0;
                 accessible-label: "Resize sizing mode"; selected(value) => { root.percentage-selected(self.current-index == 1); } }
             LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: "Resize percentage"; edited(value) => { root.edited(3, value); } accepted => { root.apply(); } }
-            Text { text: "%"; vertical-alignment: center; color: #273650; }
+            Text { text: "%"; vertical-alignment: center; color: DesktopTheme.text; }
         }
         HorizontalLayout {
-            Text { text: "Units"; width: 100px; vertical-alignment: center; color: #273650; }
+            Text { text: "Units"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
             ComboBox { model: ["Pixels", "Inches", "Centimeters"]; current-index: root.units;
                 accessible-label: "Image size units"; selected(value) => { root.units-selected(self.current-index); } }
         }
         HorizontalLayout {
-            Text { text: "Width"; width: 100px; vertical-alignment: center; color: #273650; }
+            Text { text: "Width"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
             width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: "Image width"; edited(value) => { root.edited(0, value); } accepted => { root.apply(); } }
         }
         HorizontalLayout {
-            Text { text: "Height"; width: 100px; vertical-alignment: center; color: #273650; }
+            Text { text: "Height"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
             LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: "Image height"; edited(value) => { root.edited(1, value); } accepted => { root.apply(); } }
         }
         CheckBox { text: "Maintain aspect ratio"; checked: root.aspect; enabled: !root.percentage;
             toggled => { root.aspect-selected(self.checked); } }
         if root.kind != 2: HorizontalLayout {
-            Text { text: "Resolution"; width: 100px; vertical-alignment: center; color: #273650; }
+            Text { text: "Resolution"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
             LineEdit { text <=> root.resolution-text; accessible-label: "Resolution in pixels per inch"; edited(value) => { root.edited(2, value); } accepted => { root.apply(); } }
-            Text { text: "pixels/inch"; color: #273650; vertical-alignment: center; }
+            Text { text: "pixels/inch"; color: DesktopTheme.text; vertical-alignment: center; }
         }
         if root.kind == 1: HorizontalLayout {
-            Text { text: "Resampling"; width: 100px; color: #273650; vertical-alignment: center; }
+            Text { text: "Resampling"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             ComboBox { model: ["Bicubic", "Bicubic (Smooth)", "Bilinear", "Bilinear (Low Quality)", "Adaptive (Sharp)", "Lanczos", "Fant", "Nearest Neighbor"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
             Button { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
                 Tooltip { text: @markdown("Reset resampling to Bicubic"); }
@@ -73,7 +74,7 @@ export component ImageSettings inherits Rectangle {
             Tooltip { text: @markdown("Resample in linear light to preserve brightness. Alpha is always treated as coverage."); }
         }
         if root.kind == 2: HorizontalLayout {
-            Text { text: "Anchor"; width: 100px; color: #273650; vertical-alignment: center; }
+            Text { text: "Anchor"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             Rectangle { width: 150px; height: 108px;
                 for label[index] in ["Top left", "Top", "Top right", "Left", "Center", "Right", "Bottom left", "Bottom", "Bottom right"]: Button {
                     x: Math.mod(index, 3) * 50px; y: floor(index / 3) * 36px; width: 46px; height: 32px;
@@ -83,13 +84,13 @@ export component ImageSettings inherits Rectangle {
             }
         }
         if root.kind != 1: HorizontalLayout {
-            Text { text: root.kind == 0 ? "Background" : "Fill new area"; width: 100px; color: #273650; vertical-alignment: center; }
+            Text { text: root.kind == 0 ? "Background" : "Fill new area"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             ComboBox { model: root.kind == 0 ? ["White", "Transparent", "Secondary color"] : ["Transparent", "Secondary color"];
                 current-index <=> root.background-choice; accessible-label: "Image background fill"; }
         }
-        Text { text: root.summary; wrap: word-wrap; color: #526079; }
-        Text { text: root.error; wrap: word-wrap; color: #a12828; min-height: 36px; }
-        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: #526079; font-size: 12px; }
+        Text { text: root.summary; wrap: word-wrap; color: DesktopTheme.muted-text; }
+        Text { text: root.error; wrap: word-wrap; color: DesktopTheme.error-text; min-height: 36px; }
+        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: DesktopTheme.muted-text; font-size: 12px; }
         HorizontalLayout {
             spacing: 8px;
             Rectangle { horizontal-stretch: 1; }
