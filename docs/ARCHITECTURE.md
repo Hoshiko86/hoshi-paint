@@ -23,6 +23,14 @@ principles in its pull request:
 - **Inversion of control:** UI and platform adapters emit commands and receive
   models through callbacks. Editing policy belongs in `hoshi-controller` or
   `hoshi-core`; operating-system details stay behind adapter interfaces.
+- **Law of Demeter:** a module communicates with its direct collaborators through
+  intentional APIs. Callers do not reach through controllers, documents, layers,
+  storage engines, or UI children to manipulate their internals. Repeated access
+  chains indicate a missing command, query, or boundary abstraction.
+- **Composition over inheritance:** behavior is assembled from focused Rust
+  types, traits, Slint components, and injected callbacks. Inheritance is limited
+  to framework-required visual primitives and must not become the mechanism for
+  sharing editing policy or application state.
 
 The review records evidence, exceptions, and any follow-up issue. Passing tests
 alone does not satisfy this gate.
