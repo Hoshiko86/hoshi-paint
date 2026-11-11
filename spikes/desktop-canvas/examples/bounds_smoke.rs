@@ -8,10 +8,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(200), move || {
         let ui = weak.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         ui.invoke_set_shape_properties_placement(2);
-        ui.invoke_pointer_down(30., 40.);
-        ui.invoke_pointer_move(110., 80.);
-        ui.invoke_pointer_up(110., 80.);
+        let start = point(30., 40.);
+        let end = point(110., 80.);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         ui.invoke_edit_shape_bound(0, "36".into(), false);
         ui.invoke_edit_shape_bound(1, "42".into(), false);
         ui.set_shape_bounds_locked(true);

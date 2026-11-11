@@ -21,9 +21,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = weak.upgrade().unwrap();
-        ui.invoke_pointer_down(40., 40.);
-        ui.invoke_pointer_move(240., 190.);
-        ui.invoke_pointer_up(240., 190.);
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
+        let start = point(40., 40.);
+        let end = point(240., 190.);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         ui.invoke_action(2);
         for index in 0..512 {
             state
