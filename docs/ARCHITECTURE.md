@@ -69,7 +69,10 @@ composition or tests.
 Localization is being introduced at the presentation boundary through
 `ui/localization.slint` and locale catalogs under `spikes/desktop-canvas/i18n`.
 The first migrated surface is `ui/app-chrome.slint`; every user-facing literal
-in that component uses the catalog. Rust selects the first supported system
+in that component uses the catalog. File-prompt and History chrome, native
+Open/Save dialog labels, and selected save-workflow messages are the next
+migrated slice. History action/status semantics and remaining file-domain errors
+still require locale-neutral message IDs at the adapter boundary. Rust selects the first supported system
 locale, applies a deterministic fallback, and supplies a complete catalog before
 showing the main component tree. Existing menus, panels, prompts, native dialogs,
 and adapter status messages are an explicitly tracked migration gap. New or
@@ -83,6 +86,15 @@ adapters translate them for display. Formatting rules for numbers, dates, units,
 plural forms, and text direction belong to the locale layer rather than document
 or controller code. Until those formatters are implemented, the migrated shell
 uses locale-neutral numeric display and catalog-backed unit labels.
+
+Slint translation globals are scoped to a component tree. The desktop adapter
+therefore creates one immutable, schema-validated locale snapshot and explicitly
+applies it to every independently constructed root window before that window is
+bound or shown. Secondary windows must never copy strings through the main
+window or detect a locale themselves. Native dialog adapters receive the same
+narrow snapshot by injection. This keeps locale and platform access out of file,
+document, and controller policy while ensuring every visible tree resolves the
+same catalog.
 
 ## Accepted: Rust core independent of UI
 

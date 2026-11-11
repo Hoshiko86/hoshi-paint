@@ -14,15 +14,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.window().take_snapshot().expect("settle native layout");
         let point =
             |dx, dy| LogicalPosition::new(ui.get_canvas_left() + dx, ui.get_canvas_top() + dy);
+        let document_offset = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
+        let start = document_offset(96.0, 120.0);
+        let end = document_offset(320.0, 280.0);
+        for (x, y) in [start, end] {
+            assert!(
+                x >= 0.0 && x < ui.get_canvas_width() && y >= 0.0 && y < ui.get_canvas_height(),
+                "document point ({x}, {y}) must be inside live canvas {} × {}",
+                ui.get_canvas_width(),
+                ui.get_canvas_height()
+            );
+        }
         ui.window().dispatch_event(WindowEvent::PointerPressed {
-            position: point(96.0, 120.0),
+            position: point(start.0, start.1),
             button: PointerEventButton::Left,
         });
         ui.window().dispatch_event(WindowEvent::PointerMoved {
-            position: point(320.0, 280.0),
+            position: point(end.0, end.1),
         });
         ui.window().dispatch_event(WindowEvent::PointerReleased {
-            position: point(320.0, 280.0),
+            position: point(end.0, end.1),
             button: PointerEventButton::Left,
         });
         assert!(
@@ -45,12 +61,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let shape = controller.borrow().document().active_shape().unwrap();
         assert_eq!((shape.width, shape.height), (256, 176));
         ui.window().take_snapshot().expect("paint resized handles");
-        let knob = controller.borrow().handle_positions()[8];
-        let center = (224.0_f64, 208.0_f64);
-        let radius = center.1 - knob.y;
+        let handles = controller.borrow().handle_positions();
+        let knob = handles[8];
+        let center = handles[9];
+        let radius = center.y - knob.y;
         let destination = (
-            center.0 + radius / 2.0_f64.sqrt(),
-            center.1 - radius / 2.0_f64.sqrt(),
+            center.x + radius / 2.0_f64.sqrt(),
+            center.y - radius / 2.0_f64.sqrt(),
         );
         ui.window().dispatch_event(WindowEvent::PointerPressed {
             position: point(knob.x as f32, knob.y as f32),
@@ -97,10 +114,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .window()
                 .take_snapshot()
                 .expect("desktop software snapshot");
-            let x = ui.get_canvas_left();
-            let y = ui.get_canvas_top();
-            let sample = snapshot.as_slice()
-                [((y as usize + 208) * snapshot.width() as usize) + x as usize + 224];
+            let x = ui.get_canvas_left() + ui.get_offset_x() + 224.0 * ui.get_zoom();
+            let y = ui.get_canvas_top() + ui.get_offset_y() + 208.0 * ui.get_zoom();
+            let sample = snapshot.as_slice()[(y as usize * snapshot.width() as usize) + x as usize];
             assert_eq!((sample.r, sample.g, sample.b), (0, 0, 0));
             if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
                 image::save_buffer(

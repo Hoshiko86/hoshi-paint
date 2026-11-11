@@ -1,30 +1,60 @@
 //! Locale selection and catalog fallback for the desktop adapter.
 
-use crate::{AppWindow, Translations};
+use crate::{AppWindow, HistoryWindow, Translations};
 use serde_json::Value;
 use slint::ComponentHandle;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 const EN_US: &str = include_str!("../i18n/en-US.json");
 const ES_ES: &str = include_str!("../i18n/es-ES.json");
 const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
+    "all_files",
+    "cancel",
+    "cancel_closing_document",
     "cancel_shape",
     "close_document",
     "commit_shape",
+    "confirm_format_and_save",
+    "current_state",
+    "discard_and_close",
+    "dont_save",
+    "file_operation_failed",
     "fill",
     "fill_and_outline",
     "finish_shape",
     "fit_canvas",
     "history",
+    "hoshi_layered_project",
+    "images_hoshi_projects",
+    "jpeg_image",
+    "jpeg_lossy_warning",
+    "jpeg_quality",
     "key_cancel",
     "key_commit",
     "layer",
     "layer_name",
+    "ok",
+    "open_image",
     "outline",
+    "png_image",
     "rectangle",
     "redo",
+    "redo_available",
     "reset_view",
+    "save",
+    "save_as",
+    "save_before_closing",
+    "save_changes_prefix",
+    "save_changes_suffix",
+    "save_changes_title",
+    "save_configuration",
+    "save_failed_preserved",
+    "save_flatten_warning",
+    "save_format_guidance",
+    "save_target_changed",
+    "save_target_changed_before_write",
     "shape_properties",
     "shapes",
     "shortcut_redo",
@@ -32,6 +62,7 @@ const REQUIRED_KEYS: &[&str] = &[
     "tool",
     "undo",
     "unit_pixels",
+    "unsaved_changes_warning",
     "zoom_in",
     "zoom_out",
 ];
@@ -55,6 +86,101 @@ impl SupportedLocale {
 pub struct LocaleSelection {
     requested: Vec<String>,
     resolved: SupportedLocale,
+}
+
+/// Immutable, validated presentation text for one resolved locale.
+///
+/// Platform adapters receive this narrow capability instead of reading locale
+/// environment variables or parsing catalogs themselves.
+#[derive(Clone)]
+pub(super) struct Localizer {
+    locale: SupportedLocale,
+    values: Rc<BTreeMap<String, String>>,
+}
+
+impl Localizer {
+    pub(super) fn new(selection: &LocaleSelection) -> Self {
+        Self {
+            locale: selection.resolved,
+            values: Rc::new(catalog(selection.resolved)),
+        }
+    }
+
+    pub(super) fn text(&self, key: &str) -> &str {
+        self.values
+            .get(key)
+            .unwrap_or_else(|| panic!("missing {} catalog key {key}", self.locale.tag()))
+    }
+
+    pub(super) fn format(&self, key: &str, arguments: &[(&str, &str)]) -> String {
+        let template = self.text(key);
+        let expected = placeholder_names(template).unwrap_or_else(|error| {
+            panic!("invalid {} catalog key {key}: {error}", self.locale.tag())
+        });
+        let supplied: BTreeSet<&str> = arguments.iter().map(|(name, _)| *name).collect();
+        assert_eq!(
+            supplied.len(),
+            arguments.len(),
+            "duplicate argument for catalog key {key}"
+        );
+        assert_eq!(
+            supplied,
+            expected.iter().map(String::as_str).collect(),
+            "arguments do not match placeholders for {} catalog key {key}",
+            self.locale.tag()
+        );
+        let mut value = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(open) = rest.find('{') {
+            value.push_str(&rest[..open]);
+            let placeholder = &rest[open + 1..];
+            let close = placeholder.find('}').unwrap_or_else(|| {
+                panic!(
+                    "unclosed placeholder in {} catalog key {key}",
+                    self.locale.tag()
+                )
+            });
+            let name = &placeholder[..close];
+            let replacement = arguments
+                .iter()
+                .find_map(|(candidate, value)| (*candidate == name).then_some(*value))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing argument {name} for {} catalog key {key}",
+                        self.locale.tag()
+                    )
+                });
+            value.push_str(replacement);
+            rest = &placeholder[close + 1..];
+        }
+        value.push_str(rest);
+        value
+    }
+}
+
+fn placeholder_names(template: &str) -> Result<BTreeSet<String>, String> {
+    let mut names = BTreeSet::new();
+    let mut rest = template;
+    while let Some(open) = rest.find(['{', '}']) {
+        if rest.as_bytes()[open] == b'}' {
+            return Err("closing brace has no opening brace".into());
+        }
+        let placeholder = &rest[open + 1..];
+        let close = placeholder
+            .find('}')
+            .ok_or_else(|| "placeholder has no closing brace".to_owned())?;
+        let name = &placeholder[..close];
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|character| character.is_ascii_lowercase() || character == '_')
+        {
+            return Err(format!("invalid placeholder name {{{name}}}"));
+        }
+        names.insert(name.to_owned());
+        rest = &placeholder[close + 1..];
+    }
+    Ok(names)
 }
 
 fn supported_locale(requested: &str) -> Option<SupportedLocale> {
@@ -123,20 +249,40 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
         "embedded {} catalog does not match the required schema",
         locale.tag()
     );
+    let Value::Object(english_entries) =
+        serde_json::from_str(EN_US).expect("embedded en-US catalog")
+    else {
+        unreachable!("catalog root is an object")
+    };
+    for (key, value) in &values {
+        let actual = placeholder_names(value)
+            .unwrap_or_else(|error| panic!("invalid {} catalog key {key}: {error}", locale.tag()));
+        let reference = english_entries[key]
+            .as_str()
+            .expect("catalog values are strings");
+        let expected = placeholder_names(reference)
+            .unwrap_or_else(|error| panic!("invalid en-US catalog key {key}: {error}"));
+        assert_eq!(
+            actual,
+            expected,
+            "placeholder schema differs for {} catalog key {key}",
+            locale.tag()
+        );
+    }
     values
 }
 
-pub fn apply(ui: &AppWindow, selection: &LocaleSelection) {
-    let values = catalog(selection.resolved);
-    let text = |key: &str| -> slint::SharedString {
-        values
-            .get(key)
-            .expect("complete embedded catalog")
-            .as_str()
-            .into()
-    };
-    let translations = ui.global::<Translations>();
-    translations.set_locale(selection.resolved.tag().into());
+pub fn apply(ui: &AppWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
+pub fn apply_history(ui: &HistoryWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
+fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
+    let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
+    translations.set_locale(localizer.locale.tag().into());
     translations.set_tool(text("tool"));
     translations.set_rectangle(text("rectangle"));
     translations.set_fill(text("fill"));
@@ -163,6 +309,24 @@ pub fn apply(ui: &AppWindow, selection: &LocaleSelection) {
     translations.set_key_cancel(text("key_cancel"));
     translations.set_shortcut_undo(text("shortcut_undo"));
     translations.set_shortcut_redo(text("shortcut_redo"));
+    translations.set_save_changes_title(text("save_changes_title"));
+    translations.set_save_changes_prefix(text("save_changes_prefix"));
+    translations.set_save_changes_suffix(text("save_changes_suffix"));
+    translations.set_unsaved_changes_warning(text("unsaved_changes_warning"));
+    translations.set_save(text("save"));
+    translations.set_dont_save(text("dont_save"));
+    translations.set_cancel(text("cancel"));
+    translations.set_save_before_closing(text("save_before_closing"));
+    translations.set_discard_and_close(text("discard_and_close"));
+    translations.set_cancel_closing_document(text("cancel_closing_document"));
+    translations.set_save_configuration(text("save_configuration"));
+    translations.set_jpeg_quality(text("jpeg_quality"));
+    translations.set_save_format_guidance(text("save_format_guidance"));
+    translations.set_confirm_format_and_save(text("confirm_format_and_save"));
+    translations.set_file_operation_failed(text("file_operation_failed"));
+    translations.set_ok(text("ok"));
+    translations.set_current_state(text("current_state"));
+    translations.set_redo_available(text("redo_available"));
 }
 
 #[cfg(test)]
@@ -198,6 +362,31 @@ mod tests {
         assert_eq!(
             english.keys().map(String::as_str).collect::<Vec<_>>(),
             REQUIRED_KEYS
+        );
+    }
+
+    #[test]
+    fn formatting_replaces_named_arguments_without_reinterpreting_values() {
+        let localizer = Localizer::new(&select_preferred(["en-US"]));
+        let rendered = localizer.format(
+            "save_failed_preserved",
+            &[
+                ("path", "{error}.png"),
+                ("error", "disk {path} unavailable"),
+            ],
+        );
+        assert!(rendered.contains("{error}.png"));
+        assert!(rendered.contains("disk {path} unavailable"));
+    }
+
+    #[test]
+    fn placeholder_schema_rejects_malformed_names_and_braces() {
+        assert!(placeholder_names("missing {close").is_err());
+        assert!(placeholder_names("stray close}").is_err());
+        assert!(placeholder_names("bad {Error}").is_err());
+        assert_eq!(
+            placeholder_names("{path}: {error}; again {path}").unwrap(),
+            BTreeSet::from(["error".to_owned(), "path".to_owned()])
         );
     }
 }

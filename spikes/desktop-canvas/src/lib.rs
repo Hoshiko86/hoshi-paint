@@ -1007,7 +1007,9 @@ fn create_panels(
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
-    localization::apply(&ui, &localization::system_selection());
+    let locale = localization::system_selection();
+    let text = localization::Localizer::new(&locale);
+    localization::apply(&ui, &text);
     let recent_store = if dialogs.is_some() {
         None
     } else {
@@ -1115,9 +1117,9 @@ fn create_panels(
         })
     });
     let picker = colors::bind_picker(&ui, controller.clone(), palette_root)?;
-    let history = history::bind_window(&ui, controller.clone())?;
+    let history = history::bind_window(&ui, controller.clone(), &text)?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
-    documents::bind(&ui, controller.clone(), dialogs);
+    documents::bind(&ui, controller.clone(), dialogs, text);
     let main = ui.as_weak();
     picker.on_file_action(move |action| {
         if let Some(ui) = main.upgrade() {

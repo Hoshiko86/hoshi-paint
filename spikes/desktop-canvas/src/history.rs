@@ -1,5 +1,8 @@
 //! One history model is shared by the floating and internally docked hosts.
-use crate::{AppWindow, HistoryRow, HistoryWindow, SharedController, update, workspace::Workspace};
+use crate::{
+    AppWindow, HistoryRow, HistoryWindow, SharedController, localization, update,
+    workspace::Workspace,
+};
 use slint::{ComponentHandle, Model, ModelNotify, ModelTracker};
 use std::{
     any::Any,
@@ -171,8 +174,10 @@ fn sync(ui: &AppWindow, window: &HistoryWindow) {
 pub(super) fn bind_window(
     ui: &AppWindow,
     controller: SharedController,
+    text: &localization::Localizer,
 ) -> Result<Rc<HistoryWindow>, slint::PlatformError> {
     let window = Rc::new(HistoryWindow::new()?);
+    localization::apply_history(window.as_ref(), text);
     sync(ui, &window);
     let (main, history) = (ui.as_weak(), window.as_weak());
     ui.on_sync_history(move || {

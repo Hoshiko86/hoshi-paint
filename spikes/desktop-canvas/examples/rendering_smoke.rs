@@ -9,10 +9,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(200), move || {
         let ui = weak.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         let draw = |left, top, right, bottom| {
-            ui.invoke_pointer_down(left, top);
-            ui.invoke_pointer_move(right, bottom);
-            ui.invoke_pointer_up(right, bottom);
+            let start = point(left, top);
+            let end = point(right, bottom);
+            ui.invoke_pointer_down(start.0, start.1);
+            ui.invoke_pointer_move(end.0, end.1);
+            ui.invoke_pointer_up(end.0, end.1);
         };
         // Solid coral makes the gaps in the fractional blue outline obvious.
         ui.invoke_select_shape_mode(2);

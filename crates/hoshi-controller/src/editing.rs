@@ -84,7 +84,12 @@ impl Controller {
     pub fn rotation_pivot(&self) -> Option<Point> {
         self.document
             .active_shape()
-            .map(|s| self.edit_state.pivot.unwrap_or(Frame::from_shape(s).center))
+            .map(|shape| self.pivot_for(shape))
+    }
+    fn pivot_for(&self, shape: Shape) -> Point {
+        self.edit_state
+            .pivot
+            .unwrap_or(Frame::from_shape(shape).center)
     }
     pub fn handle_positions(&self) -> Vec<HandlePoint> {
         let Some(shape) = self.document.active_shape() else {
@@ -110,7 +115,7 @@ impl Controller {
             y: top.y - axis.y * 28.,
             kind: ROTATION_HANDLE,
         });
-        let pivot = self.rotation_pivot().expect("active shape");
+        let pivot = self.pivot_for(shape);
         let (x, y) = self.viewport.to_logical(pivot.x, pivot.y);
         points.push(HandlePoint {
             x,
@@ -178,9 +183,7 @@ impl Controller {
         }
     }
     fn begin_rotation(&mut self, shape: Shape, point: Point) {
-        let pivot = self
-            .rotation_pivot()
-            .unwrap_or(Frame::from_shape(shape).center);
+        let pivot = self.pivot_for(shape);
         self.gesture = Some(Gesture::Rotate {
             original: shape,
             pivot,
@@ -207,7 +210,7 @@ impl Controller {
                     ROTATION_HANDLE => self.begin_rotation(shape, point),
                     PIVOT_HANDLE => {
                         self.gesture = Some(Gesture::Pivot {
-                            original: self.rotation_pivot().expect("active shape"),
+                            original: self.pivot_for(shape),
                             anchor: point,
                         })
                     }
@@ -442,7 +445,7 @@ impl Controller {
         };
         if secondary_held {
             let step = if self.modifiers.shift { 15 } else { 1 };
-            let pivot = self.rotation_pivot().expect("active shape");
+            let pivot = self.pivot_for(shape);
             let angle = f64::from(shape.rotation_degrees) + (dx + dy) as f64 * f64::from(step);
             let updated = Frame::from_shape(shape)
                 .rotated_about(pivot, angle)
@@ -459,12 +462,14 @@ impl Controller {
         } else {
             let amount = if control { 10 } else { 1 };
             self.nudge_shape(dx.saturating_mul(amount), dy.saturating_mul(amount))?;
+            let Some(updated) = self.document.active_shape() else {
+                return Ok(());
+            };
             if let Some((x, y)) = self.last_pointer
                 && let Some(Gesture::Resize {
                     original, handle, ..
                 }) = self.gesture
             {
-                let updated = self.document.active_shape().expect("active shape");
                 // The dragged physical corner changes sides after crossing its
                 // opposite. Rebase keyboard movement without losing that corner.
                 let mut index = handle.index();
@@ -487,7 +492,7 @@ impl Controller {
                 let p = self.document_point(x, y)?;
                 self.gesture = Some(Gesture::Move {
                     anchor: Point::new(p.0, p.1),
-                    original: self.document.active_shape().expect("active shape"),
+                    original: updated,
                     pivot: self.edit_state.pivot,
                 });
             }

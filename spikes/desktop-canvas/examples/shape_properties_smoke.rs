@@ -20,13 +20,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(200), move || {
         let ui = weak.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         ui.invoke_choose_color(0);
         ui.invoke_select_color_slot(1);
         ui.invoke_choose_color(1);
         ui.invoke_select_color_slot(0);
-        ui.invoke_pointer_down(60., 80.);
-        ui.invoke_pointer_move(300., 240.);
-        ui.invoke_pointer_up(300., 240.);
+        let start = point(60., 80.);
+        let end = point(300., 240.);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         ui.invoke_show_shape_properties();
         properties.invoke_select_shape_mode(2);
         properties.invoke_edit_stroke_width_pixels(6.5);

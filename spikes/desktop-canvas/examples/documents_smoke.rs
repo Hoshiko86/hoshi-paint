@@ -33,10 +33,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(200), move || {
         let ui = weak.upgrade().unwrap();
+        ui.window().take_snapshot().expect("settle native layout");
+        let point = |x, y| {
+            (
+                ui.get_offset_x() + x * ui.get_zoom(),
+                ui.get_offset_y() + y * ui.get_zoom(),
+            )
+        };
         let dir = tempfile::tempdir().unwrap();
-        ui.invoke_pointer_down(60., 60.);
-        ui.invoke_pointer_move(200., 150.);
-        ui.invoke_pointer_up(200., 150.);
+        let start = point(60., 60.);
+        let end = point(200., 150.);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         let project = dir.path().join("星 Drawing.hoshi");
         ui.invoke_save_document_as(project.to_string_lossy().as_ref().into());
         assert!(project.exists());
@@ -46,9 +55,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.invoke_edit_image_setting(0, "320".into());
         ui.invoke_edit_image_setting(1, "240".into());
         ui.invoke_apply_image_settings();
-        ui.invoke_pointer_down(40., 40.);
-        ui.invoke_pointer_move(150., 130.);
-        ui.invoke_pointer_up(150., 130.);
+        let start = point(40., 40.);
+        let end = point(150., 130.);
+        ui.invoke_pointer_down(start.0, start.1);
+        ui.invoke_pointer_move(end.0, end.1);
+        ui.invoke_pointer_up(end.0, end.1);
         snapshot(&ui, "spike-documents.png");
         let jpeg = dir.path().join("Export.jpg");
         ui.invoke_save_document_as(jpeg.to_string_lossy().as_ref().into());
