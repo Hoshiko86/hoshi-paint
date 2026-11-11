@@ -88,10 +88,10 @@ where
 }
 
 pub fn system_selection() -> LocaleSelection {
-    if let Ok(override_locale) = std::env::var("HOSHI_LOCALE") {
-        if !override_locale.trim().is_empty() {
-            return select_preferred([override_locale]);
-        }
+    if let Ok(override_locale) = std::env::var("HOSHI_LOCALE")
+        && !override_locale.trim().is_empty()
+    {
+        return select_preferred([override_locale]);
     }
     select_preferred(sys_locale::get_locales())
 }
@@ -105,7 +105,7 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
     else {
         unreachable!("catalog root is an object")
     };
-    entries
+    let values: BTreeMap<String, String> = entries
         .into_iter()
         .map(|(key, value)| {
             (
@@ -116,7 +116,14 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
                     .to_owned(),
             )
         })
-        .collect()
+        .collect();
+    assert_eq!(
+        values.keys().map(String::as_str).collect::<Vec<_>>(),
+        REQUIRED_KEYS,
+        "embedded {} catalog does not match the required schema",
+        locale.tag()
+    );
+    values
 }
 
 pub fn apply(ui: &AppWindow, selection: &LocaleSelection) {
