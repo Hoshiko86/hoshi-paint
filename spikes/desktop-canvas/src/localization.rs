@@ -1,6 +1,6 @@
 //! Locale selection and catalog fallback for the desktop adapter.
 
-use crate::Translations;
+use crate::{AppWindow, HistoryWindow, Translations};
 use serde_json::Value;
 use slint::ComponentHandle;
 use std::collections::{BTreeMap, BTreeSet};
@@ -272,9 +272,16 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
     values
 }
 
-pub fn apply<C: ComponentHandle>(ui: &C, localizer: &Localizer) {
+pub fn apply(ui: &AppWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
+pub fn apply_history(ui: &HistoryWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
+fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
-    let translations = ui.global::<Translations>();
     translations.set_locale(localizer.locale.tag().into());
     translations.set_tool(text("tool"));
     translations.set_rectangle(text("rectangle"));

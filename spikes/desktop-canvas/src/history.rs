@@ -177,7 +177,7 @@ pub(super) fn bind_window(
     text: &localization::Localizer,
 ) -> Result<Rc<HistoryWindow>, slint::PlatformError> {
     let window = Rc::new(HistoryWindow::new()?);
-    localization::apply(window.as_ref(), text);
+    localization::apply_history(window.as_ref(), text);
     sync(ui, &window);
     let (main, history) = (ui.as_weak(), window.as_weak());
     ui.on_sync_history(move || {
