@@ -66,6 +66,16 @@ Semantic UI colors and dimensions live in `ui/theme.slint`. Shell components
 consume those roles rather than duplicating literal values in application
 composition or tests.
 
+User-facing text crosses the presentation boundary through
+`ui/localization.slint` and locale catalogs under `spikes/desktop-canvas/i18n`.
+Rust selects and validates a locale, applies a deterministic fallback, and
+supplies complete catalog values to Slint. New UI components must not introduce
+unlocalized user-facing literals. Commands, file formats, project data, log
+fields, and internal error identifiers remain locale-neutral; adapters translate
+them for display. Formatting rules for numbers, dates, units, plural forms, and
+text direction belong to the locale layer rather than document or controller
+code.
+
 ## Accepted: Rust core independent of UI
 
 `hoshi-core` owns raster documents, layers, compositing, tool geometry and history.

@@ -1,0 +1,23 @@
+{
+  "tool": "Tool:",
+  "rectangle": "Rectangle",
+  "fill": "Fill",
+  "outline": "Outline",
+  "fill_and_outline": "Fill + Outline",
+  "shapes": "Shapes",
+  "finish_shape": "Finish shape",
+  "undo": "Undo",
+  "redo": "Redo",
+  "history": "History",
+  "commit_shape": "Commit shape",
+  "cancel_shape": "Cancel shape",
+  "shape_properties": "Shape Properties",
+  "zoom_out": "Zoom out",
+  "fit_canvas": "Fit canvas in window",
+  "reset_view": "Center canvas at 100%",
+  "zoom_in": "Zoom in",
+  "activate_document": "Activate document",
+  "close_document": "Close document",
+  "layer": "Layer",
+  "layer_name": "Layer name"
+}

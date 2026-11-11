@@ -10,6 +10,7 @@ pub mod files;
 mod history;
 mod image_settings;
 mod input;
+mod localization;
 pub mod palette_store;
 mod panel_hosts;
 mod panel_layout;
@@ -32,10 +33,12 @@ slint::slint! {
     import { HistoryPanel, HistoryRow } from "../ui/history.slint";
     import { DesktopCommandBars, DocumentTabs, DesktopStatusBar, DocumentTabRow } from "../ui/app-chrome.slint";
     import { DesktopTheme } from "../ui/theme.slint";
+    import { Translations } from "../ui/localization.slint";
     export { HistoryWindow, HistoryRow } from "../ui/history.slint";
     export { ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "../ui/colors.slint";
     import { Button, AboutSlint, Palette, ComboBox, SpinBox } from "std-widgets.slint";
     export { DocumentTabRow } from "../ui/app-chrome.slint";
+    export { Translations } from "../ui/localization.slint";
     export component AppWindow inherits Window {
         in property <string> document-title: "Untitled · Hoshi Paint";
         title: root.document-title;
@@ -1004,6 +1007,7 @@ fn create_panels(
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
+    localization::apply(&ui, &localization::system_selection());
     let recent_store = if dialogs.is_some() {
         None
     } else {
