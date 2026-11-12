@@ -1,4 +1,9 @@
 {
+  "brush": "Brush",
+  "brush_width": "Brush width",
+  "eraser": "Eraser",
+  "eyedropper": "Color Picker",
+  "screen_picker": "Pick color from screen",
   "tool": "Tool:",
   "rectangle": "Rectangle",
   "fill": "Fill",
