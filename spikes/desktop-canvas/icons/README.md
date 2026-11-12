@@ -6,7 +6,7 @@ directory. The complete ISC/Feather MIT notices are in
 `licenses/Lucide-1.71.0.txt` at the repository root.
 
 Button icons use Lucide's 24×24 viewBox, 2px stroke, rounded caps and joins.
-Only the stroke color is adapted to `#273650` for the application's light theme.
+Only the stroke color is adapted, to `#e2e8f0` for the application's dark theme.
 Use the same settings when adding icons; keep buttons' accessible labels and
 hover tooltips independent of asset filenames. No font or runtime download is needed.
 
