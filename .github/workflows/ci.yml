@@ -36,12 +36,15 @@ jobs:
             macOS) target=universal-apple-darwin ;;
             Windows) target=x86_64-pc-windows-msvc ;;
           esac
-          # Not ~/.cargo/bin: the macOS image has no such directory.
+          # Not ~/.cargo/bin: the macOS image has no such directory. On
+          # Windows, Git Bash's tar and PATH need the POSIX form of the path
+          # (tar reads "D:" as a remote host), but GITHUB_PATH needs the native one.
           bin="$RUNNER_TEMP/tools"
+          if command -v cygpath >/dev/null; then bin="$(cygpath -u "$bin")"; fi
           mkdir -p "$bin"
           curl -fsSL "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$NEXTEST/cargo-nextest-$NEXTEST-$target.tar.gz" \
             | tar xzf - -C "$bin"
-          echo "$bin" >> "$GITHUB_PATH"
+          if command -v cygpath >/dev/null; then cygpath -w "$bin"; else echo "$bin"; fi >> "$GITHUB_PATH"
           PATH="$bin:$PATH" cargo nextest --version
       - run: cargo xtask test lint
       - run: cargo xtask test unit
