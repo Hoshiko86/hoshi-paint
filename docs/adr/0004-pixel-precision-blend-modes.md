@@ -169,7 +169,8 @@ layer folders and new 6.0 blend modes.
 ## Open questions
 
 1. **(Owner)** Paint.NET 5.2 reference exports for slice 6 need a Windows
-   machine. They will be provided later; until then, tests are tolerance-based.
+   machine. Inputs and steps: [BLEND_REFERENCE.md](../BLEND_REFERENCE.md).
+   Until the exports land, tests are tolerance-based.
 2. Paint.NET's exact FP32→8-bit rounding (half-up, half-even, dithering) is
    undocumented. The reference renders will settle it.
 

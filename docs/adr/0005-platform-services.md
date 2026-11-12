@@ -37,8 +37,9 @@ Text tool (0.7.0) and colour management. Facts checked 2026-11-12:
   - Paste into New Layer creates the layer above the active one. Paste into New
     Image makes an image the clipboard's size.
   - Copy/Paste Selection exchanges a JSON polygon list as text.
-- All candidates below are permissive and GPL-3.0-only compatible (MIT,
-  Apache-2.0, BSD-3-Clause).
+- All candidates below are permissive (MIT, Apache-2.0, BSD-3-Clause), so they
+  fit the current GPL-3.0-only licence and any permissive relicensing the owner
+  may choose later (the owner is not committed to GPL-3.0).
 
 ## Decision
 
@@ -84,7 +85,23 @@ pub struct ClipImage { width: u32, height: u32, pixels: Vec<Color> } // straight
 - **Font discovery** (OS) in the adapter: `trait FontSource { fn families(&self)
   -> &[FamilyInfo]; fn load(&self, id: FontId) -> Result<Arc<[u8]>, FontError>; }`
   implemented with **fontdb** system scan (Windows/macOS/Linux; iOS later via
-  CoreText).
+  CoreText). The font list merges **system fonts** (as Paint.NET does) with a
+  **bundled open-font pack** so every platform offers a wide, identical
+  selection (owner decision 2026-11-12).
+- **Bundled font pack.** Only fonts under licences that permit bundling and
+  redistribution with the app: SIL OFL 1.1, Apache-2.0, Ubuntu Font Licence.
+  Each family ships with its licence file and a line in
+  `THIRD_PARTY_NOTICES.md`; fonts are never sold separately (OFL rule) and keep
+  their own licence regardless of the app's. Curated by category, roughly 30–40
+  families: sans (Inter, Noto Sans, Open Sans, Roboto, Source Sans 3, Lato,
+  Fira Sans, Atkinson Hyperlegible), serif (Noto Serif, Merriweather, Source
+  Serif 4, Libre Baskerville, EB Garamond), mono (JetBrains Mono, Fira Code,
+  Source Code Pro, IBM Plex Mono), display/handwriting (Lobster, Pacifico,
+  Caveat, Comic Neue, Bebas Neue, Oswald), plus Noto subsets for wider scripts.
+  Large CJK/emoji families (Noto CJK, Noto Color Emoji) are an optional
+  download, not in the installer. A `fonts/manifest.toml` records family,
+  version, licence, source URL and SHA-256 per file; a CI check rejects any
+  font whose licence is not on the allow-list. Final list is a slice task.
 - **Shaping, layout and rasterization** are pure and live in a new crate
   `crates/hoshi-text` (depends on core): **parley** with system-font features
   disabled, fed font bytes; glyph outlines via **swash**/skrifa → a
@@ -179,6 +196,9 @@ pub trait PenSource { fn drain(&mut self, out: &mut Vec<PenSample>); }
    evaluation report; adopt or replace. Linux is part of this spike only if
   octotablet covers it; otherwise it becomes a follow-up issue.
 7. **macOS pen** — desktop `platform/pen_macos.rs` · 5 · NSEvent monitor.
+8a. **Font pack manifest + licence check** — `fonts/manifest.toml`,
+   `scripts/check_fonts.py` · none · allow-list OFL/Apache-2.0/UFL, SHA-256
+   per file, notices entry; CI step. Fonts themselves land in a follow-up.
 8. **hoshi-text crate** — `crates/hoshi-text/src/lib.rs`, its `Cargo.toml` ·
    ADR 0001 slice 1 · layout + mask from font bytes; golden tests.
 9. **Text tool + IME overlay** — `controller/src/tools/text.rs`, desktop

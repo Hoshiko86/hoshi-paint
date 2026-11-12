@@ -71,7 +71,7 @@ floating pixels, text and effect previews are `Document::ActiveEdit` (ADR 0001
 - Otherwise the controller calls `document.finish_active_edit()` (commit, one
   entry) before switching. A failed commit aborts the switch and keeps the edit.
 - Enter = Finish for every tool. With a selection tool active and no live
-  edit, Enter deselects ([Selection Tools][sel]). Escape: see Open question 1.
+  edit, Enter deselects ([Selection Tools][sel]). Escape also finishes (Paint.NET; owner decision).
 
 **4. Settings: one shared toolbar state, viewed through typed groups.**
 Paint.NET's toolbar values belong to the toolbar, not to a tool: "there is no
@@ -158,10 +158,10 @@ shortcut customization (0.8.0) through stable keys.
 
 ## Open questions
 
-1. **Escape (owner).** Paint.NET commits live text and tool drawing on Esc,
-   Enter, Ctrl+D or Finish ([Keyboard & Mouse][kb]). Hoshi's V0_0_0.md says
-   Escape *cancels* a shape. Should Hoshi switch to Paint.NET's behaviour, keep
-   its own, or make it a setting?
+1. ~~**Escape.**~~ **Decided (owner, 2026-11-12): mirror Paint.NET.** Esc,
+   Enter, Ctrl+D or Finish commit live text and tool drawing
+   ([Keyboard & Mouse][kb]). V0_0_0.md and SHAPE_EDITING.md are updated; the
+   desktop change is tracked as a `codex-task` issue.
 2. The toolbar-sharing evidence is an undated forum reply from the 3.x era.
    Confirm it still holds in 5.2 (low risk).
 
