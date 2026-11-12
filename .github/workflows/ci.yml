@@ -36,9 +36,13 @@ jobs:
             macOS) target=universal-apple-darwin ;;
             Windows) target=x86_64-pc-windows-msvc ;;
           esac
+          # Not ~/.cargo/bin: the macOS image has no such directory.
+          bin="$RUNNER_TEMP/tools"
+          mkdir -p "$bin"
           curl -fsSL "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$NEXTEST/cargo-nextest-$NEXTEST-$target.tar.gz" \
-            | tar xzf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
-          cargo nextest --version
+            | tar xzf - -C "$bin"
+          echo "$bin" >> "$GITHUB_PATH"
+          PATH="$bin:$PATH" cargo nextest --version
       - run: cargo xtask test lint
       - run: cargo xtask test unit
       - name: Upload test results (JUnit)
@@ -86,9 +90,12 @@ jobs:
         env:
           LLVM_COV: "0.9.1"
         run: |
+          bin="$RUNNER_TEMP/tools"
+          mkdir -p "$bin"
           curl -fsSL "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v$LLVM_COV/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz" \
-            | tar xzf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
-          cargo llvm-cov --version
+            | tar xzf - -C "$bin"
+          echo "$bin" >> "$GITHUB_PATH"
+          PATH="$bin:$PATH" cargo llvm-cov --version
       - name: Line coverage with floors (xtask/src/coverage.rs)
         run: cargo xtask test coverage
       - name: Coverage summary
