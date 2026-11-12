@@ -10,6 +10,7 @@ pub mod color;
 mod editing;
 mod input;
 pub mod named_colors;
+mod painting;
 pub mod palette;
 mod preview;
 mod rendering;
@@ -62,6 +63,10 @@ pub enum Tool {
     MoveShape,
     Pan,
     Eyedropper,
+    /// Paint a circular brush stroke.
+    Brush,
+    /// Erase alpha with a circular brush stroke.
+    Eraser,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -178,6 +183,7 @@ impl Controller {
     /// Tool changes preserve the editable shape. Starting a new rectangle outside
     /// its bounds commits it; sampling a color updates its current style.
     pub fn set_tool(&mut self, tool: Tool) -> Result<(), ControllerError> {
+        self.finish_stroke()?;
         if tool != self.tool {
             self.gesture = None;
             self.sample_snapshot = None;
@@ -236,8 +242,9 @@ impl Controller {
         Ok(())
     }
 
-    /// Release stops dragging but deliberately leaves the shape editable.
+    /// Release commits a stroke and stops dragging, leaving shapes editable.
     pub fn pointer_up(&mut self) -> Result<(), ControllerError> {
+        self.finish_stroke()?;
         self.gesture = None;
         self.sample_snapshot = None;
         Ok(())
@@ -245,9 +252,12 @@ impl Controller {
 
     /// Used for lost pointer capture / focus loss: never leave an active drag.
     /// Interrupting sampling or viewport panning preserves the editable shape
-    /// and selected color. Interrupted shape gestures discard their preview.
+    /// and selected color. Interrupted strokes commit; shape gestures discard
+    /// their preview.
     pub fn cancel_pointer(&mut self) {
-        if matches!(
+        if matches!(self.gesture, Some(Gesture::Stroke)) {
+            let _ = self.finish_stroke();
+        } else if matches!(
             self.gesture,
             Some(Gesture::Sample | Gesture::Pan { .. } | Gesture::TemporaryPan { .. })
         ) {
@@ -261,9 +271,10 @@ impl Controller {
     }
 
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
+        let stroke_changed = self.finish_stroke()?;
         self.gesture = None;
         self.sample_snapshot = None;
-        let changed = self.document.commit_shape()?;
+        let changed = self.document.commit_shape()? || stroke_changed;
         self.edit_state = EditState::default();
         Ok(changed)
     }
@@ -276,12 +287,14 @@ impl Controller {
     }
 
     pub fn undo(&mut self) -> Result<bool, ControllerError> {
+        self.finish_stroke()?;
         self.gesture = None;
         self.sample_snapshot = None;
         Ok(self.document.undo()?)
     }
 
     pub fn redo(&mut self) -> Result<bool, ControllerError> {
+        self.finish_stroke()?;
         self.gesture = None;
         self.sample_snapshot = None;
         Ok(self.document.redo()?)

@@ -831,6 +831,8 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         Tool::MoveShape => 1,
         Tool::Pan => 2,
         Tool::Eyedropper => 3,
+        Tool::Brush => 4,
+        Tool::Eraser => 5,
     });
     history::refresh(ui, controller);
     ui.set_shape_mode(match controller.shape_mode() {

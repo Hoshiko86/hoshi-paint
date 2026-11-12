@@ -17,6 +17,7 @@ pub(super) struct EditState {
 #[derive(Clone, Copy)]
 pub(super) enum Gesture {
     Sample,
+    Stroke,
     CreateShape {
         anchor: (f64, f64),
     },
@@ -143,6 +144,9 @@ impl Controller {
         !frame.contains(point) && padded.contains(point)
     }
     pub fn hover_cursor(&self, x: f64, y: f64) -> EditCursor {
+        if !matches!(self.tool, Tool::Rectangle | Tool::MoveShape) {
+            return EditCursor::Draw;
+        }
         if matches!(self.gesture, Some(Gesture::Rotate { .. })) {
             return EditCursor::Rotate;
         }
@@ -240,6 +244,7 @@ impl Controller {
             }
         }
         match self.tool {
+            Tool::Brush | Tool::Eraser => self.begin_paint(p, button)?,
             Tool::Rectangle => {
                 self.commit()?;
                 if point.x < 0.
@@ -354,6 +359,7 @@ impl Controller {
         self.last_pointer = Some((x, y));
         match self.gesture {
             Some(Gesture::Sample) => self.sample_color(p)?,
+            Some(Gesture::Stroke) => self.paint_to(p)?,
             Some(Gesture::CreateShape { anchor }) => {
                 let p = self.clip_point(p);
                 if (p.0 == anchor.0 && p.1 == anchor.1)
