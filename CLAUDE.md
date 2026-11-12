@@ -58,10 +58,14 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
 - [ ] DRAW-1 (#6) → #42 core tip/mask → #43 Document stroke lifecycle →
       #44 controller tools → #47 desktop rail. #45 i18n keys, #46 icons,
       #48 eyedropper spec/tests are independent.
-- Decisions: Eyedropper = OS screen picker everywhere (opaque result);
-  lost pointer capture / window focus loss **commits** an active stroke.
-  Follow-up: controller canvas `Tool::Eyedropper` is unused by the desktop;
-  remove or keep for iOS once the iOS input path is designed.
+- Decisions (owner): **Paint.NET 5.2 parity** is the goal (`docs/PARITY.md`,
+  ADRs in `docs/adr/`); iPad/iOS after desktop parity. Color Picker tool samples
+  the canvas (parity) + separate Screen Picker action (Hoshi extra). Lost
+  pointer capture / focus loss **commits** an active stroke. Brush size is one
+  shared toolbar value. Ctrl+Shift+Z = Layer Rotate/Zoom (not Redo).
+  Esc commits live edits (Paint.NET). Fonts: all system fonts + a bundled
+  curated open-font pack (OFL/Apache/UFL). License is not fixed to GPL-3.0;
+  revisit if a dependency needs it. Open: blend reference renders (owner).
 - Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
 - Next: T4 `WorkspaceError`; `HandleKind` enum (replaces `i32` 8/9);
   replace `Workspace`'s `empty` controller with a `Drawing` settings value,
