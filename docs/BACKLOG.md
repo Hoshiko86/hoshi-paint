@@ -1,25 +1,25 @@
 # Initial GitHub issue backlog
 
-Local planning IDs map to the GitHub issues below. All v0.0.0 issues and the
-release milestones are now created. Later releases are in ROADMAP.md; split them
-into issues when their scope is ready. The GitHub Project board is blocked by
-integration permissions (`createProjectV2`: resource not accessible).
+Local planning IDs map to the GitHub issues below. Status lives in the issues
+and [Project #2](https://github.com/users/Hoshiko86/projects/2), not here.
+Later releases are in ROADMAP.md; split them into issues when their scope is
+ready.
 
-| ID | Deliverable | Priority | Dependencies | Status |
+| ID | Deliverable | Priority | Dependencies | Issue |
 | --- | --- | --- | --- | --- |
-| PLAN-1 | Release/interaction/architecture specifications | P0 | — | Written; user review pending |
-| CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | Completed; core checks pass on desktop CI |
-| CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | Completed; core checks pass on desktop CI |
-| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | Research and first desktop spike delivered; hardware/GPU/iOS evidence pending |
-| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | First rectangle/canvas shell implemented; remaining UI scope open |
-| DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | Backlog |
-| LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | Backlog |
-| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | Rectangle handles/rotation/Shift square creation and resize aspect lock implemented; fill/outline/both controls, stroke width and Primary/Secondary workspace colors with swap/reset implemented; remaining shapes and advanced styles open |
-| FILE-1 | Specify and implement versioned layered project format and safe saves | P0 | CORE-1 | Backlog |
-| FILE-2 | PNG import/export with decode/allocation limits | P0 | CORE-1 | Backlog |
-| UX-1 | Dirty tracking, prompts, keyboard/event routing and save-active-shape behavior | P0 | FILE-1, SHAPE-1 | Backlog |
-| PERF-1 | Reference hardware, budgets, bounded tile/delta history | P0 | CORE-1 | Backlog |
-| RELEASE-1 | Desktop builds, integrated acceptance and packaging | P0 | all above | Backlog |
+| PLAN-1 | Release/interaction/architecture specifications | P0 | — | [#1](https://github.com/Hoshiko86/hoshi-paint/issues/1) |
+| CORE-1 | Bounded documents, layers, compositing | P0 | PLAN-1 | [#2](https://github.com/Hoshiko86/hoshi-paint/issues/2) |
+| CORE-2 | Rectangle/ellipse preview, adjust, commit/cancel, undo/redo | P0 | CORE-1 | [#3](https://github.com/Hoshiko86/hoshi-paint/issues/3) |
+| ARCH-1 | UI framework decision and iOS feasibility evidence | P0 | PLAN-1 | [#4](https://github.com/Hoshiko86/hoshi-paint/issues/4) |
+| UI-1 | Desktop window, canvas zoom/pan, colors and tool settings | P0 | ARCH-1, CORE-1 | [#5](https://github.com/Hoshiko86/hoshi-paint/issues/5) |
+| DRAW-1 | Brush/eraser strokes and eyedropper | P0 | UI-1, CORE-1 | [#6](https://github.com/Hoshiko86/hoshi-paint/issues/6) |
+| LAYER-1 | Layer panel and add/delete/rename/reorder/visibility/opacity actions | P0 | UI-1, CORE-1 | [#7](https://github.com/Hoshiko86/hoshi-paint/issues/7) |
+| SHAPE-1 | Handles, rotation, constraints, line and rounded rectangle | P0 | UI-1, CORE-2 | [#8](https://github.com/Hoshiko86/hoshi-paint/issues/8) |
+| FILE-1 | Specify and implement versioned layered project format and safe saves | P0 | CORE-1 | [#9](https://github.com/Hoshiko86/hoshi-paint/issues/9) |
+| FILE-2 | PNG import/export with decode/allocation limits | P0 | CORE-1 | [#10](https://github.com/Hoshiko86/hoshi-paint/issues/10) |
+| UX-1 | Dirty tracking, prompts, keyboard/event routing and save-active-shape behavior | P0 | FILE-1, SHAPE-1 | [#11](https://github.com/Hoshiko86/hoshi-paint/issues/11) |
+| PERF-1 | Reference hardware, budgets, bounded tile/delta history | P0 | CORE-1 | [#12](https://github.com/Hoshiko86/hoshi-paint/issues/12) |
+| RELEASE-1 | Desktop builds, integrated acceptance and packaging | P0 | all above | [#13](https://github.com/Hoshiko86/hoshi-paint/issues/13) |
 
 ## CORE-1 — document foundation
 
@@ -66,51 +66,9 @@ until the decision is recorded. A bounded evaluation spike is allowed.
 - RELEASE-1: all required checks and the full scenario pass on three desktop OSes;
   publish build instructions, artifacts, limitations, and dependency licenses.
 
-## GitHub tracking
+## References
 
-| Planning ID | GitHub issue |
-| --- | --- |
-| PLAN-1 | [#1](https://github.com/Hoshiko86/hoshi-paint/issues/1) |
-| CORE-1 | [#2](https://github.com/Hoshiko86/hoshi-paint/issues/2) |
-| CORE-2 | [#3](https://github.com/Hoshiko86/hoshi-paint/issues/3) |
-| ARCH-1 | [#4](https://github.com/Hoshiko86/hoshi-paint/issues/4) |
-| UI-1 | [#5](https://github.com/Hoshiko86/hoshi-paint/issues/5) |
-| DRAW-1 | [#6](https://github.com/Hoshiko86/hoshi-paint/issues/6) |
-| LAYER-1 | [#7](https://github.com/Hoshiko86/hoshi-paint/issues/7) |
-| SHAPE-1 | [#8](https://github.com/Hoshiko86/hoshi-paint/issues/8) |
-| FILE-1 | [#9](https://github.com/Hoshiko86/hoshi-paint/issues/9) |
-| FILE-2 | [#10](https://github.com/Hoshiko86/hoshi-paint/issues/10) |
-| UX-1 | [#11](https://github.com/Hoshiko86/hoshi-paint/issues/11) |
-| PERF-1 | [#12](https://github.com/Hoshiko86/hoshi-paint/issues/12) |
-| RELEASE-1 | [#13](https://github.com/Hoshiko86/hoshi-paint/issues/13) |
-
-## Current validation
-
-See [SPIKE_RESULTS.md](SPIKE_RESULTS.md) for the newer Rust 1.99.1 desktop
-experiment: 67 Rust tests pass locally, including ten rendered UI
-scenarios; real Linux desktop software-rendering smoke passes. The earlier core
-baseline below is retained as historical cross-platform evidence.
-
-The reviewed core passes 15 integration tests, formatting, and Clippy locally on
-Linux with pinned Rust 1.85.1. The same checks passed on GitHub-hosted Windows,
-macOS and Ubuntu in [foundation CI](https://github.com/Hoshiko86/hoshi-paint/actions/runs/41249496579).
-This validates the core, not graphical application behavior or iOS. CORE-1 and
-CORE-2 are complete; remaining release work is open.
-
-## Palette follow-up
-
-The Colors panel now uses reusable square swatches backed by palette entries,
-with accessible hex labels. Future palette work should add favorite-color
-saving/removal, persistence and palette files while keeping the same selection
-behavior in floating and docked hosts. Those capabilities are not implemented
-by the current preset-swatch foundation.
-
-## Image and canvas menu
-
-File New and Image Resize/Canvas Size/flip/rotate/flatten are implemented in the
-desktop spike with dimension/resolution history. Crop to Selection remains blocked
-on selections. See [IMAGE_MENU.md](IMAGE_MENU.md) for supported settings and parity gaps.
-
-Resize now exposes all eight documented Paint.NET resamplers and gamma correction.
-See [RESAMPLING.md](RESAMPLING.md): Paint.NET golden-image comparison and its exact
-Adaptive (Sharp) policy remain verification work.
+Validation runs in [CI](https://github.com/Hoshiko86/hoshi-paint/actions/workflows/ci.yml);
+spike evidence is in [SPIKE_RESULTS.md](SPIKE_RESULTS.md). Feature notes:
+[PALETTES.md](../PALETTES.md), [IMAGE_MENU.md](IMAGE_MENU.md),
+[RESAMPLING.md](RESAMPLING.md).

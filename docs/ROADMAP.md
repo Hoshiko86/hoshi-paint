@@ -33,15 +33,44 @@ target; later scopes can change after usability and technical validation.
 4. Implement canvas, colors, brush/eraser, layers, shapes, then file operations.
 5. Validate the integrated workflow, package each desktop target, release.
 
+## Already delivered ahead of plan
+
+Implemented in the core or desktop spike before their planned version:
+
+- JPEG load and save, with quality setting and density metadata (0.1.0).
+- Image Resize, Canvas Size, rotate 90°/180°, flip, and Flatten (0.1.0); see
+  [IMAGE_MENU.md](IMAGE_MENU.md).
+- Shape line styles (dash/dot variants) and fill patterns (0.2.0).
+- Sparse 128×128 copy-on-write tiles, canvases up to 262,144 px per axis, and
+  disk-backed compressed undo (0.6.0); see [LARGE_IMAGES.md](LARGE_IMAGES.md)
+  and [DISK_HISTORY.md](DISK_HISTORY.md).
+- Multi-document tabs ([DOCUMENT_MANAGEMENT.md](DOCUMENT_MANAGEMENT.md)),
+  palettes ([PALETTES.md](../PALETTES.md)), and a localization foundation
+  (en-US and es-ES catalogs).
+
+## Current focus
+
+v0.0.0 is blocked on brush and eraser strokes (the eyedropper tool exists)
+([#6](https://github.com/Hoshiko86/hoshi-paint/issues/6)), the layer panel
+([#7](https://github.com/Hoshiko86/hoshi-paint/issues/7)), and the remaining
+shapes, line and rounded rectangle
+([#8](https://github.com/Hoshiko86/hoshi-paint/issues/8)). No new feature scope
+until those land.
+
 ## GitHub management
 
-One GitHub Project; milestones per release; issues for reviewable deliverables.
-Fields: Status, Priority, Area, Platform, Target version. Statuses: Backlog,
-Ready, In progress, In review, Done. Views: current release, roadmap, defects,
-architecture. Link PRs to issues and include validation evidence.
+Status lives in GitHub issues and
+[Project #2](https://github.com/users/Hoshiko86/projects/2); these docs do not
+track it. Milestones per release; issues for reviewable deliverables. Fields:
+Status, Priority, Area, Platform, Target version. Statuses: Backlog, Ready, In
+progress, In review, Done. Link PRs to issues and include validation evidence.
+
+Labels in use: `codex-task`, `tech-debt`, `area:core`, `area:controller`,
+`area:desktop`. Tech-debt issues (#36, #37, #39) carry the `tech-debt` label in
+the v0.0.1 (stabilization) milestone.
 
 Each issue needs user behavior, exclusions, acceptance criteria, dependencies,
-and validation. `BACKLOG.md` is the source for initial issue creation. The 12 release milestones and 13 initial issues have been created; see the
-[GitHub milestones](https://github.com/Hoshiko86/hoshi-paint/milestones) and
-BACKLOG.md for issue links. Project creation requires additional integration
-permissions; the attempted `createProjectV2` mutation was rejected.
+and validation. [BACKLOG.md](BACKLOG.md) maps planning IDs to issues.
+
+Workflow: Claude designs, splits tasks, and reviews PRs; Codex implements them
+(see [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md)).
