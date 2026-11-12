@@ -7,23 +7,29 @@ document operations. Recreate the valued workflow with original implementation
 and assets. Existing Paint.NET plugins are not binary compatible; useful effects
 may become built-in features or be recreated through a future Wasm API.
 
+Goal: **as much behavioral parity with Paint.NET 5.2 as possible** on Windows,
+macOS and Linux, with original implementation and assets. The feature-by-feature
+inventory is [PARITY.md](PARITY.md); cross-cutting designs are in [adr/](adr/README.md).
+Desktop parity comes first; iPad/iOS follows it (the core stays platform-neutral).
+
 Versions describe scope, not dates. Only v0.0.0 is a committed implementation
 target; later scopes can change after usability and technical validation.
 
-| Version | Outcome | Release gate |
-| --- | --- | --- |
-| 0.0.0 | Desktop foundation: canvas, brush/eraser/eyedropper, colors, raster layers, shapes, undo, PNG and layered save | Full acceptance scenario on Windows, macOS, Ubuntu |
-| 0.0.1 | Stabilization and packaging fixes | No known data-loss defects; reliable foundation scenario |
-| 0.1.0 | Selections, pixel movement, clipboard, crop/resize, rotate/flip, JPEG | Complete a basic image-editing workflow |
-| 0.2.0 | Fill bucket, polygons/freeform shapes, line styles, improved brushes, pressure where available | Drawing and shape interaction specifications pass |
-| 0.3.0 | Brightness/contrast, hue/saturation, levels, blur, sharpen, shared effect preview | Preview matches apply; cancellation preserves document |
-| 0.4.0 | Versioned Wasm effects, installation interface, limits, sample plugin | External effect works on all supported desktop platforms |
-| 0.5.0 | Usable iPad/iOS interface, Pencil, gestures, files, lifecycle recovery | Real-device edit, background/resume, and save/reopen pass |
-| 0.6.0 | Large-document performance, tiles, autosave/recovery, cancellation | Published memory, latency, and recovery budgets pass |
-| 0.7.0 | Text, more selections/blend modes, prioritized native effects | Representative artwork workflows pass |
-| 0.8.0 | Accessibility, scaling, platform conventions, shortcut customization | Platform accessibility and usability review |
-| 0.9.0 | Beta: compatibility, signing, installers, documentation | Feature freeze and release checklist pass |
-| 1.0.0 | Stable supported editor and file format | Upgrade, support, and compatibility policies published |
+| Version | Outcome (Paint.NET parity areas) | Key ADRs | Release gate |
+| --- | --- | --- | --- |
+| 0.0.0 | Foundation: canvas, Paintbrush/Eraser, canvas Color Picker + Screen Picker, colors, layer panel, Shapes, undo, PNG and `.hoshi` save | 0003 | Full acceptance scenario on Windows, macOS, Ubuntu |
+| 0.0.1 | Stabilization: tech-debt issues, packaging, no data-loss defects | — | Reliable foundation scenario |
+| 0.1.0 | Selections (Rectangle, Ellipse, Lasso, Magic Wand; Replace/Add/Subtract/Intersect/Invert), Move Pixels / Move Selection, Crop to Selection, Edit menu and clipboard (paste into new layer / new image, Copy Flattened) | 0001, 0005 | A basic select–move–crop–copy workflow passes |
+| 0.2.0 | Painting tools: Pencil, Paint Bucket, Gradient, Clone Stamp, Recolor, Line/Curve, all Shapes presets; tool blend/Overwrite; pen pressure (Windows, macOS; Linux best effort) | 0003, 0005 | Drawing and tool interaction specifications pass |
+| 0.3.0 | Effect framework + all Adjustments (live preview, cancel, progress, selection clipping, Repeat Ctrl+F) | 0002 | Preview matches apply; cancellation preserves document |
+| 0.4.0 | All built-in Effects categories (Artistic, Blurs, Distort, Noise, Object, Photo, Render, Stylize, Color) | 0002 | Every effect has a deterministic reference test |
+| 0.5.0 | Layers parity: 14 blend modes, FP32 compositing, Layer Properties, merge down, import from file, Rotate / Zoom, `.hoshi` v3 | 0004 | Blend-mode references within tolerance |
+| 0.6.0 | Text tool (fonts, shaping, IME); View parity (rulers, units, grid); remaining file formats and color profiles | 0005 | Representative artwork workflows pass |
+| 0.7.0 | Wasm effect plugins (versioned API, limits, sample plugin); performance budgets, autosave/recovery | 0002 | External effect works on all desktop platforms |
+| 0.8.0 | Accessibility, scaling, platform conventions, settings and shortcut parity | — | Platform accessibility and usability review |
+| 0.9.0 | Beta: compatibility, signing, installers, documentation | — | Feature freeze and release checklist pass |
+| 1.0.0 | Stable desktop editor and file format | — | Upgrade, support and compatibility policies published |
+| 1.x | iPad/iOS: touch and Pencil interface, files, lifecycle recovery | 0005 | Real-device edit, background/resume, save/reopen pass |
 
 ## Delivery order
 
@@ -50,7 +56,7 @@ Implemented in the core or desktop spike before their planned version:
 
 ## Current focus
 
-v0.0.0 is blocked on brush and eraser strokes (the eyedropper tool exists)
+v0.0.0 is blocked on Paintbrush and Eraser strokes
 ([#6](https://github.com/Hoshiko86/hoshi-paint/issues/6)), the layer panel
 ([#7](https://github.com/Hoshiko86/hoshi-paint/issues/7)), and the remaining
 shapes, line and rounded rectangle
