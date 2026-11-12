@@ -11,6 +11,8 @@ const ES_ES: &str = include_str!("../i18n/es-ES.json");
 const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
     "all_files",
+    "brush",
+    "brush_width",
     "cancel",
     "cancel_closing_document",
     "cancel_shape",
@@ -20,6 +22,8 @@ const REQUIRED_KEYS: &[&str] = &[
     "current_state",
     "discard_and_close",
     "dont_save",
+    "eraser",
+    "eyedropper",
     "file_operation_failed",
     "fill",
     "fill_and_outline",
@@ -55,6 +59,7 @@ const REQUIRED_KEYS: &[&str] = &[
     "save_format_guidance",
     "save_target_changed",
     "save_target_changed_before_write",
+    "screen_picker",
     "shape_properties",
     "shapes",
     "shortcut_redo",
@@ -283,6 +288,11 @@ pub fn apply_history(ui: &HistoryWindow, localizer: &Localizer) {
 fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
     translations.set_locale(localizer.locale.tag().into());
+    translations.set_brush(text("brush"));
+    translations.set_brush_width(text("brush_width"));
+    translations.set_eraser(text("eraser"));
+    translations.set_eyedropper(text("eyedropper"));
+    translations.set_screen_picker(text("screen_picker"));
     translations.set_tool(text("tool"));
     translations.set_rectangle(text("rectangle"));
     translations.set_fill(text("fill"));

@@ -1,4 +1,9 @@
 {
+  "brush": "Pincel",
+  "brush_width": "Ancho del pincel",
+  "eraser": "Borrador",
+  "eyedropper": "Selector de color",
+  "screen_picker": "Tomar color de la pantalla",
   "tool": "Herramienta:",
   "rectangle": "Rectángulo",
   "fill": "Relleno",
