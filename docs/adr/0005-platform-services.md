@@ -1,6 +1,6 @@
 # 0005. Platform services: clipboard, text, pen input, colour management
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-12, #49)
 - Date: 2026-11-12
 - Related: ADR 0001 (floating paste), 0003 (`PointerInput`), 0004, `screen_pick.rs`
 

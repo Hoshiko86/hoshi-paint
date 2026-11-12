@@ -1,6 +1,6 @@
 # 0002. Effect and adjustment framework
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-12, #49)
 - Date: 2026-11-12
 - Related: ADR 0001 (clipping), 0004 (precision), ROADMAP 0.3.0/0.4.0,
   ARCHITECTURE.md "versioned project container and Wasm effects"
