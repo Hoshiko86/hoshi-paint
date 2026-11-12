@@ -5,6 +5,7 @@ use std::sync::Arc;
 pub const MAX_DIMENSION: u32 = 262_144;
 pub mod geometry;
 mod memory;
+mod painting;
 mod pixels;
 mod stroke;
 pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
@@ -144,6 +145,7 @@ pub struct HistoryStep {
 pub struct Document {
     state: State,
     active: Option<Shape>,
+    stroke: Option<painting::ActiveStroke>,
     history: History,
 }
 
@@ -165,6 +167,7 @@ impl Document {
                 selected: 0,
             },
             active: None,
+            stroke: None,
             history: History::default(),
         })
     }
@@ -235,6 +238,7 @@ impl Document {
         if index >= self.history_len() {
             return Err(Error::InvalidHistoryStep);
         }
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
@@ -260,6 +264,7 @@ impl Document {
         if layer >= self.state.layers.len() {
             return Err(Error::InvalidLayer);
         }
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
@@ -271,6 +276,7 @@ impl Document {
         if layer >= self.state.layers.len() {
             return Err(Error::InvalidLayer);
         }
+        self.reject_active_stroke()?;
         if layer != self.state.selected {
             self.commit_shape()?;
             self.state.selected = layer;
@@ -361,6 +367,7 @@ impl Document {
 
     pub fn begin_shape(&mut self, shape: Shape) -> Result<(), Error> {
         shape.validate()?;
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             self.commit_shape()?;
         }
@@ -528,10 +535,15 @@ impl Document {
         Ok(changed)
     }
     pub fn sampler(&self, include_preview: bool) -> CompositeSampler<'_> {
-        CompositeSampler::new(
+        let sampler = CompositeSampler::new(
             &self.state,
             if include_preview { self.active } else { None },
-        )
+        );
+        if include_preview {
+            sampler.with_stroke(self.stroke.as_ref())
+        } else {
+            sampler
+        }
     }
     pub fn composite_pixel(&self, x: u32, y: u32, include_preview: bool) -> Color {
         self.sampler(include_preview).pixel(x, y)
@@ -667,6 +679,7 @@ impl Document {
         Ok(pixels)
     }
     pub fn undo(&mut self) -> Result<bool, Error> {
+        self.reject_active_stroke()?;
         self.commit_shape()?;
         let Some(target) = self.history_position().checked_sub(1) else {
             return Ok(false);
@@ -674,6 +687,7 @@ impl Document {
         self.go_to_history_step(target)
     }
     pub fn redo(&mut self) -> Result<bool, Error> {
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
@@ -698,13 +712,19 @@ pub use project::{DocumentSnapshot, ProjectError};
 pub struct CompositeSampler<'a> {
     state: &'a State,
     active: Option<RasterShape>,
+    stroke: Option<&'a painting::ActiveStroke>,
 }
 impl<'a> CompositeSampler<'a> {
     fn new(state: &'a State, preview: Option<Shape>) -> Self {
         Self {
             state,
             active: preview.map(RasterShape::new),
+            stroke: None,
         }
+    }
+    /// Adds an in-progress stroke preview on its own layer.
+    fn with_stroke(self, stroke: Option<&'a painting::ActiveStroke>) -> Self {
+        Self { stroke, ..self }
     }
     pub fn pixel(&self, x: u32, y: u32) -> Color {
         if x >= self.state.width || y >= self.state.height {
@@ -720,6 +740,11 @@ impl<'a> CompositeSampler<'a> {
                 && let Some(preview) = self.active.as_ref().and_then(|s| s.color_at(x, y))
             {
                 color = preview.over(color, 255)
+            }
+            if let Some(stroke) = self.stroke
+                && index == stroke.layer()
+            {
+                color = stroke.apply(x, y, color);
             }
             output = color.over(output, layer.opacity);
         }

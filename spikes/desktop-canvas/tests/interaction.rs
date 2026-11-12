@@ -79,6 +79,36 @@ fn software_rendered_canvas_accepts_real_input_events() {
     assert!(!ui.get_has_shape());
     assert_eq!(state.borrow().document().undo_len(), 1);
     let committed = state.borrow().composite();
+    let history = |state: &hoshi_canvas_spike::SharedController| {
+        let workspace = state.borrow();
+        (
+            workspace.document().undo_len(),
+            workspace.document().redo_len(),
+        )
+    };
+    // Ctrl+Z / Ctrl+Y undo and redo; uppercase text without Shift (Caps Lock)
+    // behaves the same. Ctrl+Shift+Z is reserved for Layer Rotate / Zoom.
+    shortcut(&ui, "z", false);
+    assert_eq!(history(&state), (0, 1), "Ctrl+Z undoes");
+    assert!(state.borrow().composite().iter().all(|p| p.a == 0));
+    shortcut(&ui, "y", false);
+    assert_eq!(history(&state), (1, 0), "Ctrl+Y redoes");
+    assert_eq!(state.borrow().composite(), committed);
+    shortcut(&ui, "Z", false);
+    assert_eq!(history(&state), (0, 1), "Caps Lock Ctrl+Z undoes");
+    shortcut(&ui, "Y", false);
+    assert_eq!(history(&state), (1, 0), "Caps Lock Ctrl+Y redoes");
+    shortcut(&ui, "Z", true);
+    assert_eq!(history(&state), (1, 0), "Ctrl+Shift+Z is not undo/redo");
+    shortcut(&ui, "z", true);
+    assert_eq!(history(&state), (1, 0), "Ctrl+Shift+z is not undo/redo");
+    shortcut(&ui, "z", false);
+    assert_eq!(history(&state), (0, 1), "Ctrl+Z undoes from undo stack");
+    shortcut(&ui, "Z", true);
+    assert_eq!(history(&state), (0, 1), "Ctrl+Shift+Z does not redo");
+    shortcut(&ui, "y", false);
+    assert_eq!(history(&state), (1, 0));
+    assert_eq!(state.borrow().composite(), committed);
     ui.invoke_action(0);
     assert!(state.borrow().composite().iter().all(|p| p.a == 0));
     ui.invoke_action(1);
@@ -124,14 +154,18 @@ fn software_rendered_canvas_accepts_real_input_events() {
         position: pointer(200.0, 200.0),
         button: PointerEventButton::Left,
     });
+    let undo_before_escape = state.borrow().document().undo_len();
     ui.window().dispatch_event(WindowEvent::KeyPressed {
         text: Key::Escape.into(),
     });
     ui.window().dispatch_event(WindowEvent::KeyReleased {
         text: Key::Escape.into(),
     });
+    // Escape commits the active shape (Paint.NET parity) as one history entry.
     assert!(!ui.get_has_shape());
-    assert_eq!(state.borrow().composite(), committed);
+    assert_eq!(state.borrow().document().undo_len(), undo_before_escape + 1);
+    assert_ne!(state.borrow().composite(), committed);
+    let committed = state.borrow().composite();
     ui.window().dispatch_event(WindowEvent::PointerPressed {
         position: pointer(210.0, 210.0),
         button: PointerEventButton::Left,
@@ -196,4 +230,23 @@ fn software_rendered_canvas_accepts_real_input_events() {
         .unwrap();
     }
     ui.hide().unwrap();
+}
+
+/// Presses Ctrl (plus Shift when asked) around a real `key` press on the window.
+fn shortcut(ui: &hoshi_canvas_spike::AppWindow, key: &str, shift: bool) {
+    let modifiers = [Some(Key::Control), shift.then_some(Key::Shift)];
+    for modifier in modifiers.into_iter().flatten() {
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: modifier.into(),
+        });
+    }
+    ui.window()
+        .dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+    ui.window()
+        .dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+    for modifier in modifiers.into_iter().rev().flatten() {
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: modifier.into(),
+        });
+    }
 }

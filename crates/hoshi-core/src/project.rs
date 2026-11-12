@@ -101,6 +101,7 @@ impl Document {
     }
     /// Explicit, undoable preparation for a flat format, after user consent.
     pub fn flatten_for_save(&mut self, matte: Option<Color>) -> Result<(), Error> {
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             return Err(Error::ActiveShape);
         }
@@ -125,7 +126,7 @@ impl Document {
     }
     /// Stream V2 tile records without allocating an encoded copy of the document.
     pub fn write_project(&self, output: impl Write) -> Result<(), ProjectError> {
-        if self.active.is_some() {
+        if self.active.is_some() || self.has_active_stroke() {
             return Err(ProjectError::ActiveShape);
         }
         let mut w = CheckedWriter {
@@ -309,6 +310,7 @@ impl Document {
                 layers,
             },
             active: None,
+            stroke: None,
             history: History::default(),
         })
     }
