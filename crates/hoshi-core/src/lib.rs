@@ -6,8 +6,10 @@ pub const MAX_DIMENSION: u32 = 262_144;
 pub mod geometry;
 mod memory;
 mod pixels;
+mod stroke;
 pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
 pub use pixels::{PixelStore, TILE_SIZE};
+pub use stroke::{BrushTip, StrokeBlend, StrokeStyle};
 mod history;
 mod history_store;
 use history::History;
@@ -99,6 +101,9 @@ pub enum Error {
     InvalidShape,
     ActiveShape,
     NoActiveShape,
+    InvalidStroke,
+    ActiveStroke,
+    NoActiveStroke,
     LayerLimit,
     InvalidHistoryStep,
     MemoryLimit,
