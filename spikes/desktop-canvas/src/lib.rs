@@ -487,8 +487,8 @@ slint::slint! {
                             if event.modifiers.control || event.modifiers.meta {
                                 if root.has-document && (event.text == "r" || event.text == "R") { root.show-image-settings(event.modifiers.shift ? 2 : 1); return accept; }
                                 if (event.text == "f" || event.text == "F") && event.modifiers.shift { root.image-command(5); return accept; }
-                                if event.text == "z" { root.action(event.modifiers.shift ? 1 : 0); return accept; }
-                                if event.text == "y" { root.action(1); return accept; }
+                                if (event.text == "z" || event.text == "Z") && !event.modifiers.shift { root.action(0); return accept; }
+                                if event.text == "y" || event.text == "Y" { root.action(1); return accept; }
                             }
                             reject
                         }
