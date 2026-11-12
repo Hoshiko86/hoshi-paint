@@ -8,10 +8,10 @@ those documents disagree, the quality gate wins and the ADR must be amended.
 | # | Title | Status | Unblocks (roadmap) |
 | --- | --- | --- | --- |
 | [0001](0001-selection-model.md) | Selection model | Accepted | 0.1.0 selections, pixel movement, crop |
-| [0002](0002-effect-framework.md) | Effect and adjustment framework | Accepted | 0.3.0 adjustments/effects, 0.4.0 Wasm |
+| [0002](0002-effect-framework.md) | Effect and adjustment framework | Accepted | 0.3.0 adjustments, 0.4.0 effects, 0.7.0 Wasm |
 | [0003](0003-tool-framework.md) | Tool framework and stable tool IDs | Accepted | 0.0.0 brush/eraser, 0.2.0 tools |
-| [0004](0004-pixel-precision-blend-modes.md) | Pixel precision and blend modes | Accepted | 0.7.0 blend modes, layer properties |
-| [0005](0005-platform-services.md) | Platform services | Accepted | 0.1.0 clipboard, 0.2.0 pressure, 0.7.0 text |
+| [0004](0004-pixel-precision-blend-modes.md) | Pixel precision and blend modes | Accepted | 0.5.0 blend modes, layer properties |
+| [0005](0005-platform-services.md) | Platform services | Accepted | 0.1.0 clipboard, 0.2.0 pressure, 0.6.0 text |
 
 Suggested order of work: 0003 (unblocks DRAW-1 cleanly) → 0001 → 0004 → 0002 →
 0005. 0001 and 0004 both touch `Layer`/`State`/history serialization; land
