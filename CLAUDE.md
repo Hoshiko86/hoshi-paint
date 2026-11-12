@@ -16,7 +16,8 @@ spikes/desktop-canvas (Slint 1.18.1 adapter, disposable)
 ```
 
 - Toolchain pinned 1.99.1, edition 2024. `--locked` everywhere. CI runs on
-  Linux/Windows/macOS plus xvfb smoke examples.
+  Linux/Windows/macOS via `cargo xtask test <suite>` (`docs/TESTING.md`;
+  smoke table in `xtask/src/smoke.rs`). Test epic #63 (TEST-1..4: #64–#67).
 - Core: sparse 128×128 `Arc` copy-on-write tiles, ≤262,144 px/axis, global
   memory budget (`memory.rs`, static atomics), disk-backed compressed undo.
 - Shapes: draw → adjust → commit; one history entry per commit.

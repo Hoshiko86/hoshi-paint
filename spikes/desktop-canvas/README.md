@@ -163,8 +163,11 @@ This starts the native desktop event loop and software renderer, dispatches
 synthetic drawing/key events, verifies visible pixels, optionally saves a PNG,
 and exits. The managed command sandbox may require escalation for X11 sockets.
 
+All native smoke examples run with `cargo xtask test smoke` (or one by name:
+`cargo xtask test smoke desktop_smoke`); see [docs/TESTING.md](../../docs/TESTING.md).
+
 CI builds/tests the workspace on Windows, macOS and Ubuntu and runs the real
-Xvfb smoke test on Linux. It uploads experimental, unsigned, **debug binaries**
+Xvfb smoke suite on Linux. It uploads experimental, unsigned, **debug binaries**
 as `canvas-spike-*` artifacts. They require the documented runtime libraries;
 they are not installers or signed application bundles.
 

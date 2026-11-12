@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hoshi-core", "crates/hoshi-controller", "spikes/desktop-canvas"]
+members = ["crates/hoshi-core", "crates/hoshi-controller", "spikes/desktop-canvas", "xtask"]
 resolver = "3"
 
 [workspace.package]
