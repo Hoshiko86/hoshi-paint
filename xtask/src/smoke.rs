@@ -33,6 +33,8 @@ pub struct Smoke {
     pub env: &'static [(&'static str, EnvValue)],
     /// Display scale factors to run at; empty runs once at the default.
     pub scales: &'static [Scale],
+    /// Why the smoke cannot run on Windows or macOS; `None` runs everywhere.
+    pub linux_only: Option<&'static str>,
 }
 
 /// A display scale and the virtual screen large enough for it.
@@ -60,6 +62,7 @@ pub const SMOKES: &[Smoke] = &[
             ),
         ],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "color_smoke",
@@ -71,6 +74,7 @@ pub const SMOKES: &[Smoke] = &[
             ("HOSHI_DOCK_SNAPSHOT", Snapshot("spike-colors-docked.png")),
         ],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "color_library_smoke",
@@ -79,6 +83,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1600x1200"),
         env: &[],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "rectangle_editing_smoke",
@@ -90,6 +95,7 @@ pub const SMOKES: &[Smoke] = &[
             Snapshot("spike-rectangle-editing.png"),
         )],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "rendering_smoke",
@@ -101,6 +107,7 @@ pub const SMOKES: &[Smoke] = &[
             Snapshot("spike-shape-rendering.png"),
         )],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "bounds_smoke",
@@ -109,6 +116,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1280x960"),
         env: &[],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "shape_properties_smoke",
@@ -117,6 +125,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1600x1100"),
         env: &[],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "documents_smoke",
@@ -125,6 +134,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1280x960"),
         env: &[("HOSHI_DOCUMENT_SNAPSHOT_DIR", OutputDir)],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "large_canvas_smoke",
@@ -133,6 +143,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1440x1080"),
         env: &[("HOSHI_LARGE_SNAPSHOT_DIR", OutputDir)],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "image_settings_smoke",
@@ -141,6 +152,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: None,
         env: &[("HOSHI_IMAGE_SNAPSHOT_DIR", OutputDir)],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "disk_history_smoke",
@@ -149,6 +161,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: Some("1440x1080"),
         env: &[("HOSHI_HISTORY_SNAPSHOT_DIR", OutputDir)],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "panels_smoke",
@@ -160,6 +173,7 @@ pub const SMOKES: &[Smoke] = &[
             ("HOSHI_HISTORY_SNAPSHOT", Snapshot("spike-history.png")),
         ],
         scales: &[],
+        linux_only: None,
     },
     Smoke {
         name: "portal_smoke",
@@ -168,6 +182,7 @@ pub const SMOKES: &[Smoke] = &[
         screen: None,
         env: &[],
         scales: &[],
+        linux_only: Some("the xdg-desktop-portal screen picker exists only on Linux"),
     },
     Smoke {
         name: "cursor_smoke",
@@ -185,6 +200,7 @@ pub const SMOKES: &[Smoke] = &[
                 screen: Some("2560x1800"),
             },
         ],
+        linux_only: Some("reads the cursor image through X11 (scripts/check_x11_cursor.py)"),
     },
 ];
 

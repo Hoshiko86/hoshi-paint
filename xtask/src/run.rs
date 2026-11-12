@@ -31,6 +31,7 @@ pub enum Error {
     },
     UnlistedSmoke(Vec<String>),
     SmokeFailed(Vec<&'static str>),
+    BelowCoverageFloor(Vec<&'static str>),
 }
 
 impl fmt::Display for Error {
@@ -55,6 +56,11 @@ impl fmt::Display for Error {
                 names.join(", ")
             ),
             Self::SmokeFailed(names) => write!(f, "smoke failures: {}", names.join(", ")),
+            Self::BelowCoverageFloor(names) => write!(
+                f,
+                "line coverage below the floor in xtask/src/coverage.rs: {}",
+                names.join(", ")
+            ),
         }
     }
 }
@@ -129,6 +135,22 @@ impl Workspace {
             None => root.join("target"),
         };
         Ok(Self { root, target })
+    }
+
+    /// Runs `step` quietly and returns its standard output, or `None` if it
+    /// cannot start or fails. For probes such as `git` and `cargo nextest`.
+    pub fn capture(&self, step: &Step) -> Option<String> {
+        let output = Command::new(&step.program)
+            .args(&step.args)
+            .current_dir(&self.root)
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        if output.status.success() {
+            String::from_utf8(output.stdout).ok()
+        } else {
+            None
+        }
     }
 
     pub fn run(&self, step: Step) -> Result<(), Error> {
@@ -217,6 +239,16 @@ impl Workspace {
         Ok(dir)
     }
 
+    /// `target/coverage/`, created if needed. CI uploads its contents.
+    pub fn coverage_output_dir(&self) -> Result<PathBuf, Error> {
+        let dir = self.target.join("coverage");
+        std::fs::create_dir_all(&dir).map_err(|source| Error::Io {
+            context: format!("creating {}", dir.display()),
+            source,
+        })?;
+        Ok(dir)
+    }
+
     /// The process steps for one smoke entry: one per display scale.
     pub fn smoke_steps(&self, smoke: &Smoke, output: &Path) -> Vec<Step> {
         let exe = self.target.join("debug/examples").join(format!(
@@ -235,17 +267,23 @@ impl Workspace {
         };
         runs.into_iter()
             .map(|(scale, screen)| {
-                let mut step = match smoke.host {
-                    Host::Xvfb => {
+                // Linux CI has no display or session bus, so the host provides
+                // one; Windows and macOS runners already have a desktop session.
+                let mut step = match (smoke.host, cfg!(target_os = "linux")) {
+                    (Host::Xvfb, true) => {
                         let mut step = Step::new("xvfb-run").arg("-a");
                         if let Some(screen) = screen {
                             step = step.arg("-s").arg(format!("-screen 0 {screen}x24"));
                         }
-                        step.env("SLINT_BACKEND", "winit-software")
+                        step.arg(&exe)
                     }
-                    Host::DbusSession => Step::new("dbus-run-session").arg("--"),
+                    (Host::DbusSession, true) => Step::new("dbus-run-session").arg("--").arg(&exe),
+                    (_, false) => Step::new(&exe),
                 };
-                step = step.arg(&exe).timeout(SMOKE_TIMEOUT);
+                if smoke.host == Host::Xvfb {
+                    step = step.env("SLINT_BACKEND", "winit-software");
+                }
+                step = step.timeout(SMOKE_TIMEOUT);
                 if let Some(scale) = scale {
                     step = step.env("SLINT_SCALE_FACTOR", scale);
                 }

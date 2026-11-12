@@ -26,8 +26,29 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
       - name: Install pinned Rust
         run: rustup show
+      - name: Install cargo-nextest (prebuilt, pinned)
+        shell: bash
+        env:
+          NEXTEST: "0.9.151"
+        run: |
+          case "${{ runner.os }}" in
+            Linux) target=x86_64-unknown-linux-gnu ;;
+            macOS) target=universal-apple-darwin ;;
+            Windows) target=x86_64-pc-windows-msvc ;;
+          esac
+          curl -fsSL "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$NEXTEST/cargo-nextest-$NEXTEST-$target.tar.gz" \
+            | tar xzf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
+          cargo nextest --version
       - run: cargo xtask test lint
       - run: cargo xtask test unit
+      - name: Upload test results (JUnit)
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+        with:
+          name: junit-${{ matrix.os }}
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Native desktop smoke suite (xtask/src/smoke.rs)
         run: cargo xtask test smoke
       - name: Include license notices with debug artifacts
@@ -53,4 +74,32 @@ jobs:
           name: canvas-spike-${{ matrix.os }}
           path: target/spike-package/
           if-no-files-found: error
+          retention-days: 14
+  coverage:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install pinned Rust with LLVM tools
+        run: rustup show && rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov (prebuilt, pinned; keep in step with xtask/src/coverage.rs)
+        env:
+          LLVM_COV: "0.9.1"
+        run: |
+          curl -fsSL "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v$LLVM_COV/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar xzf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
+          cargo llvm-cov --version
+      - name: Line coverage with floors (xtask/src/coverage.rs)
+        run: cargo xtask test coverage
+      - name: Coverage summary
+        if: always()
+        run: |
+          { echo '### Line coverage (hoshi-core, hoshi-controller)'; echo '```';
+            cargo llvm-cov report --summary-only; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+        if: always()
+        with:
+          name: coverage
+          path: target/coverage/
+          if-no-files-found: warn
           retention-days: 14
