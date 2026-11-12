@@ -1,6 +1,6 @@
 # 0001. Selection model
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-12, #49)
 - Date: 2026-11-12
 - Related: #42 (CoverageMask), #43 (stroke lifecycle), ADR 0002, 0003, 0005
 

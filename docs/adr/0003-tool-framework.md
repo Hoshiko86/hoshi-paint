@@ -1,6 +1,6 @@
 # 0003. Tool framework and stable tool IDs
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-12, #49)
 - Date: 2026-11-12
 - Related: #44 (Brush/Eraser), #48 (eyedropper), CLAUDE.md debt 2–3, ADR 0001
 

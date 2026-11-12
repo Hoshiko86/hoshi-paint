@@ -66,6 +66,13 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   Esc commits live edits (Paint.NET). Fonts: all system fonts + a bundled
   curated open-font pack (OFL/Apache/UFL). License is not fixed to GPL-3.0;
   revisit if a dependency needs it. Open: blend reference renders (owner).
+- [ ] #50 Esc commits shape (needs #49 merged — done).
+- [ ] TOOL epic #51 (ADR 0003): #53 ToolId → trait/ToolCx → Slint string IDs
+      (after #47) → Pan/Zoom → Brush/Eraser → Shapes → HandleKind → settings
+      → Color Picker options.
+- [ ] SEL epic #52 (ADR 0001): #54 polygon wrapper ∥ #55 MaskStore (after #42)
+      → Selection type → State+history → clip → ActiveEdit → floating → …
+- File later slices only when their prerequisites merge (keeps file refs true).
 - Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
 - Next: T4 `WorkspaceError`; `HandleKind` enum (replaces `i32` 8/9);
   replace `Workspace`'s `empty` controller with a `Drawing` settings value,

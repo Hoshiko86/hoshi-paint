@@ -1,6 +1,6 @@
 # 0004. Pixel precision and blend modes
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-12, #49)
 - Date: 2026-11-12
 - Related: `hoshi-core::Color::over`, `CompositeSampler`, FILE_FORMAT.md,
   LARGE_IMAGES.md, ADR 0002
