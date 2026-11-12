@@ -246,12 +246,16 @@ fn shared_canvas_input_supports_shape_modifiers_pivot_keyboard_and_secondary_dra
     key(&ui, Key::LeftArrow, true);
     key(&ui, Key::LeftArrow, false);
     assert_eq!(state.borrow().document().active_shape(), before);
-    // Regaining canvas focus restores editor shortcuts, including cancellation.
+    // Regaining canvas focus restores editor shortcuts; Escape commits.
     down(&ui, 55., 55., Button::Left);
     up(&ui, 55., 55., Button::Left);
+    let undo_before = state.borrow().document().undo_len();
+    let pixels_before = state.borrow().document().composite(false);
     key(&ui, Key::Escape, true);
     key(&ui, Key::Escape, false);
     assert!(state.borrow().document().active_shape().is_none());
+    assert_eq!(state.borrow().document().undo_len(), undo_before + 1);
+    assert_ne!(state.borrow().document().composite(false), pixels_before);
     assert!(state.borrow().handle_positions().is_empty());
     ui.hide().unwrap();
 }

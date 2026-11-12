@@ -53,7 +53,7 @@ export component DesktopCommandBars inherits Rectangle {
             Button { icon: @image-url("../icons/check.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.commit-shape; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
                 Tooltip { Text { text: Translations.commit-shape + " · " + Translations.key-commit; color: Palette.foreground; } } clicked => { root.action(2); } }
             Button { icon: @image-url("../icons/x.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.cancel-shape; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
-                Tooltip { Text { text: Translations.cancel-shape + " · " + Translations.key-cancel; color: Palette.foreground; } } clicked => { root.action(3); } }
+                Tooltip { Text { text: Translations.cancel-shape; color: Palette.foreground; } } clicked => { root.action(3); } }
             Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.shape-properties; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
                 Tooltip { Text { text: Translations.shape-properties; color: Palette.foreground; } } clicked => { root.show-shape-properties(); } }
             Rectangle { horizontal-stretch: 1; }

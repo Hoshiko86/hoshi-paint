@@ -437,7 +437,7 @@ slint::slint! {
                     border-width: 1px;
                     border-color: DesktopTheme.strong-border;
                     accessible-role: image;
-                    accessible-label: "Drawing canvas. Drag to draw; Enter commits; Escape cancels.";
+                    accessible-label: "Drawing canvas. Drag to draw; Enter or Escape commits.";
                     Image {
                         visible: root.has-document;
                         source: root.canvas-image;
@@ -481,7 +481,7 @@ slint::slint! {
                                 if root.navigation-panning {
                                     root.end-pan(touch.mouse-x / 1px, touch.mouse-y / 1px);
                                     root.clear-navigation-state();
-                                } else { root.action(3); }
+                                } else { root.action(2); }
                                 return accept;
                             }
                             if event.modifiers.control || event.modifiers.meta {

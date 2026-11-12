@@ -154,14 +154,18 @@ fn software_rendered_canvas_accepts_real_input_events() {
         position: pointer(200.0, 200.0),
         button: PointerEventButton::Left,
     });
+    let undo_before_escape = state.borrow().document().undo_len();
     ui.window().dispatch_event(WindowEvent::KeyPressed {
         text: Key::Escape.into(),
     });
     ui.window().dispatch_event(WindowEvent::KeyReleased {
         text: Key::Escape.into(),
     });
+    // Escape commits the active shape (Paint.NET parity) as one history entry.
     assert!(!ui.get_has_shape());
-    assert_eq!(state.borrow().composite(), committed);
+    assert_eq!(state.borrow().document().undo_len(), undo_before_escape + 1);
+    assert_ne!(state.borrow().composite(), committed);
+    let committed = state.borrow().composite();
     ui.window().dispatch_event(WindowEvent::PointerPressed {
         position: pointer(210.0, 210.0),
         button: PointerEventButton::Left,
