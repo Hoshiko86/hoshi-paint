@@ -1,11 +1,4 @@
 //! Validated brush styles and sparse, maximum-combined stroke coverage.
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "consumed by the Document stroke lifecycle in #43; remove this attribute there"
-    )
-)]
 
 use crate::{Color, Error, MemoryReservation, TILE_SIZE, geometry::Point};
 use std::collections::HashMap;

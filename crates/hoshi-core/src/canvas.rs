@@ -73,6 +73,7 @@ impl Document {
         }
     }
     fn image_editable(&self) -> Result<(), Error> {
+        self.reject_active_stroke()?;
         if self.active.is_some() {
             Err(Error::ActiveShape)
         } else {
