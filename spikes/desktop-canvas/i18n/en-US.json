@@ -29,7 +29,7 @@
   "key_commit": "Enter",
   "key_cancel": "Escape",
   "shortcut_undo": "Ctrl/Cmd+Z",
-  "shortcut_redo": "Ctrl/Cmd+Shift+Z",
+  "shortcut_redo": "Ctrl/Cmd+Y",
   "save_changes_title": "Save changes?",
   "save_changes_prefix": "Save changes to ",
   "save_changes_suffix": " before closing?",

@@ -77,7 +77,7 @@ canvas display work follows the viewport instead of the document dimensions.
   shortcuts below. Separate Move shape, Pan canvas and nudge/size buttons are no
   longer needed.
 - Enter commits, Escape cancels. The toolbar also exposes both actions.
-- Undo/redo use the toolbar or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z; Ctrl+Y also redoes.
+- Undo/redo use the toolbar or Ctrl/Cmd+Z and Ctrl/Cmd+Y. Ctrl/Cmd+Shift+Z is reserved for Layers → Rotate / Zoom, as in Paint.NET.
   Shortcuts apply only when the canvas has keyboard focus.
 - Open Colors… before drawing or while a shape is active. The picker supplies
   RGB (0–255), HSV (degrees/percentages), a saturation/value area, hue slider,
