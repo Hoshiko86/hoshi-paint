@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - run: python3 -m unittest discover -s scripts -v
+      - run: python3 -m unittest discover -s scripts -v  # = cargo xtask test scripts, without a Rust toolchain
   core:
     timeout-minutes: 45
     strategy:
@@ -26,93 +26,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
       - name: Install pinned Rust
         run: rustup show
-      - run: cargo test --workspace --locked
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: cargo build --package hoshi-canvas-spike --locked
-      - name: Real Linux desktop backend smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_SPIKE_SNAPSHOT: target/spike-desktop.png
-          HOSHI_SPIKE_EDITABLE_SNAPSHOT: target/spike-handles.png
-        run: xvfb-run -a cargo run --package hoshi-canvas-spike --example desktop_smoke --locked
-      - name: Real Linux color picker smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_COLOR_SNAPSHOT: target/spike-colors.png
-          HOSHI_DOCK_SNAPSHOT: target/spike-colors-docked.png
-        run: xvfb-run -a cargo run --package hoshi-canvas-spike --example color_smoke --locked
-      - name: Native named colors and palette smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-        run: xvfb-run -a -s '-screen 0 1600x1200x24' cargo run --package hoshi-canvas-spike --example color_library_smoke --locked
-      - name: Native shared shape editing controls smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_EDITING_SNAPSHOT: target/spike-rectangle-editing.png
-        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example rectangle_editing_smoke --locked
-      - name: Native shared shape rendering smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_RENDERING_SNAPSHOT: target/spike-shape-rendering.png
-        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example rendering_smoke --locked
-      - name: Native numeric shape bounds smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example bounds_smoke --locked
-      - name: Native floating and docked shape properties smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-        run: xvfb-run -a -s '-screen 0 1600x1100x24' cargo run --package hoshi-canvas-spike --example shape_properties_smoke --locked
-      - name: Native document tabs and save prompts smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_DOCUMENT_SNAPSHOT_DIR: target
-        run: xvfb-run -a -s '-screen 0 1280x960x24' cargo run --package hoshi-canvas-spike --example documents_smoke --locked
-      - name: Native large sparse canvas and bounded viewport smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_LARGE_SNAPSHOT_DIR: target
-        run: xvfb-run -a -s '-screen 0 1440x1080x24' cargo run --package hoshi-canvas-spike --example large_canvas_smoke --locked
-      - name: Native image and canvas settings smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_IMAGE_SNAPSHOT_DIR: target
-        run: xvfb-run -a cargo run --package hoshi-canvas-spike --example image_settings_smoke --locked
-      - name: Native disk-backed long history smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_HISTORY_SNAPSHOT_DIR: target
-        run: xvfb-run -a -s '-screen 0 1440x1080x24' cargo run --package hoshi-canvas-spike --example disk_history_smoke --locked
-      - name: Native docked panels and history smoke test
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-          HOSHI_PANELS_SNAPSHOT: target/spike-panels.png
-          HOSHI_HISTORY_SNAPSHOT: target/spike-history.png
-        run: xvfb-run -a -s '-screen 0 1600x1000x24' cargo run --package hoshi-canvas-spike --example panels_smoke --locked
-      - name: Desktop screen picker portal contract
-        if: runner.os == 'Linux'
-        run: dbus-run-session -- cargo run --package hoshi-canvas-spike --example portal_smoke --locked
-      - name: Native eyedropper cursor at 1x and 2x
-        if: runner.os == 'Linux'
-        env:
-          SLINT_BACKEND: winit-software
-        run: |
-          cargo build --package hoshi-canvas-spike --example cursor_smoke --locked
-          SLINT_SCALE_FACTOR=1 xvfb-run -a target/debug/examples/cursor_smoke
-          SLINT_SCALE_FACTOR=2 xvfb-run -a -s '-screen 0 2560x1800x24' target/debug/examples/cursor_smoke
+      - run: cargo xtask test lint
+      - run: cargo xtask test unit
+      - name: Native desktop smoke suite (xtask/src/smoke.rs)
+        run: cargo xtask test smoke
       - name: Include license notices with debug artifacts
         shell: python
         run: |
@@ -121,18 +38,13 @@ jobs:
           package = Path("target/spike-package")
           package.mkdir(parents=True, exist_ok=True)
           for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
-                         "target/spike-desktop.png", "target/spike-handles.png", "target/spike-colors.png",
-                         "target/spike-colors-docked.png", "target/spike-panels.png", "target/spike-history.png",
-                         "target/spike-rectangle-editing.png", "target/spike-shape-rendering.png", "target/spike-shape-bounds.png",
-                         "target/spike-shape-properties-floating.png", "target/spike-shape-properties-docked.png", "target/spike-shape-properties-top.png", "target/spike-documents.png", "target/spike-save-prompt.png",
-                         "target/spike-save-configuration.png", "target/spike-image-new.png", "target/spike-image-resize.png",
-                         "target/spike-canvas-size.png", "target/spike-image-edited.png",
-                         "target/spike-large-canvas-fit.png", "target/spike-large-canvas-edit.png",
-                         "target/spike-large-canvas-resized.png", "target/spike-disk-history.png",
                          "LICENSE", "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)
               if path.is_file():
                   shutil.copy2(path, package / path.name)
+          # Snapshots written by `cargo xtask test smoke`.
+          for snapshot in sorted(Path("target/smoke").glob("*.png")):
+              shutil.copy2(snapshot, package / snapshot.name)
           shutil.copytree("licenses", package / "licenses", dirs_exist_ok=True)
       - name: Bundle corresponding source and locked dependencies
         run: python3 scripts/package_source.py target/spike-package/hoshi-paint-source.tar.gz
