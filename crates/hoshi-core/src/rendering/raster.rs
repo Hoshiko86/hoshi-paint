@@ -6,6 +6,23 @@ use crate::{
 };
 const ARC_STEPS: usize = 128;
 
+/// Radii of the ellipse that dashes are measured along: the stroke centerline,
+/// matching rectangles. A stroke wide enough to fill the shape has no proper
+/// centerline ellipse, so it falls back to the outer edge to keep angles finite.
+fn ellipse_dash_radii(shape: Shape) -> (f64, f64) {
+    let (rx, ry) = (f64::from(shape.width) / 2., f64::from(shape.height) / 2.);
+    let half_width = match shape.style {
+        ShapeStyle::Fill(_) => 0.,
+        ShapeStyle::Outline { width, .. } | ShapeStyle::Both { width, .. } => width / 2.,
+    };
+    let (cx, cy) = (rx - half_width, ry - half_width);
+    if cx > 0. && cy > 0. {
+        (cx, cy)
+    } else {
+        (rx, ry)
+    }
+}
+
 /// Prepared once per rendering operation, shared by preview and committed pixels.
 /// Only ellipse dash strokes need the cumulative arc-length lookup table.
 pub(crate) struct RasterShape {
@@ -18,7 +35,7 @@ impl RasterShape {
         shape.rendering = shape.rendering.for_style(shape.style);
         let mut arc_lengths = [0.; ARC_STEPS + 1];
         if shape.kind == ShapeKind::Ellipse && shape.rendering.line_style != LineStyle::Solid {
-            let (rx, ry) = (f64::from(shape.width) / 2., f64::from(shape.height) / 2.);
+            let (rx, ry) = ellipse_dash_radii(shape);
             let mut previous = Point::new(0., -ry);
             for (i, length) in arc_lengths.iter_mut().enumerate().skip(1) {
                 let angle = i as f64 * std::f64::consts::TAU / ARC_STEPS as f64;
@@ -85,12 +102,13 @@ impl RasterShape {
                     (p.y - ry).abs(),
                     (p.x + rx).abs(),
                 ];
-                let edge = edges
-                    .iter()
-                    .enumerate()
-                    .min_by(|a, b| a.1.total_cmp(b.1))
-                    .unwrap()
-                    .0;
+                // First minimum wins on ties, as `Iterator::min_by` would.
+                let mut edge = 0;
+                for (index, distance) in edges.iter().enumerate().skip(1) {
+                    if distance.total_cmp(&edges[edge]).is_lt() {
+                        edge = index;
+                    }
+                }
                 match edge {
                     0 => x,
                     1 => 2. * rx + y,
@@ -99,8 +117,7 @@ impl RasterShape {
                 }
             }
             ShapeKind::Ellipse => {
-                let rx = f64::from(self.shape.width) / 2.;
-                let ry = f64::from(self.shape.height) / 2.;
+                let (rx, ry) = ellipse_dash_radii(self.shape);
                 let angle = (p.x / rx)
                     .atan2(-p.y / ry)
                     .rem_euclid(std::f64::consts::TAU);

@@ -8,7 +8,7 @@ Open **Shape Properties** using the Shapes tool or sliders icon. It can float or
 
 - Antialiasing is on by default and can be disabled for hard pixel edges.
 - Outline width accepts decimals from 0.01 to 65,536 canvas pixels. Outlines remain inset inside the bounds. A sufficiently wide outline consumes the fill.
-- Line styles: Solid, Dash, Dot, Dash dot, Dash dot dot. Dash lengths scale with outline width.
+- Line styles: Solid, Dash, Dot, Dash dot, Dash dot dot. Dash lengths scale with outline width and are measured along the stroke centerline for every shape.
 - Fill patterns: Solid, Horizontal, Vertical, Forward diagonal, Backward diagonal, Cross, Diagonal cross, Checkerboard.
 - `[` / `]` change width by one pixel; Ctrl/Cmd changes the step to five. These shortcuts operate with canvas focus; text fields retain ordinary typing.
 

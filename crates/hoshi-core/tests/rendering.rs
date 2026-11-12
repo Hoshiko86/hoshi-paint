@@ -235,3 +235,35 @@ fn matching_fill_and_outline_colors_do_not_change_coverage_with_dash_style() {
     shape.rendering.line_style = LineStyle::DashDot;
     assert_eq!(render(shape), expected);
 }
+#[test]
+fn ellipse_dashes_are_measured_along_the_stroke_centerline() {
+    // Radius 21, width 6: the centerline (r = 18) is ~113.1 px, i.e. 4 Dash
+    // periods (18 on, 6 off) plus 17.1 px that merges into the first dash.
+    // Measuring along the outer edge (~131.9 px) would give 5 dashes.
+    let mut shape = Shape::new(
+        ShapeKind::Ellipse,
+        3,
+        3,
+        42,
+        42,
+        ShapeStyle::Outline {
+            color: RED,
+            width: 6.,
+        },
+    );
+    shape.rendering.line_style = LineStyle::Dash;
+    shape.rendering.antialias = false;
+    let pixels = render(shape);
+    let painted: Vec<bool> = (0..720)
+        .map(|step| {
+            let angle = f64::from(step) * std::f64::consts::TAU / 720.;
+            let x = (24. + 18. * angle.sin()).floor() as usize;
+            let y = (24. - 18. * angle.cos()).floor() as usize;
+            pixels[y * 48 + x].a > 0
+        })
+        .collect();
+    let dashes = (0..painted.len())
+        .filter(|&i| painted[i] && !painted[(i + painted.len() - 1) % painted.len()])
+        .count();
+    assert_eq!(dashes, 4);
+}
