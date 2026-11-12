@@ -1,4 +1,11 @@
 //! Validated brush styles and sparse, maximum-combined stroke coverage.
+#![cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "consumed by the Document stroke lifecycle in #43; remove this attribute there"
+    )
+)]
 
 use crate::{Color, Error, MemoryReservation, TILE_SIZE, geometry::Point};
 use std::collections::HashMap;
@@ -209,6 +216,19 @@ impl Segment {
         if ![from.x, from.y, to.x, to.y].into_iter().all(f64::is_finite) {
             return Err(Error::InvalidStroke);
         }
+        // A capsule is symmetric, so put the endpoints in a canonical order.
+        // Reversed segments then run identical arithmetic and stamp identical
+        // coverage, keeping boundary pixels deterministic.
+        let (from, to) = if from
+            .x
+            .total_cmp(&to.x)
+            .then(from.y.total_cmp(&to.y))
+            .is_gt()
+        {
+            (to, from)
+        } else {
+            (from, to)
+        };
         // Normalize before subtraction so opposing finite endpoints cannot
         // overflow their direction vector (for example -f64::MAX to MAX).
         let scale = from

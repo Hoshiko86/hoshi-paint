@@ -302,3 +302,27 @@ fn failed_multi_tile_reservation_preserves_existing_pixels_and_releases_pending_
     drop(mask);
     assert_eq!(crate::memory_usage(), 0);
 }
+
+#[test]
+fn reversed_segments_have_identical_coverage() {
+    // Regression for the Codex review finding on #57: roundoff in the line
+    // distance made hard-edge boundary pixels depend on segment direction.
+    let a = Point::new(-3.5, -0.5);
+    let b = Point::new(12.5, 11.5);
+    for antialias in [false, true] {
+        let tip = BrushTip::new(2.0, antialias).unwrap();
+        let mut forward = CoverageMask::new(16, 16);
+        let mut backward = CoverageMask::new(16, 16);
+        forward.stamp_segment(a, b, tip).unwrap();
+        backward.stamp_segment(b, a, tip).unwrap();
+        for y in 0..16 {
+            for x in 0..16 {
+                assert_eq!(
+                    forward.coverage(x, y),
+                    backward.coverage(x, y),
+                    "({x}, {y}), AA={antialias}"
+                );
+            }
+        }
+    }
+}
