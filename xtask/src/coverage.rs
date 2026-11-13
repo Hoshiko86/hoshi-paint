@@ -23,8 +23,8 @@ pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-controller",
         path: "crates/hoshi-controller/",
-        // CI baseline 87.73% (2026-11-12).
-        lines: 87,
+        // 94.28% locally after #71 (2026-11-13); CI runs about 0.5% lower.
+        lines: 93,
     },
 ];
 
