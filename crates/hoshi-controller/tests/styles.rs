@@ -87,7 +87,7 @@ fn settings_survive_cancel_and_apply_to_the_next_shape_without_changing_old_pixe
     assert!(c.set_stroke_width(65537).is_err());
     assert_eq!(c.stroke_width(), 65536);
     assert_eq!(c.document().active_shape(), before);
-    c.cancel_pointer();
+    c.cancel_pointer().unwrap();
     // Escape's explicit shape cancellation leaves drawing settings intact.
     c.cancel();
     assert_eq!(c.composite(), committed);

@@ -103,7 +103,7 @@ fn focus_loss_cancels_drag_and_preserves_committed_work() {
     let before = controller.composite();
     controller.pointer_down(1.0, 1.0).unwrap();
     controller.pointer_move(12.0, 12.0).unwrap();
-    controller.cancel_pointer();
+    controller.cancel_pointer().unwrap();
     assert!(!controller.is_dragging());
     assert!(controller.document().active_shape().is_none());
     assert_eq!(controller.document().undo_len(), 1);
@@ -488,7 +488,7 @@ fn shift_can_toggle_mid_drag_and_constrains_edge_handles() {
     c.pointer_move(160.0, 70.0).unwrap();
     let edge = c.document().active_shape().unwrap();
     assert_eq!((edge.width, edge.height), (120, 60));
-    c.cancel_pointer();
+    c.cancel_pointer().unwrap();
     assert!(!c.aspect_lock());
 }
 

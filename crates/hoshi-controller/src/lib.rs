@@ -253,21 +253,24 @@ impl Controller {
     /// Used for lost pointer capture / focus loss: never leave an active drag.
     /// Interrupting sampling or viewport panning preserves the editable shape
     /// and selected color. Interrupted strokes commit; shape gestures discard
-    /// their preview.
-    pub fn cancel_pointer(&mut self) {
-        if matches!(self.gesture, Some(Gesture::Stroke)) {
-            let _ = self.finish_stroke();
+    /// their preview. Stroke commit errors are returned after resetting input.
+    pub fn cancel_pointer(&mut self) -> Result<(), ControllerError> {
+        let result = if matches!(self.gesture, Some(Gesture::Stroke)) {
+            self.finish_stroke().map(|_| ())
         } else if matches!(
             self.gesture,
             Some(Gesture::Sample | Gesture::Pan { .. } | Gesture::TemporaryPan { .. })
         ) {
             self.gesture = None;
             self.sample_snapshot = None;
+            Ok(())
         } else {
             self.cancel();
-        }
+            Ok(())
+        };
         self.modifiers = InputModifiers::default();
         self.last_pointer = None;
+        result
     }
 
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
