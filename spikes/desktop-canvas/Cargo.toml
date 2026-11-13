@@ -11,6 +11,7 @@ hoshi-core = { path = "../../crates/hoshi-core" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "tiff", "tga", "webp", "ico"] }
 png = "0.18"
 tempfile = "3"
+thiserror = "2"
 serde_json = "1"
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
 sys-locale = "0.3"

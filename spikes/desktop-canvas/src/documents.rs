@@ -262,7 +262,7 @@ impl Manager {
         let format = match FileFormat::for_path(&path) {
             Ok(f) => f,
             Err(e) => {
-                self.error(ui, e);
+                self.error(ui, e.to_string());
                 return;
             }
         };

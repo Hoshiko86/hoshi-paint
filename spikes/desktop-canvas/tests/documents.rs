@@ -301,7 +301,13 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     let mut writer = encoder.write_header().unwrap();
     writer.write_image_data(&[0; 8]).unwrap();
     writer.finish().unwrap();
-    assert!(files::load(&high).err().unwrap().contains("16-bit"));
+    assert!(
+        files::load(&high)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("16-bit")
+    );
 }
 
 #[test]

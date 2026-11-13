@@ -10,7 +10,115 @@ use std::{
     path::{Path, PathBuf},
 };
 const MIB: u64 = 1024 * 1024;
-const MEMORY_ERROR: &str = "The image operation exceeds the shared image memory budget. Close other images or free undo history and try again.";
+/// File-operation failures retain their kind and original display message.
+#[derive(Debug, thiserror::Error)]
+pub enum FileError {
+    /// An operating-system I/O failure.
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+    /// A raster codec failure.
+    #[error("{0}")]
+    Image(#[from] image::ImageError),
+    /// A PNG decoding failure.
+    #[error("{0}")]
+    PngDecode(#[from] png::DecodingError),
+    /// A PNG encoding failure.
+    #[error("{0}")]
+    PngEncode(#[from] png::EncodingError),
+    /// The shared image memory budget was exceeded.
+    #[error(
+        "The image operation exceeds the shared image memory budget. Close other images or free undo history and try again."
+    )]
+    MemoryLimit,
+    /// Image dimensions are outside the supported range.
+    #[error("Image dimensions must be 1–{MAX_DIMENSION} pixels on each side.")]
+    InvalidDimensions,
+    /// A native project could not be read.
+    #[error("Invalid Hoshi project: {0}")]
+    InvalidProject(#[source] hoshi_core::ProjectError),
+    /// A native project could not be written.
+    #[error("{0}")]
+    Project(#[from] hoshi_core::ProjectError),
+    /// Decoded raster pixels do not form a valid document.
+    #[error("Invalid image: {0:?}")]
+    InvalidImage(#[source] hoshi_core::Error),
+    /// Decoded PNG pixels do not form a valid document.
+    #[error("Invalid PNG: {0:?}")]
+    InvalidPng(#[source] hoshi_core::Error),
+    /// Paint.NET .pdn compatibility is not implemented. Use a .hoshi project or a raster image.
+    #[error(
+        "Paint.NET .pdn compatibility is not implemented. Use a .hoshi project or a raster image."
+    )]
+    PdnUnsupported,
+    /// Choose a .hoshi, .png, or .jpg filename for saving.
+    #[error("Choose a .hoshi, .png, or .jpg filename for saving.")]
+    UnsupportedFormat,
+    /// Choose a file in an existing folder.
+    #[error("Choose a file in an existing folder.")]
+    MissingParent,
+    /// Choose a filename.
+    #[error("Choose a filename.")]
+    MissingFilename,
+    /// Choose a regular image file.
+    #[error("Choose a regular image file.")]
+    NotARegularFile,
+    /// Paint.NET .pdn files are not supported yet. Export PNG or another supported raster format first.
+    #[error(
+        "Paint.NET .pdn files are not supported yet. Export PNG or another supported raster format first."
+    )]
+    PdnImportUnsupported,
+    /// This editor supports 8-bit image channels; higher-depth images require conversion before opening.
+    #[error(
+        "This editor supports 8-bit image channels; higher-depth images require conversion before opening."
+    )]
+    UnsupportedChannelDepth,
+    /// Embedded ICC profiles are not supported yet. Convert to untagged sRGB before opening; the original file has not been changed.
+    #[error(
+        "Embedded ICC profiles are not supported yet. Convert to untagged sRGB before opening; the original file has not been changed."
+    )]
+    UnsupportedIccProfile,
+    /// Embedded ICC profiles are not supported yet. Convert to untagged sRGB first; the original file is unchanged.
+    #[error(
+        "Embedded ICC profiles are not supported yet. Convert to untagged sRGB first; the original file is unchanged."
+    )]
+    UnsupportedPngIccProfile,
+    /// 16-bit PNG channels are not supported yet; convert to 8-bit first.
+    #[error("16-bit PNG channels are not supported yet; convert to 8-bit first.")]
+    Unsupported16Bit,
+    /// Unsupported PNG bit depth.
+    #[error("Unsupported PNG bit depth.")]
+    UnsupportedPngDepth,
+    /// PNG pixel rows are truncated.
+    #[error("PNG pixel rows are truncated.")]
+    TruncatedPngRows,
+    /// PNG row dimensions do not match the image header.
+    #[error("PNG row dimensions do not match the image header.")]
+    InvalidPngRowDimensions,
+    /// PNG contains no pixels.
+    #[error("PNG contains no pixels.")]
+    MissingPngPixels,
+    /// Unsupported PNG color type.
+    #[error("Unsupported PNG color type.")]
+    UnsupportedPngColorType,
+    /// Commit the active shape before saving.
+    #[error("Commit the active shape before saving.")]
+    ActiveShape,
+    /// JPEG density cannot exceed 65535 pixels/inch; use PNG or .hoshi.
+    #[error("JPEG density cannot exceed 65535 pixels/inch; use PNG or .hoshi.")]
+    JpegDensityTooHigh,
+    /// JPEG supports at most 65535 pixels per side. Use PNG or .hoshi for this image.
+    #[error("JPEG supports at most 65535 pixels per side. Use PNG or .hoshi for this image.")]
+    JpegDimensionsTooLarge,
+    /// JPEG transparency must be flattened after confirmation.
+    #[error("JPEG transparency must be flattened after confirmation.")]
+    JpegTransparency,
+    /// Choose an existing folder.
+    #[error("Choose an existing folder.")]
+    MissingSaveParent,
+    /// The destination file is read-only. Use Save As to choose another file.
+    #[error("The destination file is read-only. Use Save As to choose another file.")]
+    ReadOnlyDestination,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FileFormat {
     Project,
@@ -18,38 +126,42 @@ pub enum FileFormat {
     Jpeg,
 }
 impl FileFormat {
-    pub fn for_path(path: &Path) -> Result<Self, String> {
-        match path.extension().and_then(|s|s.to_str()).unwrap_or("").to_ascii_lowercase().as_str(){
-            "hoshi"=>Ok(Self::Project),"png"=>Ok(Self::Png),"jpg"|"jpeg"|"jpe"|"jfif"=>Ok(Self::Jpeg),
-            "pdn"=>Err("Paint.NET .pdn compatibility is not implemented. Use a .hoshi project or a raster image.".into()),
-            _=>Err("Choose a .hoshi, .png, or .jpg filename for saving.".into()),
+    pub fn for_path(path: &Path) -> Result<Self, FileError> {
+        match path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "hoshi" => Ok(Self::Project),
+            "png" => Ok(Self::Png),
+            "jpg" | "jpeg" | "jpe" | "jfif" => Ok(Self::Jpeg),
+            "pdn" => Err(FileError::PdnUnsupported),
+            _ => Err(FileError::UnsupportedFormat),
         }
     }
 }
-pub fn absolute_path(path: &Path) -> Result<PathBuf, String> {
+pub fn absolute_path(path: &Path) -> Result<PathBuf, FileError> {
     if path.exists() {
-        return path.canonicalize().map_err(|e| e.to_string());
+        return Ok(path.canonicalize()?);
     }
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::env::current_dir()
-            .map_err(|e| e.to_string())?
-            .join(path)
+        std::env::current_dir()?.join(path)
     };
     let parent = absolute
         .parent()
-        .ok_or("Choose a file in an existing folder.")?
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
-    Ok(parent.join(absolute.file_name().ok_or("Choose a filename.")?))
+        .ok_or(FileError::MissingParent)?
+        .canonicalize()?;
+    Ok(parent.join(absolute.file_name().ok_or(FileError::MissingFilename)?))
 }
-fn reserve(bytes: u64) -> Result<MemoryReservation, String> {
-    MemoryReservation::new(bytes).map_err(|_| MEMORY_ERROR.into())
+fn reserve(bytes: u64) -> Result<MemoryReservation, FileError> {
+    MemoryReservation::new(bytes).map_err(|_| FileError::MemoryLimit)
 }
-fn dimensions(width: u32, height: u32) -> Result<(), String> {
-    Document::validate_image_size(width, height)
-        .map_err(|_| format!("Image dimensions must be 1–{MAX_DIMENSION} pixels on each side."))
+fn dimensions(width: u32, height: u32) -> Result<(), FileError> {
+    Document::validate_image_size(width, height).map_err(|_| FileError::InvalidDimensions)
 }
 // Snapshot the regular file's length so codecs that internally read_to_end
 // cannot outgrow their reservation if another process appends while importing.
@@ -86,11 +198,11 @@ impl Seek for InputFile {
         Ok(self.position)
     }
 }
-pub fn load(path: &Path) -> Result<Document, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let metadata = file.metadata().map_err(|e| e.to_string())?;
+pub fn load(path: &Path) -> Result<Document, FileError> {
+    let file = File::open(path)?;
+    let metadata = file.metadata()?;
     if !metadata.is_file() {
-        return Err("Choose a regular image file.".into());
+        return Err(FileError::NotARegularFile);
     }
     let mut file = InputFile {
         file,
@@ -98,26 +210,23 @@ pub fn load(path: &Path) -> Result<Document, String> {
         position: 0,
     };
     let mut prefix = [0; 65536];
-    let count = file.read(&mut prefix).map_err(|e| e.to_string())?;
-    file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+    let count = file.read(&mut prefix)?;
+    file.seek(SeekFrom::Start(0))?;
     let prefix = &prefix[..count];
     if prefix.starts_with(b"HOSHIPNT")
         || path
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("hoshi"))
     {
-        return Document::read_project(BufReader::new(file))
-            .map_err(|e| format!("Invalid Hoshi project: {e}"));
+        return Document::read_project(BufReader::new(file)).map_err(FileError::InvalidProject);
     }
     if path
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("pdn"))
     {
-        return Err("Paint.NET .pdn files are not supported yet. Export PNG or another supported raster format first.".into());
+        return Err(FileError::PdnImportUnsupported);
     }
-    let format = image::guess_format(prefix)
-        .or_else(|_| image::ImageFormat::from_path(path))
-        .map_err(|e| e.to_string())?;
+    let format = image::guess_format(prefix).or_else(|_| image::ImageFormat::from_path(path))?;
     if format == image::ImageFormat::Png {
         return decode_png(BufReader::new(file));
     }
@@ -125,7 +234,7 @@ pub fn load(path: &Path) -> Result<Document, String> {
     // image's JPEG decoder and ICO's embedded-image path retain encoded input.
     // Charge that format-specific working set rather than imposing a disk-size cap.
     let encoded_bytes = if matches!(format, image::ImageFormat::Jpeg | image::ImageFormat::Ico) {
-        file.length.checked_mul(3).ok_or(MEMORY_ERROR)?
+        file.length.checked_mul(3).ok_or(FileError::MemoryLimit)?
     } else {
         0
     };
@@ -138,7 +247,7 @@ pub fn load(path: &Path) -> Result<Document, String> {
     limits.max_image_width = Some(MAX_DIMENSION);
     limits.max_image_height = Some(MAX_DIMENSION);
     reader.limits(limits);
-    let mut decoder = reader.into_decoder().map_err(|e| e.to_string())?;
+    let mut decoder = reader.into_decoder()?;
     let (width, height) = decoder.dimensions();
     dimensions(width, height)?;
     if !matches!(
@@ -148,7 +257,7 @@ pub fn load(path: &Path) -> Result<Document, String> {
             | image::ColorType::Rgb8
             | image::ColorType::Rgba8
     ) {
-        return Err("This editor supports 8-bit image channels; higher-depth images require conversion before opening.".into());
+        return Err(FileError::UnsupportedChannelDepth);
     }
     let scratch_bytes = u64::from(width) * u64::from(height) * 8;
     let _scratch = reserve(scratch_bytes)?;
@@ -156,18 +265,12 @@ pub fn load(path: &Path) -> Result<Document, String> {
     frame_limits.max_alloc = Some(scratch_bytes + header_bytes);
     frame_limits.max_image_width = Some(MAX_DIMENSION);
     frame_limits.max_image_height = Some(MAX_DIMENSION);
-    decoder
-        .set_limits(frame_limits)
-        .map_err(|e| e.to_string())?;
-    if decoder
-        .icc_profile()
-        .map_err(|e| e.to_string())?
-        .is_some_and(|p| !p.is_empty())
-    {
-        return Err("Embedded ICC profiles are not supported yet. Convert to untagged sRGB before opening; the original file has not been changed.".into());
+    decoder.set_limits(frame_limits)?;
+    if decoder.icc_profile()?.is_some_and(|p| !p.is_empty()) {
+        return Err(FileError::UnsupportedIccProfile);
     }
-    let orientation = decoder.orientation().map_err(|e| e.to_string())?;
-    let mut picture = image::DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?;
+    let orientation = decoder.orientation()?;
+    let mut picture = image::DynamicImage::from_decoder(decoder)?;
     // The consumed decoder has released its encoded bytes and metadata now.
     drop(_encoded);
     drop(_header);
@@ -187,32 +290,31 @@ pub fn load(path: &Path) -> Result<Document, String> {
     for (x, y, p) in rgba.enumerate_pixels() {
         pixels
             .set(x, y, Color::rgba(p[0], p[1], p[2], p[3]))
-            .map_err(|_| MEMORY_ERROR)?;
+            .map_err(|_| FileError::MemoryLimit)?;
     }
-    Document::from_pixels(width, height, resolution, pixels)
-        .map_err(|e| format!("Invalid image: {e:?}"))
+    Document::from_pixels(width, height, resolution, pixels).map_err(FileError::InvalidImage)
 }
-fn decode_png(input: BufReader<InputFile>) -> Result<Document, String> {
+fn decode_png(input: BufReader<InputFile>) -> Result<Document, FileError> {
     // png's metadata and decoder workspace are bounded independently of the
     // encoded file's length. Pixel rows are moved directly into sparse storage.
     let decoder_bytes = (memory_budget().saturating_sub(memory_usage()) / 2).min(32 * MIB);
     let _decoder_memory = reserve(decoder_bytes)?;
     let mut decoder = png::Decoder::new(input);
     decoder.set_limits(png::Limits {
-        bytes: usize::try_from(decoder_bytes).map_err(|_| MEMORY_ERROR)?,
+        bytes: usize::try_from(decoder_bytes).map_err(|_| FileError::MemoryLimit)?,
     });
     decoder.set_transformations(png::Transformations::EXPAND);
-    let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+    let mut reader = decoder.read_info()?;
     let info = reader.info();
     if info.icc_profile.as_ref().is_some_and(|p| !p.is_empty()) {
-        return Err("Embedded ICC profiles are not supported yet. Convert to untagged sRGB first; the original file is unchanged.".into());
+        return Err(FileError::UnsupportedPngIccProfile);
     }
     let (width, height) = info
         .frame_control
         .map_or((info.width, info.height), |f| (f.width, f.height));
     dimensions(width, height)?;
     if info.bit_depth == png::BitDepth::Sixteen {
-        return Err("16-bit PNG channels are not supported yet; convert to 8-bit first.".into());
+        return Err(FileError::Unsupported16Bit);
     }
     let mut resolution = info
         .pixel_dims
@@ -234,7 +336,7 @@ fn decode_png(input: BufReader<InputFile>) -> Result<Document, String> {
     let interlaced = info.interlaced;
     let (color_type, depth) = reader.output_color_type();
     if depth != png::BitDepth::Eight {
-        return Err("Unsupported PNG bit depth.".into());
+        return Err(FileError::UnsupportedPngDepth);
     }
     let channels = color_type.samples();
     let _rows = reserve(u64::from(width) * 4 * 8 + MIB)?;
@@ -260,13 +362,10 @@ fn decode_png(input: BufReader<InputFile>) -> Result<Document, String> {
             continue;
         }
         for y in (y0..height).step_by(dy as usize) {
-            let row = reader
-                .next_row()
-                .map_err(|e| e.to_string())?
-                .ok_or("PNG pixel rows are truncated.")?;
+            let row = reader.next_row()?.ok_or(FileError::TruncatedPngRows)?;
             let expected = (width - x0).div_ceil(dx) as usize * channels;
             if row.data().len() != expected {
-                return Err("PNG row dimensions do not match the image header.".into());
+                return Err(FileError::InvalidPngRowDimensions);
             }
             if let Some(pixels) = pixels.as_mut() {
                 store_png_row(pixels, row.data(), x0, y, dx, color_type)?;
@@ -277,7 +376,7 @@ fn decode_png(input: BufReader<InputFile>) -> Result<Document, String> {
                 let mut buffered = Vec::new();
                 buffered
                     .try_reserve_exact(row.data().len())
-                    .map_err(|_| MEMORY_ERROR)?;
+                    .map_err(|_| FileError::MemoryLimit)?;
                 buffered.extend_from_slice(row.data());
                 pending.push((x0, y, dx, buffered));
                 if pending.len() == 4 {
@@ -297,14 +396,14 @@ fn decode_png(input: BufReader<InputFile>) -> Result<Document, String> {
         }
         pixels = Some(initialized);
     }
-    reader.finish().map_err(|e| e.to_string())?;
+    reader.finish()?;
     Document::from_pixels(
         width,
         height,
         resolution,
-        pixels.ok_or("PNG contains no pixels.")?,
+        pixels.ok_or(FileError::MissingPngPixels)?,
     )
-    .map_err(|e| format!("Invalid PNG: {e:?}"))
+    .map_err(FileError::InvalidPng)
 }
 fn background_vote(candidate: &mut Color, balance: &mut usize, color: Color) {
     if *balance == 0 {
@@ -319,13 +418,13 @@ fn background_vote(candidate: &mut Color, balance: &mut usize, color: Color) {
         }
     }
 }
-fn png_color(kind: png::ColorType, p: &[u8]) -> Result<Color, String> {
+fn png_color(kind: png::ColorType, p: &[u8]) -> Result<Color, FileError> {
     Ok(match kind {
         png::ColorType::Rgba => Color::rgba(p[0], p[1], p[2], p[3]),
         png::ColorType::Rgb => Color::rgba(p[0], p[1], p[2], 255),
         png::ColorType::GrayscaleAlpha => Color::rgba(p[0], p[0], p[0], p[1]),
         png::ColorType::Grayscale => Color::rgba(p[0], p[0], p[0], 255),
-        _ => return Err("Unsupported PNG color type.".into()),
+        _ => return Err(FileError::UnsupportedPngColorType),
     })
 }
 fn store_png_row(
@@ -335,11 +434,11 @@ fn store_png_row(
     y: u32,
     dx: u32,
     kind: png::ColorType,
-) -> Result<(), String> {
+) -> Result<(), FileError> {
     for (index, p) in row.chunks_exact(kind.samples()).enumerate() {
         pixels
             .set(x0 + index as u32 * dx, y, png_color(kind, p)?)
-            .map_err(|_| MEMORY_ERROR)?;
+            .map_err(|_| FileError::MemoryLimit)?;
     }
     Ok(())
 }
@@ -396,44 +495,37 @@ pub fn save_atomic(
     document: &Document,
     format: FileFormat,
     jpeg_quality: u8,
-) -> Result<(), String> {
+) -> Result<(), FileError> {
     if document.active_shape().is_some() {
-        return Err("Commit the active shape before saving.".into());
+        return Err(FileError::ActiveShape);
     }
     if format == FileFormat::Jpeg {
         if document.resolution().round() > 65535. {
-            return Err("JPEG density cannot exceed 65535 pixels/inch; use PNG or .hoshi.".into());
+            return Err(FileError::JpegDensityTooHigh);
         }
         if document.width() > 65535 || document.height() > 65535 {
-            return Err(
-                "JPEG supports at most 65535 pixels per side. Use PNG or .hoshi for this image."
-                    .into(),
-            );
+            return Err(FileError::JpegDimensionsTooLarge);
         }
         if document.has_transparency() {
-            return Err("JPEG transparency must be flattened after confirmation.".into());
+            return Err(FileError::JpegTransparency);
         }
     }
-    let parent = path.parent().ok_or("Choose an existing folder.")?;
+    let parent = path.parent().ok_or(FileError::MissingSaveParent)?;
     let permissions = match fs::metadata(path) {
         Ok(meta) => {
             if meta.permissions().readonly() {
-                return Err(
-                    "The destination file is read-only. Use Save As to choose another file.".into(),
-                );
+                return Err(FileError::ReadOnlyDestination);
             }
             Some(meta.permissions())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(e.into()),
     };
-    let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
     {
         let mut output = BufWriter::new(temporary.as_file_mut());
         match format {
-            FileFormat::Project => document
-                .write_project(&mut output)
-                .map_err(|e| e.to_string())?,
+            FileFormat::Project => document.write_project(&mut output)?,
             FileFormat::Png => {
                 let _scratch = reserve(u64::from(document.width()) * 4 * 8 + MIB)?;
                 let mut encoder =
@@ -446,23 +538,21 @@ pub fn save_atomic(
                     yppu: density,
                     unit: png::Unit::Meter,
                 }));
-                encoder
-                    .add_text_chunk(
-                        "HoshiPaint.Resolution".into(),
-                        document.resolution().to_string(),
-                    )
-                    .map_err(|e| e.to_string())?;
-                let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+                encoder.add_text_chunk(
+                    "HoshiPaint.Resolution".into(),
+                    document.resolution().to_string(),
+                )?;
+                let mut writer = encoder.write_header()?;
                 let mut row = Vec::new();
                 row.try_reserve_exact(document.width() as usize * 4)
-                    .map_err(|_| MEMORY_ERROR)?;
+                    .map_err(|_| FileError::MemoryLimit)?;
                 row.resize(document.width() as usize * 4, 0);
                 let direct = document.layers().len() == 1
                     && document.layers()[0].visible()
                     && document.layers()[0].opacity() == 255;
                 let sampler = document.sampler(false);
                 {
-                    let mut stream = writer.stream_writer().map_err(|e| e.to_string())?;
+                    let mut stream = writer.stream_writer()?;
                     for y in 0..document.height() {
                         for x in 0..document.width() {
                             let c = if direct {
@@ -473,11 +563,11 @@ pub fn save_atomic(
                             let i = x as usize * 4;
                             row[i..i + 4].copy_from_slice(&[c.r, c.g, c.b, c.a]);
                         }
-                        stream.write_all(&row).map_err(|e| e.to_string())?;
+                        stream.write_all(&row)?;
                     }
-                    stream.finish().map_err(|e| e.to_string())?;
+                    stream.finish()?;
                 }
-                writer.finish().map_err(|e| e.to_string())?;
+                writer.finish()?;
             }
             FileFormat::Jpeg => {
                 let _scratch = reserve(4 * MIB)?;
@@ -488,25 +578,20 @@ pub fn save_atomic(
                 encoder.set_pixel_density(image::codecs::jpeg::PixelDensity::dpi(
                     document.resolution().round() as u16,
                 ));
-                encoder
-                    .encode_image(&JpegView {
-                        sampler: document.sampler(false),
-                        width: document.width(),
-                        height: document.height(),
-                    })
-                    .map_err(|e| e.to_string())?;
+                encoder.encode_image(&JpegView {
+                    sampler: document.sampler(false),
+                    width: document.width(),
+                    height: document.height(),
+                })?;
             }
         }
-        output.flush().map_err(|e| e.to_string())?;
+        output.flush()?;
     }
-    temporary.flush().map_err(|e| e.to_string())?;
+    temporary.flush()?;
     if let Some(p) = permissions {
-        temporary
-            .as_file()
-            .set_permissions(p)
-            .map_err(|e| e.to_string())?;
+        temporary.as_file().set_permissions(p)?;
     }
-    temporary.as_file().sync_all().map_err(|e| e.to_string())?;
-    temporary.persist(path).map_err(|e| e.error.to_string())?;
+    temporary.as_file().sync_all()?;
+    temporary.persist(path).map_err(|e| e.error)?;
     Ok(())
 }

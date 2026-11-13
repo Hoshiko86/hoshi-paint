@@ -296,7 +296,7 @@ impl Workspace {
         Ok(id)
     }
     pub fn open_path(&mut self, path: &Path) -> Result<u32, String> {
-        let path = files::absolute_path(path)?;
+        let path = files::absolute_path(path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
         if let Some(id) = self
             .tabs
             .iter()
@@ -309,7 +309,7 @@ impl Workspace {
         if self.tabs.len() >= MAX_DOCUMENTS {
             return Err("Close a document before opening more (prototype limit: 32).".into());
         }
-        let document = files::load(&path)?;
+        let document = files::load(&path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
         let id = self.add(document, Some(path.clone()))?;
         self.remember(path);
         Ok(id)
@@ -334,8 +334,8 @@ impl Workspace {
         if !self.has_document() {
             return Err("There is no image to save.".into());
         }
-        let path = files::absolute_path(path)?;
-        let format = FileFormat::for_path(&path)?;
+        let path = files::absolute_path(path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
+        let format = FileFormat::for_path(&path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
         if self
             .tabs
             .iter()
@@ -361,7 +361,7 @@ impl Workspace {
         if self.requires_flatten(format) {
             self.document_for_save_flatten(format)?;
         }
-        files::save_atomic(&path, self.document(), format, quality)?;
+        files::save_atomic(&path, self.document(), format, quality).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
         let tab = &mut self.tabs[self.active];
         tab.path = Some(path.clone());
         tab.name = path
