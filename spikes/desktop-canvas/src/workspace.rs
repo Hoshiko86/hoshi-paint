@@ -11,40 +11,38 @@ use std::{
     path::{Path, PathBuf},
 };
 /// Workspace (tab and save-flow) failures, keeping the kind and source.
-///
-/// `Display` still carries the user wording it replaced (#86 moves it to the
-/// locale catalogs); callers convert to text only where they show it.
+/// `Display` is developer text; user copy comes from `crate::error_text`.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkspaceError {
     /// A controller edit failed while switching, adding or closing tabs.
-    #[error("{0}")]
+    #[error("controller: {0}")]
     Controller(#[from] ControllerError),
     /// Opening, resolving or writing a file failed.
-    #[error("{0}")]
+    #[error("file: {0}")]
     File(#[from] FileError),
     /// The tab id is not open any more.
-    #[error("Document no longer exists.")]
+    #[error("document not open")]
     MissingDocument,
     /// Adding a tab would exceed `MAX_DOCUMENTS`.
-    #[error("The prototype supports up to 32 open documents.")]
+    #[error("document limit reached")]
     DocumentLimit,
     /// Opening a file would exceed `MAX_DOCUMENTS`.
-    #[error("Close a document before opening more (prototype limit: 32).")]
+    #[error("document limit reached on open")]
     OpenLimit,
     /// Save was requested with no tab open.
-    #[error("There is no image to save.")]
+    #[error("no document to save")]
     NoDocument,
     /// The save target is already open in a different tab.
-    #[error("That file is open in another tab. Choose another filename.")]
+    #[error("path open in another tab")]
     PathOpenInAnotherTab,
     /// The format needs flattening and the user has not confirmed it.
-    #[error("This format requires flattening. Confirm it or save a .hoshi project.")]
+    #[error("flatten not confirmed")]
     FlattenRequired,
     /// JPEG cannot store a density above 65535 pixels per inch.
-    #[error("JPEG density cannot exceed 65535 pixels/inch. Use PNG or .hoshi.")]
+    #[error("jpeg density too high")]
     JpegDensityTooHigh,
     /// JPEG cannot store more than 65535 pixels per side.
-    #[error("JPEG supports at most 65535 pixels per dimension. Use PNG or .hoshi for this canvas.")]
+    #[error("jpeg dimensions too large")]
     JpegDimensionsTooLarge,
 }
 #[derive(Clone, Copy)]

@@ -6,6 +6,7 @@ use std::{cell::RefCell, rc::Rc};
 mod color_library;
 mod colors;
 pub mod documents;
+mod error_text;
 pub mod files;
 mod history;
 mod image_settings;
@@ -723,6 +724,20 @@ slint::slint! {
 }
 
 pub type SharedController = Rc<RefCell<workspace::Workspace>>;
+
+/// The user-facing message for a workspace error in the system locale.
+pub fn describe_error(error: &workspace::WorkspaceError) -> String {
+    let text = localization::Localizer::new(&localization::system_selection());
+    error_text::workspace(&text, error)
+}
+
+/// The user-facing message for a workspace error in the first supported
+/// locale of `preferred` (BCP 47 tags such as `"es-ES"`), falling back to en-US.
+pub fn describe_error_in(error: &workspace::WorkspaceError, preferred: &[&str]) -> String {
+    let text =
+        localization::Localizer::new(&localization::select_preferred(preferred.iter().copied()));
+    error_text::workspace(&text, error)
+}
 
 pub fn refresh_workspace(ui: &AppWindow, state: &SharedController) {
     refresh(ui, &state.borrow());

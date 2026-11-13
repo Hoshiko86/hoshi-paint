@@ -10,113 +10,102 @@ use std::{
     path::{Path, PathBuf},
 };
 const MIB: u64 = 1024 * 1024;
-/// File-operation failures retain their kind and original display message.
+/// File-operation failures. `Display` is developer text for logs; user copy
+/// comes from the locale catalogs (`crate::error_text`).
 #[derive(Debug, thiserror::Error)]
 pub enum FileError {
-    /// An operating-system I/O failure.
-    #[error("{0}")]
+    /// The operating system rejected a read, write, rename or metadata call.
+    #[error("io: {0}")]
     Io(#[from] std::io::Error),
-    /// A raster codec failure.
-    #[error("{0}")]
+    /// The `image` crate failed to detect, decode or encode a raster file.
+    #[error("image codec: {0}")]
     Image(#[from] image::ImageError),
-    /// A PNG decoding failure.
-    #[error("{0}")]
+    /// The PNG decoder rejected the stream.
+    #[error("png decode: {0}")]
     PngDecode(#[from] png::DecodingError),
-    /// A PNG encoding failure.
-    #[error("{0}")]
+    /// The PNG encoder failed while writing.
+    #[error("png encode: {0}")]
     PngEncode(#[from] png::EncodingError),
-    /// The shared image memory budget was exceeded.
-    #[error(
-        "The image operation exceeds the shared image memory budget. Close other images or free undo history and try again."
-    )]
+    /// A buffer reservation would exceed the shared image memory budget.
+    #[error("memory budget exceeded")]
     MemoryLimit,
-    /// Image dimensions are outside the supported range.
-    #[error("Image dimensions must be 1–{MAX_DIMENSION} pixels on each side.")]
+    /// Decoded width or height is outside `1..=MAX_DIMENSION`.
+    #[error("image dimensions out of range")]
     InvalidDimensions,
-    /// A native project could not be read.
-    #[error("Invalid Hoshi project: {0}")]
+    /// Reading a `.hoshi` project failed.
+    #[error("invalid project: {0}")]
     InvalidProject(#[source] hoshi_core::ProjectError),
-    /// A native project could not be written.
-    #[error("{0}")]
+    /// Writing a `.hoshi` project failed.
+    #[error("project write: {0}")]
     Project(#[from] hoshi_core::ProjectError),
-    /// Decoded raster pixels do not form a valid document.
-    #[error("Invalid image: {0:?}")]
+    /// Decoded raster pixels were rejected by the core document.
+    #[error("invalid image: {0:?}")]
     InvalidImage(#[source] hoshi_core::Error),
-    /// Decoded PNG pixels do not form a valid document.
-    #[error("Invalid PNG: {0:?}")]
+    /// Decoded PNG pixels were rejected by the core document.
+    #[error("invalid png: {0:?}")]
     InvalidPng(#[source] hoshi_core::Error),
-    /// Paint.NET .pdn compatibility is not implemented. Use a .hoshi project or a raster image.
-    #[error(
-        "Paint.NET .pdn compatibility is not implemented. Use a .hoshi project or a raster image."
-    )]
+    /// The save target has a `.pdn` extension.
+    #[error("pdn save unsupported")]
     PdnUnsupported,
-    /// Choose a .hoshi, .png, or .jpg filename for saving.
-    #[error("Choose a .hoshi, .png, or .jpg filename for saving.")]
+    /// The save target's extension is not .hoshi, .png or .jpg.
+    #[error("unsupported save extension")]
     UnsupportedFormat,
-    /// Choose a file in an existing folder.
-    #[error("Choose a file in an existing folder.")]
+    /// The path to open or save has no existing parent folder.
+    #[error("missing parent folder")]
     MissingParent,
-    /// Choose a filename.
-    #[error("Choose a filename.")]
+    /// The path to save has no file name.
+    #[error("missing file name")]
     MissingFilename,
-    /// Choose a regular image file.
-    #[error("Choose a regular image file.")]
+    /// The path to open is a directory or another non-regular file.
+    #[error("not a regular file")]
     NotARegularFile,
-    /// Paint.NET .pdn files are not supported yet. Export PNG or another supported raster format first.
-    #[error(
-        "Paint.NET .pdn files are not supported yet. Export PNG or another supported raster format first."
-    )]
+    /// The file to open has a `.pdn` extension.
+    #[error("pdn open unsupported")]
     PdnImportUnsupported,
-    /// This editor supports 8-bit image channels; higher-depth images require conversion before opening.
-    #[error(
-        "This editor supports 8-bit image channels; higher-depth images require conversion before opening."
-    )]
+    /// The raster decoder reports more than 8 bits per channel.
+    #[error("unsupported channel depth")]
     UnsupportedChannelDepth,
-    /// Embedded ICC profiles are not supported yet. Convert to untagged sRGB before opening; the original file has not been changed.
-    #[error(
-        "Embedded ICC profiles are not supported yet. Convert to untagged sRGB before opening; the original file has not been changed."
-    )]
+    /// A raster file (not PNG) embeds an ICC profile.
+    #[error("embedded icc profile")]
     UnsupportedIccProfile,
-    /// Embedded ICC profiles are not supported yet. Convert to untagged sRGB first; the original file is unchanged.
-    #[error(
-        "Embedded ICC profiles are not supported yet. Convert to untagged sRGB first; the original file is unchanged."
-    )]
+    /// A PNG embeds an ICC profile.
+    #[error("embedded png icc profile")]
     UnsupportedPngIccProfile,
-    /// 16-bit PNG channels are not supported yet; convert to 8-bit first.
-    #[error("16-bit PNG channels are not supported yet; convert to 8-bit first.")]
+    /// A PNG uses 16-bit channels.
+    #[error("16-bit png")]
     Unsupported16Bit,
-    /// Unsupported PNG bit depth.
-    #[error("Unsupported PNG bit depth.")]
+    /// The expanded PNG output is not 8-bit.
+    #[error("unsupported png bit depth")]
     UnsupportedPngDepth,
-    /// PNG pixel rows are truncated.
-    #[error("PNG pixel rows are truncated.")]
+    /// The PNG ended before its last row.
+    #[error("png rows truncated")]
     TruncatedPngRows,
-    /// PNG row dimensions do not match the image header.
-    #[error("PNG row dimensions do not match the image header.")]
+    /// A PNG row's length does not match the header width.
+    #[error("png row length mismatch")]
     InvalidPngRowDimensions,
-    /// PNG contains no pixels.
-    #[error("PNG contains no pixels.")]
+    /// The PNG produced no pixel data.
+    #[error("png has no pixels")]
     MissingPngPixels,
-    /// Unsupported PNG color type.
-    #[error("Unsupported PNG color type.")]
+    /// The PNG color type is not RGB(A) or grayscale(+alpha).
+    #[error("unsupported png color type")]
     UnsupportedPngColorType,
-    /// Commit the active shape before saving.
-    #[error("Commit the active shape before saving.")]
+    /// Save was requested while a shape is still editable.
+    #[error("active shape")]
     ActiveShape,
-    /// JPEG density cannot exceed 65535 pixels/inch; use PNG or .hoshi.
-    #[error("JPEG density cannot exceed 65535 pixels/inch; use PNG or .hoshi.")]
+    /// JPEG cannot store the document's resolution.
+    #[error("jpeg density too high")]
     JpegDensityTooHigh,
-    /// JPEG supports at most 65535 pixels per side. Use PNG or .hoshi for this image.
-    #[error("JPEG supports at most 65535 pixels per side. Use PNG or .hoshi for this image.")]
+    /// JPEG cannot store the document's width or height.
+    #[error("jpeg dimensions too large")]
     JpegDimensionsTooLarge,
-    /// JPEG transparency must be flattened after confirmation.
-    #[error("JPEG transparency must be flattened after confirmation.")]
+    /// JPEG save was attempted before flattening transparency.
+    #[error("jpeg transparency not flattened")]
     JpegTransparency,
-    /// Choose an existing folder.
-    #[error("Choose an existing folder.")]
+    /// The save path has no parent folder.
+    #[error("missing save folder")]
     MissingSaveParent,
-    /// The destination file is read-only. Use Save As to choose another file.
-    #[error("The destination file is read-only. Use Save As to choose another file.")]
+    /// The existing destination file is read-only.
+    #[error("read-only destination")]
     ReadOnlyDestination,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
