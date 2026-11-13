@@ -89,7 +89,8 @@ Blocking:
 - [ ] Only the task's files changed (plus manifest if a dep was requested).
 - [ ] Dependency direction intact; no Slint/OS types in core/controller.
 - [ ] No new `unwrap/expect/panic/unreachable` outside tests.
-- [ ] No new `Result<_, String>`, `.to_string()` error flattening, or UI text in core.
+- [ ] No new `Result<_, String>` or `.to_string()` error flattening.
+- [ ] No new user-facing text in Rust (any crate): copy comes from both i18n catalogs.
 - [ ] No lazy `.clone()` of non-`Copy` data; no `Arc<Mutex>`; no new `Rc<RefCell>`.
 - [ ] No `RefCell` borrow held across a call that can re-enter a callback.
 - [ ] Document atomicity: failure leaves prior state; one history entry per edit.

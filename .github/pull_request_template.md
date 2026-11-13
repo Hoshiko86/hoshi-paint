@@ -22,6 +22,8 @@ follow-up issue rather than silently accepting debt.
       operations.
 - [ ] **Operations:** observability, actionable errors, progress, and
       cancellation where applicable.
+- [ ] **Localization:** no new user-facing text in Rust source; any new copy is
+      in both `i18n/en-US.json` and `i18n/es-ES.json` and in `REQUIRED_KEYS`.
 
 Evidence, exceptions, and follow-up issues:
 
