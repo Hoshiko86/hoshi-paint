@@ -17,8 +17,8 @@ pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-core",
         path: "crates/hoshi-core/",
-        // CI baseline 95.14% (2026-11-12).
-        lines: 95,
+        // CI baseline 96.03% (2026-11-13).
+        lines: 96,
     },
     Floor {
         package: "hoshi-controller",
