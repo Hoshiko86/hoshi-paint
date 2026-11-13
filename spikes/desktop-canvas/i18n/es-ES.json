@@ -59,5 +59,8 @@
   "jpeg_lossy_warning": "JPEG utiliza compresión con pérdida. Las capas se aplanarán, la transparencia se compondrá sobre blanco y la resolución se redondeará a píxeles enteros por pulgada.",
   "save_flatten_warning": "Este formato de imagen almacena una sola imagen plana. Al guardar se aplanarán las capas.",
   "save_target_changed": "El documento activo cambió. No se escribió nada.",
-  "save_failed_preserved": "No se pudo guardar {path}: {error}\nLa imagen permanece abierta con su historial de deshacer."
+  "save_failed_preserved": "No se pudo guardar {path}: {error}\nLa imagen permanece abierta con su historial de deshacer.",
+  "error_history_corrupt": "No se puede leer este estado de deshacer: sus datos guardados están dañados o no están disponibles. La imagen actual y su historial no se han descartado.",
+  "error_history_io": "No se puede escribir el historial de deshacer. Comprueba el espacio libre en disco y el acceso a la carpeta temporal y vuelve a intentarlo. La imagen y el historial existente siguen disponibles.",
+  "error_memory_limit": "Se superó el límite de memoria de imágenes. Cierra otras imágenes o usa un tamaño menor."
 }

@@ -109,7 +109,7 @@ reference: a local run can differ by a fraction of a percent.
 | Crate | Lines | Floor | Weakest files |
 | --- | --- | --- | --- |
 | `hoshi-core` | 95.1% (3,704) | 95% | `history.rs` 88.8%, `lib.rs` 90.1% |
-| `hoshi-controller` | 87.7% (1,418) | 87% | `rendering.rs` 43.2%, `editing.rs` 81.1%, `lib.rs` 85.8% |
+| `hoshi-controller` | 94.3% (1,468) after #71 | 93% | `lib.rs` 87.5%, `painting.rs` 92.1% |
 
 The desktop spike is not instrumented. Its code is a disposable adapter, and
 instrumenting it would rebuild Slint.
