@@ -240,7 +240,7 @@ export component ColorPanel inherits Rectangle {
                     clicked => { root.restore-original(); }
                 }
                 // Samples the screen, not the canvas: distinct from the canvas Color Picker tool.
-                Button { icon: @image-url("../icons/crosshair.svg"); width: 40px; accessible-label: Translations.screen-picker; enabled: !root.screen-picking;
+                Button { icon: @image-url("../icons/scan-eye.svg"); width: 40px; accessible-label: Translations.screen-picker; enabled: !root.screen-picking;
                     Tooltip { Text { text: Translations.screen-picker; color: Palette.foreground; } }
                     clicked => { root.pick-screen(); }
                 }

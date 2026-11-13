@@ -9,6 +9,8 @@ Button icons use Lucide's 24×24 viewBox, 2px stroke, rounded caps and joins.
 Only the stroke color is adapted, to `#e2e8f0` for the application's dark theme.
 Use the same settings when adding icons; keep buttons' accessible labels and
 hover tooltips independent of asset filenames. No font or runtime download is needed.
+Each action gets its own icon: `crosshair.svg` is Reset View, `pipette.svg` is the
+canvas Color Picker tool and `scan-eye.svg` is the Screen Picker action.
 
 `eye-dropper-cursor.svg` adapts Lucide's `pipette.svg`: its (2,22) tip becomes
 (3,29) after scaling by 1.2 and translating by (.6,2.6). A white 4.5px halo
