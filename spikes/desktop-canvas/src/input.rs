@@ -102,10 +102,13 @@ pub(super) fn bind(ui: &AppWindow, controller: SharedController) {
             ui.invoke_clear_navigation_state();
         }
         update(&weak, &state, |c| {
-            if c.is_dragging() {
-                c.cancel_pointer();
-            }
-            c.set_input_modifiers(InputModifiers::default())
+            let cancellation = if c.is_dragging() {
+                c.cancel_pointer()
+            } else {
+                Ok(())
+            };
+            let modifiers = c.set_input_modifiers(InputModifiers::default());
+            cancellation.and(modifiers)
         });
     });
     let (weak, state) = (ui.as_weak(), controller.clone());

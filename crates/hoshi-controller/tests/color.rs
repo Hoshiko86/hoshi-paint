@@ -208,7 +208,7 @@ fn interrupted_eyedropper_preserves_shape_for_alternating_numeric_color_edits() 
         assert_eq!(c.primary_color(), sampled);
         // Native focus/capture can end the gesture before pointer-up arrives,
         // for example when moving from the canvas to a floating Colors window.
-        c.cancel_pointer();
+        c.cancel_pointer().unwrap();
         assert!(!c.is_dragging());
         let retained = c
             .document()

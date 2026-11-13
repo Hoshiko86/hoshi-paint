@@ -72,8 +72,8 @@ fn eraser_removes_opaque_background() {
 fn capture_loss_commits_once_and_resets_drag() {
     let mut c = painter(Tool::Brush);
     drag(&mut c);
-    c.cancel_pointer();
-    c.cancel_pointer();
+    c.cancel_pointer().unwrap();
+    c.cancel_pointer().unwrap();
     c.pointer_up().unwrap();
     assert_eq!(c.document().undo_len(), 1);
     assert_eq!(
@@ -89,7 +89,7 @@ fn capture_loss_still_discards_shape_gesture() {
     let mut c = painter(Tool::Rectangle);
     c.pointer_down(4., 4.).unwrap();
     c.pointer_move(20., 20.).unwrap();
-    c.cancel_pointer();
+    c.cancel_pointer().unwrap();
     assert!(c.document().active_shape().is_none());
     assert_eq!(c.document().undo_len(), 0);
 }
@@ -158,4 +158,45 @@ fn tool_switch_commit_and_redo_finish_active_strokes() {
     assert!(!c.redo().unwrap());
     assert_eq!(c.document().undo_len(), 3);
     assert!(!c.document().has_active_stroke());
+}
+
+#[test]
+fn capture_loss_reports_commit_failure_and_resets_drag() {
+    const CHILD: &str = "HOSHI_CANCEL_POINTER_FAILURE_TEST";
+    if std::env::var_os(CHILD).is_none() {
+        // Budget reservations are global: isolate exhaustion from parallel tests.
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "capture_loss_reports_commit_failure_and_resets_drag",
+            ])
+            .env(CHILD, "1")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let mut c = painter(Tool::Brush);
+    drag(&mut c);
+    let reservation = hoshi_core::MemoryReservation::new(
+        hoshi_core::memory_budget() - hoshi_core::memory_usage(),
+    )
+    .unwrap();
+    assert_eq!(
+        c.cancel_pointer(),
+        Err(hoshi_controller::ControllerError::Core(
+            hoshi_core::Error::MemoryLimit
+        ))
+    );
+    drop(reservation);
+    assert_eq!(c.document().undo_len(), 0);
+    assert!(!c.document().has_active_stroke());
+    assert!(!c.is_dragging());
+    assert_eq!(
+        c.document().layers()[0].pixels().get(12, 8),
+        Color::TRANSPARENT
+    );
+    c.cancel_pointer().unwrap();
+    c.pointer_up().unwrap();
+    assert_eq!(c.document().undo_len(), 0);
 }
