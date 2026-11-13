@@ -1,5 +1,5 @@
 //! Independent tab state, shared drawing settings, and save points.
-use crate::files::{self, FileFormat};
+use crate::files::{self, FileError, FileFormat};
 use hoshi_controller::{
     Color, ColorSlot, Controller, ControllerError, FillPattern, LineStyle, ShapeMode,
 };
@@ -10,6 +10,43 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
+/// Workspace (tab and save-flow) failures, keeping the kind and source.
+///
+/// `Display` still carries the user wording it replaced (#86 moves it to the
+/// locale catalogs); callers convert to text only where they show it.
+#[derive(Debug, thiserror::Error)]
+pub enum WorkspaceError {
+    /// A controller edit failed while switching, adding or closing tabs.
+    #[error("{0}")]
+    Controller(#[from] ControllerError),
+    /// Opening, resolving or writing a file failed.
+    #[error("{0}")]
+    File(#[from] FileError),
+    /// The tab id is not open any more.
+    #[error("Document no longer exists.")]
+    MissingDocument,
+    /// Adding a tab would exceed `MAX_DOCUMENTS`.
+    #[error("The prototype supports up to 32 open documents.")]
+    DocumentLimit,
+    /// Opening a file would exceed `MAX_DOCUMENTS`.
+    #[error("Close a document before opening more (prototype limit: 32).")]
+    OpenLimit,
+    /// Save was requested with no tab open.
+    #[error("There is no image to save.")]
+    NoDocument,
+    /// The save target is already open in a different tab.
+    #[error("That file is open in another tab. Choose another filename.")]
+    PathOpenInAnotherTab,
+    /// The format needs flattening and the user has not confirmed it.
+    #[error("This format requires flattening. Confirm it or save a .hoshi project.")]
+    FlattenRequired,
+    /// JPEG cannot store a density above 65535 pixels per inch.
+    #[error("JPEG density cannot exceed 65535 pixels/inch. Use PNG or .hoshi.")]
+    JpegDensityTooHigh,
+    /// JPEG cannot store more than 65535 pixels per side.
+    #[error("JPEG supports at most 65535 pixels per dimension. Use PNG or .hoshi for this canvas.")]
+    JpegDimensionsTooLarge,
+}
 #[derive(Clone, Copy)]
 struct Drawing {
     primary: Color,
@@ -22,29 +59,15 @@ struct Drawing {
     fill_pattern: FillPattern,
 }
 impl Drawing {
-    fn apply(self, target: &mut Controller) -> Result<(), String> {
-        target
-            .set_primary_color(self.primary)
-            .map_err(|e| e.to_string())?;
-        target
-            .set_secondary_color(self.secondary)
-            .map_err(|e| e.to_string())?;
+    fn apply(self, target: &mut Controller) -> Result<(), ControllerError> {
+        target.set_primary_color(self.primary)?;
+        target.set_secondary_color(self.secondary)?;
         target.set_color_slot(self.slot);
-        target
-            .set_shape_mode(self.mode)
-            .map_err(|e| e.to_string())?;
-        target
-            .set_stroke_width_pixels(self.width)
-            .map_err(|e| e.to_string())?;
-        target
-            .set_antialiasing(self.antialiasing)
-            .map_err(|e| e.to_string())?;
-        target
-            .set_line_style(self.line_style)
-            .map_err(|e| e.to_string())?;
-        target
-            .set_fill_pattern(self.fill_pattern)
-            .map_err(|e| e.to_string())?;
+        target.set_shape_mode(self.mode)?;
+        target.set_stroke_width_pixels(self.width)?;
+        target.set_antialiasing(self.antialiasing)?;
+        target.set_line_style(self.line_style)?;
+        target.set_fill_pattern(self.fill_pattern)?;
         Ok(())
     }
 }
@@ -223,19 +246,19 @@ impl Workspace {
             .apply(target)
             .expect("valid drawing settings");
     }
-    fn finish(&mut self) -> Result<(), String> {
+    fn finish(&mut self) -> Result<(), ControllerError> {
         if self.has_document() {
-            self.pointer_up().map_err(|e| e.to_string())?;
-            self.commit().map_err(|e| e.to_string())?;
+            self.pointer_up()?;
+            self.commit()?;
         }
         Ok(())
     }
-    pub fn activate(&mut self, id: u32) -> Result<(), String> {
+    pub fn activate(&mut self, id: u32) -> Result<(), WorkspaceError> {
         let index = self
             .tabs
             .iter()
             .position(|t| t.id == id)
-            .ok_or("Document no longer exists.")?;
+            .ok_or(WorkspaceError::MissingDocument)?;
         if index == self.active {
             return Ok(());
         }
@@ -245,7 +268,7 @@ impl Workspace {
         self.active = index;
         Ok(())
     }
-    pub fn cycle(&mut self, backward: bool) -> Result<(), String> {
+    pub fn cycle(&mut self, backward: bool) -> Result<(), WorkspaceError> {
         if self.tabs.is_empty() {
             return Ok(());
         }
@@ -272,9 +295,9 @@ impl Workspace {
             .map_err(|_| ControllerError::InvalidInput)?;
         Ok(())
     }
-    fn add(&mut self, document: Document, path: Option<PathBuf>) -> Result<u32, String> {
+    fn add(&mut self, document: Document, path: Option<PathBuf>) -> Result<u32, WorkspaceError> {
         if self.tabs.len() >= MAX_DOCUMENTS || self.next_id >= i32::MAX as u32 {
-            return Err("The prototype supports up to 32 open documents.".into());
+            return Err(WorkspaceError::DocumentLimit);
         }
         self.finish()?;
         let mut c = Controller::default();
@@ -295,8 +318,8 @@ impl Workspace {
         self.active = self.tabs.len() - 1;
         Ok(id)
     }
-    pub fn open_path(&mut self, path: &Path) -> Result<u32, String> {
-        let path = files::absolute_path(path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
+    pub fn open_path(&mut self, path: &Path) -> Result<u32, WorkspaceError> {
+        let path = files::absolute_path(path)?;
         if let Some(id) = self
             .tabs
             .iter()
@@ -307,9 +330,9 @@ impl Workspace {
             return Ok(id);
         }
         if self.tabs.len() >= MAX_DOCUMENTS {
-            return Err("Close a document before opening more (prototype limit: 32).".into());
+            return Err(WorkspaceError::OpenLimit);
         }
-        let document = files::load(&path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
+        let document = files::load(&path)?;
         let id = self.add(document, Some(path.clone()))?;
         self.remember(path);
         Ok(id)
@@ -330,38 +353,41 @@ impl Workspace {
             || d.layers()[0].opacity() != 255
             || (format == FileFormat::Jpeg && d.has_transparency())
     }
-    pub fn save_to(&mut self, path: &Path, quality: u8, allow_flatten: bool) -> Result<(), String> {
+    pub fn save_to(
+        &mut self,
+        path: &Path,
+        quality: u8,
+        allow_flatten: bool,
+    ) -> Result<(), WorkspaceError> {
         if !self.has_document() {
-            return Err("There is no image to save.".into());
+            return Err(WorkspaceError::NoDocument);
         }
-        let path = files::absolute_path(path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
-        let format = FileFormat::for_path(&path).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
+        let path = files::absolute_path(path)?;
+        let format = FileFormat::for_path(&path)?;
         if self
             .tabs
             .iter()
             .enumerate()
             .any(|(i, t)| i != self.active && t.path.as_ref() == Some(&path))
         {
-            return Err("That file is open in another tab. Choose another filename.".into());
+            return Err(WorkspaceError::PathOpenInAnotherTab);
         }
         if self.requires_flatten(format) && !allow_flatten {
-            return Err(
-                "This format requires flattening. Confirm it or save a .hoshi project.".into(),
-            );
+            return Err(WorkspaceError::FlattenRequired);
         }
         if format == FileFormat::Jpeg && self.document().resolution().round() > 65535. {
-            return Err("JPEG density cannot exceed 65535 pixels/inch. Use PNG or .hoshi.".into());
+            return Err(WorkspaceError::JpegDensityTooHigh);
         }
         if format == FileFormat::Jpeg
             && (self.document().width() > 65535 || self.document().height() > 65535)
         {
-            return Err("JPEG supports at most 65535 pixels per dimension. Use PNG or .hoshi for this canvas.".into());
+            return Err(WorkspaceError::JpegDimensionsTooLarge);
         }
         self.finish()?;
         if self.requires_flatten(format) {
             self.document_for_save_flatten(format)?;
         }
-        files::save_atomic(&path, self.document(), format, quality).map_err(|e| e.to_string())?; // TODO(T4): WorkspaceError
+        files::save_atomic(&path, self.document(), format, quality)?;
         let tab = &mut self.tabs[self.active];
         tab.path = Some(path.clone());
         tab.name = path
@@ -374,20 +400,19 @@ impl Workspace {
         self.remember(path);
         Ok(())
     }
-    fn document_for_save_flatten(&mut self, format: FileFormat) -> Result<(), String> {
+    fn document_for_save_flatten(&mut self, format: FileFormat) -> Result<(), ControllerError> {
         self.flatten_for_export(if format == FileFormat::Jpeg {
             Some(Color::rgba(255, 255, 255, 255))
         } else {
             None
         })
-        .map_err(|e| e.to_string())
     }
-    pub fn close_discard(&mut self, id: u32) -> Result<(), String> {
+    pub fn close_discard(&mut self, id: u32) -> Result<(), WorkspaceError> {
         let index = self
             .tabs
             .iter()
             .position(|t| t.id == id)
-            .ok_or("Document no longer exists.")?;
+            .ok_or(WorkspaceError::MissingDocument)?;
         if index == self.active {
             let settings = self.drawing();
             settings.apply(&mut self.empty)?;
