@@ -1,6 +1,6 @@
 //! Locale selection and catalog fallback for the desktop adapter.
 
-use crate::{AppWindow, HistoryWindow, Translations};
+use crate::{AppWindow, ColorPickerWindow, HistoryWindow, Translations};
 use serde_json::Value;
 use slint::ComponentHandle;
 use std::collections::{BTreeMap, BTreeSet};
@@ -285,6 +285,10 @@ pub fn apply(ui: &AppWindow, localizer: &Localizer) {
 }
 
 pub fn apply_history(ui: &HistoryWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
+pub fn apply_colors(ui: &ColorPickerWindow, localizer: &Localizer) {
     apply_translations(ui.global::<Translations>(), localizer);
 }
 

@@ -2,6 +2,7 @@ import { ColorLibrary, PaletteSwatch, NamedColorSuggestion } from "color-library
 export { PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 import { FileShortcuts } from "file-shortcuts.slint";
 import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
 import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
     preferred-height: 34px;
@@ -238,8 +239,9 @@ export component ColorPanel inherits Rectangle {
                     Tooltip { text: @markdown("Restore original color"); }
                     clicked => { root.restore-original(); }
                 }
-                Button { icon: @image-url("../icons/pipette.svg"); width: 40px; accessible-label: "Color Picker"; enabled: !root.screen-picking;
-                    Tooltip { text: @markdown("Color Picker"); }
+                // Samples the screen, not the canvas: distinct from the canvas Color Picker tool.
+                Button { icon: @image-url("../icons/crosshair.svg"); width: 40px; accessible-label: Translations.screen-picker; enabled: !root.screen-picking;
+                    Tooltip { Text { text: Translations.screen-picker; color: Palette.foreground; } }
                     clicked => { root.pick-screen(); }
                 }
             }
