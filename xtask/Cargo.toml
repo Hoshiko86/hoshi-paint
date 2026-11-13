@@ -1,0 +1,11 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Repository task runner: `cargo xtask test <suite>` (see docs/TESTING.md)."
+
+# Standard library only: the runner must build before anything else does.
+[dependencies]

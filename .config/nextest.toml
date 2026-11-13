@@ -1,0 +1,17 @@
+# cargo-nextest profiles; `cargo xtask test unit` picks `ci` when $CI is set.
+# See docs/TESTING.md.
+
+[profile.default]
+# Report tests slower than 60 s; never kill them locally.
+slow-timeout = { period = "60s" }
+
+[profile.ci]
+# Run everything and show each failure as it happens and again at the end.
+fail-fast = false
+failure-output = "immediate-final"
+# A test still running after 10 minutes is hung.
+slow-timeout = { period = "60s", terminate-after = 10 }
+
+[profile.ci.junit]
+# Written to target/nextest/ci/junit.xml and uploaded by CI.
+path = "junit.xml"

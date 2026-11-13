@@ -88,10 +88,14 @@ Dependencies point inward only: `spikes/desktop-canvas` â†’ `hoshi-controller` â
 Run from the repo root, all must pass:
 
 ```sh
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
+cargo xtask test lint   # fmt --check + clippy -D warnings
+cargo xtask test unit   # cargo test --workspace --locked
 ```
+
+If you touched `spikes/desktop-canvas`, also run `cargo xtask test smoke` when
+Xvfb is available; otherwise say it was not run. Where tests go and what they
+must assert: `docs/TESTING.md`. A new `examples/*_smoke.rs` needs an entry in
+`xtask/src/smoke.rs`.
 
 To save time while iterating, test only the crate you touched
 (`cargo test -p hoshi-core`, `-p hoshi-controller`, `-p hoshi-canvas-spike`),

@@ -1,3 +1,7 @@
+[alias]
+# Repository task runner; see docs/TESTING.md.
+xtask = "run --package xtask --locked --quiet --"
+
 [env]
 # Slint 1.18.1 gates its native image-cursor constructor as experimental.
 # Keep the exact toolkit pin and exercise the desktop backend smoke test.
