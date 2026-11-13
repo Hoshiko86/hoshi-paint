@@ -176,7 +176,7 @@ impl Manager {
             }
             let result = self.state.borrow_mut().activate(id);
             if let Err(e) = result {
-                self.error(ui, e);
+                self.error(ui, e.to_string());
                 return;
             }
             refresh_app(ui, &self.state.borrow());
@@ -202,7 +202,7 @@ impl Manager {
             if goal != Goal::SaveAll {
                 let result = self.state.borrow_mut().close_discard(id);
                 if let Err(e) = result {
-                    self.error(ui, e);
+                    self.error(ui, e.to_string());
                     return;
                 }
             }
@@ -215,7 +215,7 @@ impl Manager {
             if goal != Goal::SaveAll {
                 let result = self.state.borrow_mut().close_discard(id);
                 if let Err(e) = result {
-                    self.error(ui, e);
+                    self.error(ui, e.to_string());
                     return;
                 }
             }
@@ -318,7 +318,10 @@ impl Manager {
                 ui,
                 self.text.format(
                     "save_failed_preserved",
-                    &[("path", &path.display().to_string()), ("error", &error)],
+                    &[
+                        ("path", &path.display().to_string()),
+                        ("error", &error.to_string()),
+                    ],
                 ),
             ),
         }
@@ -410,7 +413,7 @@ pub(super) fn bind(
             let result = m.state.borrow_mut().activate(id as u32);
             match result {
                 Ok(()) => refresh_app(&ui, &m.state.borrow()),
-                Err(e) => m.error(&ui, e),
+                Err(e) => m.error(&ui, e.to_string()),
             }
         }
     });
@@ -423,7 +426,7 @@ pub(super) fn bind(
             let result = m.state.borrow_mut().cycle(backward);
             match result {
                 Ok(()) => refresh_app(&ui, &m.state.borrow()),
-                Err(e) => m.error(&ui, e),
+                Err(e) => m.error(&ui, e.to_string()),
             }
         }
     });
@@ -474,7 +477,7 @@ pub(super) fn bind(
                     if let Some(id) = id {
                         let result = m.state.borrow_mut().close_discard(id);
                         if let Err(e) = result {
-                            m.error(&ui, e);
+                            m.error(&ui, e.to_string());
                             return;
                         }
                     }
