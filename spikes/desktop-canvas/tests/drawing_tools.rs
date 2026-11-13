@@ -77,7 +77,10 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
     assert!(state.borrow().composite().iter().any(|pixel| pixel.a < 255));
 
     let sampled = Color::rgba(43, 91, 157, 103);
-    state.borrow_mut().new_image(256, 256, 96.0, sampled).unwrap();
+    state
+        .borrow_mut()
+        .new_image(256, 256, 96.0, sampled)
+        .unwrap();
     refresh_workspace(&ui, &state);
     ui.window().take_snapshot().unwrap();
     ui.invoke_choose_tool(3);
