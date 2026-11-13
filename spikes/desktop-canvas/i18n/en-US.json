@@ -59,5 +59,8 @@
   "jpeg_lossy_warning": "JPEG uses lossy compression. Layers will be flattened, transparency will be composited over white, and resolution is rounded to whole pixels/inch.",
   "save_flatten_warning": "This image format stores a single flat image. Saving will flatten the layers.",
   "save_target_changed": "The active document changed. Nothing was written.",
-  "save_failed_preserved": "Could not save {path}: {error}\nThe image remains open with its undo history."
+  "save_failed_preserved": "Could not save {path}: {error}\nThe image remains open with its undo history.",
+  "error_history_corrupt": "Unable to read this undo state: its stored data is damaged or unavailable. Your current image and history have not been discarded.",
+  "error_history_io": "Unable to write undo history. Check free disk space and scratch-folder access, then retry. Your image and existing history remain available.",
+  "error_memory_limit": "Image memory budget exceeded. Close other images or use a smaller size."
 }

@@ -928,22 +928,26 @@ fn update(
             result
         };
         if let Err(error) = result {
-            if matches!(
-                error,
-                ControllerError::Core(
-                    hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt
-                )
-            ) {
-                panel_hosts::close_adjustment_panels(&ui);
-                ui.set_file_error(error.to_string().into());
-            }
-            ui.set_status(match error {
-                ControllerError::Core(hoshi_core::Error::MemoryLimit) => {
-                    "Image memory budget exceeded. Close other images or use a smaller size.".into()
+            // Core errors carry no user copy; the locale catalogs supply it.
+            let text = ui.global::<Translations>();
+            let history = match error {
+                ControllerError::Core(hoshi_core::Error::HistoryIo) => {
+                    Some(text.get_error_history_io())
                 }
-                ControllerError::Core(
-                    hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt,
-                ) => error.to_string().into(),
+                ControllerError::Core(hoshi_core::Error::HistoryCorrupt) => {
+                    Some(text.get_error_history_corrupt())
+                }
+                _ => None,
+            };
+            if let Some(message) = &history {
+                panel_hosts::close_adjustment_panels(&ui);
+                ui.set_file_error(message.clone());
+            }
+            ui.set_status(match (error, history) {
+                (_, Some(message)) => message,
+                (ControllerError::Core(hoshi_core::Error::MemoryLimit), None) => {
+                    text.get_error_memory_limit()
+                }
                 _ => format!("Action unavailable: {error}").into(),
             });
         }

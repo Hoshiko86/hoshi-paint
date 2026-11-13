@@ -152,9 +152,13 @@ fn history_directory_cannot_change_after_an_edit() {
 
 #[test]
 fn public_error_messages_and_history_metadata_are_observable() {
-    assert!(Error::HistoryIo.to_string().contains("undo history"));
-    assert!(Error::HistoryCorrupt.to_string().contains("undo state"));
-    assert!(Error::MemoryLimit.to_string().contains("memory budget"));
+    // Core Display is developer text; user copy lives in adapter catalogs.
+    assert_eq!(Error::HistoryIo.to_string(), "history store I/O failed");
+    assert_eq!(
+        Error::HistoryCorrupt.to_string(),
+        "history record is corrupt or missing"
+    );
+    assert_eq!(Error::MemoryLimit.to_string(), "memory budget exceeded");
     assert_eq!(Error::InvalidLayer.to_string(), "InvalidLayer");
 
     let mut document = Document::new(2, 2).unwrap();

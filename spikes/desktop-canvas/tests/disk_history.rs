@@ -1,4 +1,4 @@
-use hoshi_canvas_spike::{create_app_with_panels, refresh_workspace};
+use hoshi_canvas_spike::{Translations, create_app_with_panels, refresh_workspace};
 use hoshi_controller::{Color, Resampling};
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, LogicalSize, Model};
@@ -107,7 +107,15 @@ fn long_history_model_stays_shared_and_navigates_disk_states_across_tabs() {
     let preview = state.borrow().document().active_shape();
     assert!(preview.is_some());
     ui.invoke_action(2);
-    assert!(!ui.get_file_error().is_empty());
+    // The message is catalog copy, not the core error's developer text.
+    let expected = ui.global::<Translations>().get_error_history_io();
+    assert!(!expected.is_empty());
+    assert_eq!(ui.get_file_error(), expected);
+    assert_eq!(ui.get_status(), expected);
+    assert_ne!(
+        ui.get_file_error().as_str(),
+        hoshi_core::Error::HistoryIo.to_string()
+    );
     assert!(ui.get_modal_visible());
     assert_eq!(state.borrow().document().snapshot(), before);
     assert_eq!(state.borrow().document().active_shape(), preview);

@@ -23,6 +23,9 @@ const REQUIRED_KEYS: &[&str] = &[
     "discard_and_close",
     "dont_save",
     "eraser",
+    "error_history_corrupt",
+    "error_history_io",
+    "error_memory_limit",
     "eyedropper",
     "file_operation_failed",
     "fill",
@@ -291,6 +294,9 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_brush(text("brush"));
     translations.set_brush_width(text("brush_width"));
     translations.set_eraser(text("eraser"));
+    translations.set_error_history_corrupt(text("error_history_corrupt"));
+    translations.set_error_history_io(text("error_history_io"));
+    translations.set_error_memory_limit(text("error_memory_limit"));
     translations.set_eyedropper(text("eyedropper"));
     translations.set_screen_picker(text("screen_picker"));
     translations.set_tool(text("tool"));
