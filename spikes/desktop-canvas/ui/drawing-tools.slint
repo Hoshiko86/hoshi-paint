@@ -28,7 +28,7 @@ export component DrawingTools inherits VerticalLayout {
             accessible-label: tool.label;
             enabled: root.enabled;
             opacity: self.enabled ? 1 : 0.4;
-            Tooltip { text: tool.label; }
+            Tooltip { text: @markdown("\{tool.label}"); }
             clicked => {
                 if tool.id < 0 { root.pick-screen(); }
                 else { root.choose-tool(tool.id); }
