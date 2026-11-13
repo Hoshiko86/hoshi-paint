@@ -1,4 +1,4 @@
-use hoshi_canvas_spike::create_app_with_colors;
+use hoshi_canvas_spike::{Translations, create_app_with_colors};
 use hoshi_controller::Color;
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, LogicalPosition, Model};
@@ -24,10 +24,19 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
     assert!(swatch.description.starts_with("Black\n"));
     assert!(swatch.description.contains("RGB: 0, 0, 0"));
     assert!(swatch.description.contains("HSV:"));
-    assert!(
-        ElementHandle::find_by_accessible_label(picker.as_ref(), "Color Picker")
-            .next()
-            .is_some()
+    // The panel's sampling button reads the screen, so it must not
+    // share the canvas Color Picker tool's name.
+    let screen_picker = ui.global::<Translations>().get_screen_picker();
+    assert!(!screen_picker.is_empty());
+    assert_eq!(
+        ElementHandle::find_by_accessible_label(picker.as_ref(), &screen_picker).count(),
+        1,
+        "the Colors panel must expose exactly one localized Screen Picker button"
+    );
+    assert_eq!(
+        ElementHandle::find_by_accessible_label(picker.as_ref(), "Color Picker").count(),
+        0,
+        "the screen picker button must not be labelled as the canvas Color Picker tool"
     );
     let tooltip_count =
         || ElementHandle::find_by_accessible_label(picker.as_ref(), &swatch.description).count();

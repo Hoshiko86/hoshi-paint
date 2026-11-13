@@ -1123,6 +1123,7 @@ fn create_panels(
         })
     });
     let picker = colors::bind_picker(&ui, controller.clone(), palette_root)?;
+    localization::apply_colors(&picker, &text);
     let history = history::bind_window(&ui, controller.clone(), &text)?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
     documents::bind(&ui, controller.clone(), dialogs, text);
