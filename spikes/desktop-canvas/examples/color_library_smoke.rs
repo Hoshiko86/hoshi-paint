@@ -3,10 +3,19 @@ use hoshi_canvas_spike::create_app_with_palette_root;
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
 use std::time::Duration;
 
-fn save(window: &slint::Window, path: &str) {
+/// Snapshot directory: `HOSHI_SMOKE_SNAPSHOT_DIR` (set by `cargo xtask test
+/// smoke`), else `target/`. Created if missing so a fresh checkout works.
+fn snapshot_path(name: &str) -> std::path::PathBuf {
+    let dir = std::path::PathBuf::from(
+        std::env::var_os("HOSHI_SMOKE_SNAPSHOT_DIR").unwrap_or_else(|| "target".into()),
+    );
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(name)
+}
+fn save(window: &slint::Window, name: &str) {
     let pixels = window.take_snapshot().unwrap();
     image::save_buffer(
-        path,
+        snapshot_path(name),
         pixels.as_bytes(),
         pixels.width(),
         pixels.height(),
@@ -27,10 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.invoke_pointer_up(270., 230.);
         ui.invoke_show_colors();
         app.colors.invoke_choose_named_color("RebeccaPurple".into());
-        save(
-            app.colors.window(),
-            "target/spike-color-library-floating.png",
-        );
+        save(app.colors.window(), "spike-color-library-floating.png");
         let preview = app.controller.borrow().document().active_shape();
         let position = LogicalPosition::new(
             app.colors.get_name_input_left() + 12.,
@@ -57,12 +63,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .dispatch_event(WindowEvent::KeyReleased {
                 text: "blue".into(),
             });
-        save(
-            app.colors.window(),
-            "target/spike-color-library-suggestions.png",
-        );
+        save(app.colors.window(), "spike-color-library-suggestions.png");
         app.colors.invoke_placement_selected(2);
-        save(ui.window(), "target/spike-color-library-docked.png");
+        save(ui.window(), "spike-color-library-docked.png");
         assert_eq!(app.controller.borrow().document().active_shape(), preview);
         assert_eq!(app.controller.borrow().document().undo_len(), 0);
         ui.hide().unwrap();
