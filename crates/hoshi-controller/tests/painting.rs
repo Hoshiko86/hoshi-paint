@@ -1,3 +1,5 @@
+mod support;
+
 use hoshi_controller::{Color, Controller, EditCursor, PointerButton, Tool};
 
 fn painter(tool: Tool) -> Controller {
@@ -162,41 +164,41 @@ fn tool_switch_commit_and_redo_finish_active_strokes() {
 
 #[test]
 fn capture_loss_reports_commit_failure_and_resets_drag() {
-    const CHILD: &str = "HOSHI_CANCEL_POINTER_FAILURE_TEST";
-    if std::env::var_os(CHILD).is_none() {
-        // Budget reservations are global: isolate exhaustion from parallel tests.
-        let status = std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "capture_loss_reports_commit_failure_and_resets_drag",
-            ])
-            .env(CHILD, "1")
-            .status()
+    // Budget reservations are global: isolate exhaustion from parallel tests.
+    support::run_isolated(
+        "capture_loss_reports_commit_failure_and_resets_drag",
+        || {
+            let mut c = painter(Tool::Brush);
+            drag(&mut c);
+            let reservation = hoshi_core::MemoryReservation::new(
+                hoshi_core::memory_budget() - hoshi_core::memory_usage(),
+            )
             .unwrap();
-        assert!(status.success());
-        return;
-    }
-    let mut c = painter(Tool::Brush);
-    drag(&mut c);
-    let reservation = hoshi_core::MemoryReservation::new(
-        hoshi_core::memory_budget() - hoshi_core::memory_usage(),
-    )
-    .unwrap();
-    assert_eq!(
-        c.cancel_pointer(),
-        Err(hoshi_controller::ControllerError::Core(
-            hoshi_core::Error::MemoryLimit
-        ))
+            assert_eq!(
+                c.cancel_pointer(),
+                Err(hoshi_controller::ControllerError::Core(
+                    hoshi_core::Error::MemoryLimit
+                ))
+            );
+            drop(reservation);
+            assert_eq!(c.document().undo_len(), 0);
+            assert!(!c.document().has_active_stroke());
+            assert!(!c.is_dragging());
+            assert_eq!(
+                c.document().layers()[0].pixels().get(12, 8),
+                Color::TRANSPARENT
+            );
+            c.cancel_pointer().unwrap();
+            c.pointer_up().unwrap();
+            assert_eq!(c.document().undo_len(), 0);
+        },
     );
-    drop(reservation);
-    assert_eq!(c.document().undo_len(), 0);
-    assert!(!c.document().has_active_stroke());
-    assert!(!c.is_dragging());
-    assert_eq!(
-        c.document().layers()[0].pixels().get(12, 8),
-        Color::TRANSPARENT
-    );
-    c.cancel_pointer().unwrap();
-    c.pointer_up().unwrap();
-    assert_eq!(c.document().undo_len(), 0);
+}
+
+#[test]
+#[should_panic(expected = "ran no test")]
+fn isolation_helper_rejects_a_name_that_matches_no_test() {
+    support::run_isolated("no_such_test_in_this_binary", || {
+        unreachable!("the parent never runs the body");
+    });
 }
