@@ -112,13 +112,15 @@ pub enum Error {
     HistoryCorrupt,
 }
 
+/// Developer-facing description for logs and diagnostics. It is not user
+/// copy: adapters map each variant to text in their locale catalogs.
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HistoryIo=>f.write_str("Unable to write undo history. Check free disk space and scratch-folder access, then retry. Your image and existing history remain available."),
-            Self::HistoryCorrupt=>f.write_str("Unable to read this undo state: its stored data is damaged or unavailable. Your current image and history have not been discarded."),
-            Self::MemoryLimit=>f.write_str("The operation exceeds the shared image memory budget. Close other images or choose a smaller size."),
-            _=>write!(f,"{self:?}"),
+            Self::HistoryIo => f.write_str("history store I/O failed"),
+            Self::HistoryCorrupt => f.write_str("history record is corrupt or missing"),
+            Self::MemoryLimit => f.write_str("memory budget exceeded"),
+            _ => write!(f, "{self:?}"),
         }
     }
 }
