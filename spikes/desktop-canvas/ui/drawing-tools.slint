@@ -1,0 +1,46 @@
+import { Button, SpinBox } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
+
+// Drawing commands and shared brush size; editing policy stays in the controller.
+export component DrawingTools inherits VerticalLayout {
+    in property <int> selected-tool;
+    in property <bool> enabled;
+    in property <int> brush-width;
+    callback choose-tool(int);
+    callback edit-brush-width(int);
+    callback pick-screen();
+    spacing: 8px;
+    for tool in [
+        { id: 4, label: Translations.brush, icon: @image-url("../icons/brush.svg") },
+        { id: 5, label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
+        { id: 3, label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") },
+        { id: -1, label: Translations.screen-picker, icon: @image-url("../icons/pipette.svg") }
+    ]: Rectangle {
+        height: DesktopTheme.tool-rail-width - 20px;
+        border-width: tool.id >= 0 && root.selected-tool == tool.id ? 2px : 0px;
+        border-color: DesktopTheme.selected-tool;
+        border-radius: 4px;
+        background: transparent;
+        Button {
+            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+            icon: tool.icon;
+            accessible-label: tool.label;
+            enabled: root.enabled;
+            opacity: self.enabled ? 1 : 0.4;
+            Tooltip { text: tool.label; }
+            clicked => {
+                if tool.id < 0 { root.pick-screen(); }
+                else { root.choose-tool(tool.id); }
+            }
+        }
+    }
+    if root.selected-tool == 4 || root.selected-tool == 5: SpinBox {
+        minimum: 1;
+        maximum: 2000;
+        value: root.brush-width;
+        enabled: root.enabled;
+        accessible-label: Translations.brush-width;
+        edited(value) => { root.edit-brush-width(value); }
+    }
+}

@@ -22,6 +22,7 @@ mod shape_rendering;
 pub mod workspace;
 
 slint::slint! {
+    import { DrawingTools } from "../ui/drawing-tools.slint";
     import { ShapePropertiesPanel } from "../ui/shape-properties.slint";
     export { ShapePropertiesWindow } from "../ui/shape-properties.slint";
     import { ShapeControls, ControlPoint } from "../ui/shape-controls.slint";
@@ -65,6 +66,8 @@ slint::slint! {
         in property <bool> can-undo;
         in property <bool> can-redo;
         in property <int> selected-tool;
+        in property <int> brush-width: 1;
+        callback edit-brush-width(int);
         in property <string> shape-x-text;
         in property <string> shape-y-text;
         in property <string> shape-width-text;
@@ -417,6 +420,14 @@ slint::slint! {
                             Tooltip { text: @markdown("Shapes · Rectangle"); }
                             clicked => { root.choose-tool(0); root.show-shape-properties(); }
                         }
+                    }
+                    DrawingTools {
+                        selected-tool: root.selected-tool;
+                        enabled: root.has-document;
+                        brush-width: root.brush-width;
+                        choose-tool(tool) => { root.choose-tool(tool); }
+                        edit-brush-width(width) => { root.edit-brush-width(width); }
+                        pick-screen => { root.pick-screen(); }
                     }
                     Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: "Colors";
                         Tooltip { text: @markdown("Colors · Primary, Secondary and Color Picker"); } clicked => { root.show-colors(); } }
@@ -840,6 +851,7 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         ShapeMode::Outline => 1,
         ShapeMode::Both => 2,
     });
+    ui.set_brush_width(controller.brush_width() as i32);
     ui.set_stroke_width(controller.stroke_width() as i32);
     shape_rendering::refresh(ui, controller);
     shape_bounds::refresh(ui, controller);
@@ -1029,20 +1041,20 @@ fn create_panels(
     shape_bounds::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
-        if tool == 3 {
-            if let Some(ui) = weak.upgrade() {
-                ui.invoke_pick_screen();
-            }
-            return;
-        }
         update(&weak, &state, |c| {
             c.set_tool(match tool {
                 1 => Tool::MoveShape,
                 2 => Tool::Pan,
                 3 => Tool::Eyedropper,
+                4 => Tool::Brush,
+                5 => Tool::Eraser,
                 _ => Tool::Rectangle,
             })
         })
+    });
+    let (weak, state) = (ui.as_weak(), controller.clone());
+    ui.on_edit_brush_width(move |width| {
+        update(&weak, &state, |c| c.set_brush_width(f64::from(width)));
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_color(move |color| {
