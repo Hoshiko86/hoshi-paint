@@ -38,8 +38,15 @@ Dependencies point inward only: `spikes/desktop-canvas` â†’ `hoshi-controller` â
 - The spike crate may use `anyhow` only in `main.rs` and `examples/`.
 - **No new `Result<_, String>`** and no `.map_err(|e| e.to_string())`. Convert
   to text only at the UI boundary (status bar / dialog).
-- No user-facing English inside core/controller errors in new code; that copy
-  belongs to the adapter/localization layer.
+- **No user-facing text in Rust source, in any crate** (core, controller *or*
+  the desktop adapter). Error enums carry kind and data; their `Display` is
+  short lowercase developer text for logs, with no advice to the user.
+- User copy lives in `spikes/desktop-canvas/i18n/en-US.json` **and**
+  `es-ES.json`, with every key in `REQUIRED_KEYS` (`localization.rs`). The
+  adapter maps each error variant to a key where it is shown; see how
+  `lib.rs::update` handles `HistoryIo`.
+- Existing English strings may stay until their ticket moves them (#86), but
+  don't add new ones. If a task seems to need one, add the catalog key instead.
 
 **Panics**
 - No `.unwrap()`, `.expect()`, `panic!`, `unreachable!`, `todo!` or raw slice
