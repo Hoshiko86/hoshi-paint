@@ -36,6 +36,8 @@ export component DrawingTools inherits VerticalLayout {
         }
     }
     if root.selected-tool == 4 || root.selected-tool == 5: LineEdit {
+        // Standard LineEdit's 160px minimum would overlap the 64px tool rail.
+        min-width: 0px;
         init => { self.text = "" + root.brush-width; }
         changed has-focus => { if !self.has-focus { self.text = "" + root.brush-width; } }
         property <float> stored-width: root.brush-width;
