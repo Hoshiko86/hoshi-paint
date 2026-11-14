@@ -85,26 +85,25 @@ impl History {
                 .try_reserve(desired - self.entries.len())
                 .map_err(|_| Error::MemoryLimit)?;
         }
-        if self.store.is_none() {
-            self.store = Some(HistoryStore::new(self.directory.as_deref())?)
-        }
+        let store = match self.store.as_mut() {
+            Some(store) => store,
+            None => self
+                .store
+                .insert(HistoryStore::new(self.directory.as_deref())?),
+        };
         let capture_before = self.entries.is_empty();
         let records = if capture_before {
-            self.store
-                .as_mut()
-                .expect("created archive")
-                .archive_many(&[before, after])?
+            store.archive_many(&[before, after])?
         } else {
-            self.store
-                .as_mut()
-                .expect("created archive")
-                .archive_many(&[after])?
+            store.archive_many(&[after])?
         };
-        let after_record = *records.last().expect("one archived state");
+        let (Some(&first), Some(&after_record)) = (records.first(), records.last()) else {
+            return Err(Error::HistoryIo);
+        };
         let branched = self.redo_len() > 0;
         if self.entries.is_empty() {
             self.entries.push(Entry {
-                record: records[0],
+                record: first,
                 label: "Oldest available state",
                 selected: before.selected,
             })
