@@ -19,6 +19,8 @@ spikes/desktop-canvas (Slint 1.18.1 adapter, disposable)
   Linux/Windows/macOS via `cargo xtask test <suite>` (`docs/TESTING.md`;
   smoke table in `xtask/src/smoke.rs`; coverage floors in
   `xtask/src/coverage.rs`: core 95%, controller 93%). Test epic #63.
+- One integration-test binary per crate (`tests/main.rs`, `autotests = false`):
+  a task adding `tests/<area>.rs` must also list `tests/main.rs` in scope.
 - Core: sparse 128×128 `Arc` copy-on-write tiles, ≤262,144 px/axis, global
   memory budget (`memory.rs`, static atomics), disk-backed compressed undo.
 - Shapes: draw → adjust → commit; one history entry per commit.
