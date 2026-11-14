@@ -85,12 +85,12 @@ impl RasterShape {
                     (p.y - ry).abs(),
                     (p.x + rx).abs(),
                 ];
-                let edge = edges
-                    .iter()
-                    .enumerate()
-                    .min_by(|a, b| a.1.total_cmp(b.1))
-                    .unwrap()
-                    .0;
+                let mut edge = 0;
+                for candidate in 1..edges.len() {
+                    if edges[candidate].total_cmp(&edges[edge]).is_lt() {
+                        edge = candidate;
+                    }
+                }
                 match edge {
                     0 => x,
                     1 => 2. * rx + y,
