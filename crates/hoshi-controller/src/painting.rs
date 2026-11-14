@@ -46,6 +46,9 @@ impl Controller {
         }
         match self.document.commit_stroke() {
             Ok(changed) => Ok(changed),
+            // A failed commit discards the stroke, leaving the document as it
+            // was before the stroke (Paint.NET parity; owner decision, #77).
+            // The core keeps a failed stroke active only so callers can choose.
             Err(error) => {
                 self.document.cancel_stroke();
                 Err(error.into())
