@@ -15,7 +15,7 @@ export component DrawingTools inherits VerticalLayout {
         { id: 4, label: Translations.brush, icon: @image-url("../icons/brush.svg") },
         { id: 5, label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
         { id: 3, label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") },
-        { id: -1, label: Translations.screen-picker, icon: @image-url("../icons/pipette.svg") }
+        { id: -1, label: Translations.screen-picker, icon: @image-url("../icons/scan-eye.svg") }
     ]: Rectangle {
         height: DesktopTheme.tool-rail-width - 20px;
         border-width: tool.id >= 0 && root.selected-tool == tool.id ? 2px : 0px;
