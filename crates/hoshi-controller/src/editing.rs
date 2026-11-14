@@ -2,7 +2,7 @@
 //!
 //! This module edits a generic frame. Shape rasterization lives in hoshi-core;
 //! native pointer/key events are translated by the UI adapter.
-use super::tools::{PointerInput, ToolBehavior, ToolCx, ToolState};
+use super::tools::{PointerInput, ToolCx};
 use super::{
     ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint,
     InputModifiers, PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
@@ -18,7 +18,6 @@ pub(super) struct EditState {
 #[derive(Clone, Copy)]
 pub(super) enum Gesture {
     Sample,
-    Stroke,
     CreateShape {
         anchor: (f64, f64),
     },
@@ -237,7 +236,7 @@ impl Controller {
             }
         }
         match self.tool {
-            Tool::Brush | Tool::Eraser => self.begin_paint(p, button)?,
+            Tool::Brush | Tool::Eraser => self.begin_paint(PointerInput { x, y }, button)?,
             Tool::Rectangle => {
                 self.commit()?;
                 if point.x < 0.
@@ -350,21 +349,17 @@ impl Controller {
         let p = self.document_point(x, y)?;
         let point = Point::new(p.0, p.1);
         self.last_pointer = Some((x, y));
-        if let Some(ActiveDrag::Tool {
-            state: ToolState::Pan(pan),
-            ..
-        }) = &mut self.drag
-        {
-            return pan.pointer_move(
+        if let Some(ActiveDrag::Tool { state, .. }) = &mut self.drag {
+            return state.pointer_move(
                 &mut ToolCx {
                     viewport: &mut self.viewport,
+                    document: &mut self.document,
                 },
                 PointerInput { x, y },
             );
         }
         match self.legacy_gesture() {
             Some(Gesture::Sample) => self.sample_color(p)?,
-            Some(Gesture::Stroke) => self.paint_to(p)?,
             Some(Gesture::CreateShape { anchor }) => {
                 let p = self.clip_point(p);
                 if (p.0 == anchor.0 && p.1 == anchor.1)

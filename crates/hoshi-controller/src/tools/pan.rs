@@ -34,12 +34,15 @@ impl ToolBehavior for PanTool {
 mod tests {
     use super::*;
     use crate::Viewport;
+    use hoshi_core::Document;
 
     #[test]
     fn drag_applies_the_sum_of_logical_deltas() {
         let mut viewport = Viewport::default();
+        let mut document = Document::new(32, 32).unwrap();
         let mut cx = ToolCx {
             viewport: &mut viewport,
+            document: &mut document,
         };
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
@@ -55,11 +58,13 @@ mod tests {
     #[test]
     fn pointer_down_records_the_anchor_without_moving_the_viewport() {
         let mut viewport = Viewport::default();
+        let mut document = Document::new(32, 32).unwrap();
         let before = viewport;
         let mut pan = PanTool::default();
         pan.pointer_down(
             &mut ToolCx {
                 viewport: &mut viewport,
+                document: &mut document,
             },
             PointerInput { x: 20.0, y: 30.0 },
         )
@@ -68,6 +73,7 @@ mod tests {
         pan.pointer_move(
             &mut ToolCx {
                 viewport: &mut viewport,
+                document: &mut document,
             },
             PointerInput { x: 20.0, y: 30.0 },
         )
@@ -78,9 +84,11 @@ mod tests {
     #[test]
     fn failed_delta_preserves_viewport_and_previous_pointer() {
         let mut viewport = Viewport::default();
+        let mut document = Document::new(32, 32).unwrap();
         let before = viewport;
         let mut cx = ToolCx {
             viewport: &mut viewport,
+            document: &mut document,
         };
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
