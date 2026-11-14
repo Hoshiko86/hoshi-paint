@@ -8,6 +8,13 @@ edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
 
+# Third-party crates (Slint, image codecs, zbus, ...) build without debug info
+# in dev and test builds. That debug info was most of every test binary
+# (~0.5 GB each) and of the build cache. Workspace crates keep full debug info,
+# and backtraces still name third-party functions (symbols are kept).
+[profile.dev.package."*"]
+debug = false
+
 # Keep debug symbols and checks in development artifacts, but optimize the
 # per-pixel hot paths so interactive resizing does not run at opt-level 0.
 [profile.dev.package.hoshi-core]
