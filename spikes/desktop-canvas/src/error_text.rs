@@ -1,3 +1,4 @@
+// probe
 //! User-facing text for adapter and core errors (#86).
 //!
 //! Error types carry kind and data only; this is the one place that turns
