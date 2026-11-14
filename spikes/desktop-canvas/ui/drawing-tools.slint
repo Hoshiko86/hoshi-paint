@@ -1,4 +1,4 @@
-import { Button, SpinBox } from "std-widgets.slint";
+import { Button, LineEdit } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
@@ -6,9 +6,9 @@ import { Translations } from "localization.slint";
 export component DrawingTools inherits VerticalLayout {
     in property <int> selected-tool;
     in property <bool> enabled;
-    in property <int> brush-width;
+    in property <float> brush-width;
     callback choose-tool(int);
-    callback edit-brush-width(int);
+    callback edit-brush-width(float);
     callback pick-screen();
     spacing: 8px;
     for tool in [
@@ -35,12 +35,19 @@ export component DrawingTools inherits VerticalLayout {
             }
         }
     }
-    if root.selected-tool == 4 || root.selected-tool == 5: SpinBox {
-        minimum: 1;
-        maximum: 2000;
-        value: root.brush-width;
+    if root.selected-tool == 4 || root.selected-tool == 5: LineEdit {
+        init => { self.text = "" + root.brush-width; }
+        changed has-focus => { if !self.has-focus { self.text = "" + root.brush-width; } }
+        property <float> stored-width: root.brush-width;
+        changed stored-width => { if !self.has-focus { self.text = "" + root.brush-width; } }
+        input-type: decimal;
         enabled: root.enabled;
         accessible-label: Translations.brush-width;
-        edited(value) => { root.edit-brush-width(value); }
+        edited(value) => {
+            if value.is-float() && value.to-float() >= 1 && value.to-float() <= 2000 {
+                root.edit-brush-width(value.to-float());
+            }
+        }
+        accepted => { self.text = "" + root.brush-width; }
     }
 }

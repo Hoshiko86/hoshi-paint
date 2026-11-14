@@ -67,8 +67,7 @@ slint::slint! {
         in property <bool> can-undo;
         in property <bool> can-redo;
         in property <int> selected-tool;
-        in property <int> brush-width: 1;
-        callback edit-brush-width(int);
+        callback edit-brush-width(float);
         in property <string> shape-x-text;
         in property <string> shape-y-text;
         in property <string> shape-width-text;
@@ -425,7 +424,7 @@ slint::slint! {
                     DrawingTools {
                         selected-tool: root.selected-tool;
                         enabled: root.has-document;
-                        brush-width: root.brush-width;
+                        brush-width: root.stroke-width-pixels;
                         choose-tool(tool) => { root.choose-tool(tool); }
                         edit-brush-width(width) => { root.edit-brush-width(width); }
                         pick-screen => { root.pick-screen(); }
@@ -866,7 +865,6 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         ShapeMode::Outline => 1,
         ShapeMode::Both => 2,
     });
-    ui.set_brush_width(controller.brush_width() as i32);
     ui.set_stroke_width(controller.stroke_width() as i32);
     shape_rendering::refresh(ui, controller);
     shape_bounds::refresh(ui, controller);
@@ -1073,7 +1071,9 @@ fn create_panels(
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_edit_brush_width(move |width| {
-        update(&weak, &state, |c| c.set_brush_width(f64::from(width)));
+        // Preserve decimal input through Slint's f32 transport, as in Shape Properties.
+        let width = width.to_string().parse::<f64>().unwrap_or(f64::NAN);
+        update(&weak, &state, |c| c.set_brush_width(width));
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_color(move |color| {
