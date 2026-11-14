@@ -31,7 +31,7 @@ impl Controller {
         };
         self.document
             .begin_stroke(StrokeStyle { tip, blend }, Point::new(p.0, p.1))?;
-        self.gesture = Some(Gesture::Stroke);
+        self.begin_gesture(Gesture::Stroke);
         Ok(())
     }
 
@@ -41,8 +41,8 @@ impl Controller {
     }
 
     pub(super) fn finish_stroke(&mut self) -> Result<bool, ControllerError> {
-        if matches!(self.gesture, Some(Gesture::Stroke)) {
-            self.gesture = None;
+        if matches!(self.legacy_gesture(), Some(Gesture::Stroke)) {
+            self.clear_gesture();
         }
         match self.document.commit_stroke() {
             Ok(changed) => Ok(changed),

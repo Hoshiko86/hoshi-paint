@@ -1,10 +1,10 @@
 //! Viewport panning with tool-local drag state.
 use super::{ControllerError, PointerInput, ToolBehavior, ToolCx};
 
-/// Pan drag state; no recorded pointer means no drag is active.
+/// Previous pointer for a Pan tool owned by the controller's active drag.
 #[derive(Default)]
 pub(crate) struct PanTool {
-    last: Option<(f64, f64)>,
+    last: (f64, f64),
 }
 
 impl ToolBehavior for PanTool {
@@ -13,7 +13,7 @@ impl ToolBehavior for PanTool {
         _cx: &mut ToolCx<'_>,
         p: PointerInput,
     ) -> Result<(), ControllerError> {
-        self.last = Some((p.x, p.y));
+        self.last = (p.x, p.y);
         Ok(())
     }
 
@@ -22,20 +22,12 @@ impl ToolBehavior for PanTool {
         cx: &mut ToolCx<'_>,
         p: PointerInput,
     ) -> Result<(), ControllerError> {
-        if let Some(last) = self.last {
-            cx.viewport.pan_by(p.x - last.0, p.y - last.1)?;
-            self.last = Some((p.x, p.y));
-        }
+        cx.viewport.pan_by(p.x - self.last.0, p.y - self.last.1)?;
+        self.last = (p.x, p.y);
         Ok(())
     }
 
-    fn pointer_up(&mut self, _cx: &mut ToolCx<'_>) {
-        self.last = None;
-    }
-
-    fn is_dragging(&self) -> bool {
-        self.last.is_some()
-    }
+    fn pointer_up(&mut self, _cx: &mut ToolCx<'_>) {}
 }
 
 #[cfg(test)]
@@ -58,14 +50,21 @@ mod tests {
             .unwrap();
         assert_eq!(cx.viewport.offset_x, 15.0);
         assert_eq!(cx.viewport.offset_y, 10.0);
-        assert!(pan.is_dragging());
     }
 
     #[test]
-    fn move_without_a_drag_preserves_the_viewport() {
+    fn pointer_down_records_the_anchor_without_moving_the_viewport() {
         let mut viewport = Viewport::default();
         let before = viewport;
         let mut pan = PanTool::default();
+        pan.pointer_down(
+            &mut ToolCx {
+                viewport: &mut viewport,
+            },
+            PointerInput { x: 20.0, y: 30.0 },
+        )
+        .unwrap();
+        assert_eq!(viewport, before);
         pan.pointer_move(
             &mut ToolCx {
                 viewport: &mut viewport,
@@ -74,7 +73,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(viewport, before);
-        assert!(!pan.is_dragging());
     }
 
     #[test]
@@ -105,19 +103,16 @@ mod tests {
     }
 
     #[test]
-    fn pointer_up_ends_the_drag() {
-        let mut viewport = Viewport::default();
-        let before = viewport;
-        let mut cx = ToolCx {
-            viewport: &mut viewport,
-        };
-        let mut pan = PanTool::default();
-        pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
-            .unwrap();
-        pan.pointer_up(&mut cx);
-        assert!(!pan.is_dragging());
-        pan.pointer_move(&mut cx, PointerInput { x: 20.0, y: 30.0 })
-            .unwrap();
-        assert_eq!(*cx.viewport, before);
+    fn pointer_up_drops_the_controllers_active_pan() {
+        let mut controller = crate::Controller::new(32, 32).unwrap();
+        controller.set_tool(crate::Tool::Pan).unwrap();
+        controller.pointer_down(10.0, 20.0).unwrap();
+        controller.pointer_move(12.0, 23.0).unwrap();
+        assert!(controller.is_dragging());
+        let before = controller.viewport();
+        controller.pointer_up().unwrap();
+        assert!(!controller.is_dragging());
+        controller.pointer_move(20.0, 30.0).unwrap();
+        assert_eq!(controller.viewport(), before);
     }
 }

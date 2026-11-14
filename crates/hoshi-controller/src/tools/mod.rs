@@ -21,7 +21,11 @@ pub(crate) trait ToolBehavior {
     -> Result<(), ControllerError>;
     /// Release, capture loss or focus loss.
     fn pointer_up(&mut self, cx: &mut ToolCx<'_>);
-    fn is_dragging(&self) -> bool;
 }
 
 pub(crate) mod pan;
+
+/// Closed dispatch over migrated tools; only Pan is migrated today.
+pub(crate) enum ToolState {
+    Pan(pan::PanTool),
+}

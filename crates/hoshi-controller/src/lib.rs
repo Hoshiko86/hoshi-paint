@@ -21,7 +21,7 @@ use editing::{EditState, Gesture};
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
-use tools::{PointerInput, ToolBehavior, ToolCx, pan::PanTool};
+use tools::{PointerInput, ToolBehavior, ToolCx, ToolState, pan::PanTool};
 pub use viewport::Viewport;
 pub const ROTATION_HANDLE: i32 = 8;
 pub const PIVOT_HANDLE: i32 = 9;
@@ -95,13 +95,17 @@ impl From<Error> for ControllerError {
     }
 }
 
+/// Exactly one legacy gesture or migrated tool may own the current drag.
+enum ActiveDrag {
+    Gesture(Gesture),
+    Tool { state: ToolState, temporary: bool },
+}
+
 pub struct Controller {
     document: Document,
     viewport: Viewport,
     tool: Tool,
-    gesture: Option<Gesture>,
-    pan: PanTool,
-    temporary_pan: bool,
+    drag: Option<ActiveDrag>,
     primary_color: Color,
     secondary_color: Color,
     color_slot: ColorSlot,
@@ -127,9 +131,7 @@ impl Controller {
             document: Document::new(width, height)?,
             viewport: Viewport::default(),
             tool: Tool::Rectangle,
-            gesture: None,
-            pan: PanTool::default(),
-            temporary_pan: false,
+            drag: None,
             primary_color: Color::rgba(0, 0, 0, 255),
             secondary_color: Color::rgba(255, 255, 255, 255),
             color_slot: ColorSlot::Primary,
@@ -183,7 +185,7 @@ impl Controller {
         }
     }
     pub fn is_dragging(&self) -> bool {
-        self.gesture.is_some() || self.pan.is_dragging()
+        self.drag.is_some()
     }
 
     /// Tool changes preserve the editable shape. Starting a new rectangle outside
@@ -230,30 +232,46 @@ impl Controller {
         Ok(())
     }
 
-    fn with_pan<R>(&mut self, action: impl FnOnce(&mut PanTool, &mut ToolCx<'_>) -> R) -> R {
-        action(
-            &mut self.pan,
-            &mut ToolCx {
-                viewport: &mut self.viewport,
-            },
-        )
+    fn legacy_gesture(&self) -> Option<Gesture> {
+        match &self.drag {
+            Some(ActiveDrag::Gesture(gesture)) => Some(*gesture),
+            _ => None,
+        }
     }
 
     /// Starts `gesture`, ending any tool drag first (one drag at a time).
     fn begin_gesture(&mut self, gesture: Gesture) {
-        self.end_pan();
-        self.gesture = Some(gesture);
+        self.clear_gesture();
+        self.drag = Some(ActiveDrag::Gesture(gesture));
     }
 
     /// Ends every drag: legacy gestures and migrated tools.
     fn clear_gesture(&mut self) {
-        self.end_pan();
-        self.gesture = None;
+        if let Some(ActiveDrag::Tool {
+            state: ToolState::Pan(mut pan),
+            ..
+        }) = self.drag.take()
+        {
+            pan.pointer_up(&mut ToolCx {
+                viewport: &mut self.viewport,
+            });
+        }
     }
 
-    fn end_pan(&mut self) {
-        self.with_pan(|pan, cx| pan.pointer_up(cx));
-        self.temporary_pan = false;
+    fn begin_pan(&mut self, p: PointerInput, temporary: bool) -> Result<(), ControllerError> {
+        let mut pan = PanTool::default();
+        pan.pointer_down(
+            &mut ToolCx {
+                viewport: &mut self.viewport,
+            },
+            p,
+        )?;
+        self.clear_gesture();
+        self.drag = Some(ActiveDrag::Tool {
+            state: ToolState::Pan(pan),
+            temporary,
+        });
+        Ok(())
     }
 
     /// Temporarily navigate without selecting the Pan tool or committing the
@@ -263,13 +281,18 @@ impl Controller {
         self.pointer_up()?;
         self.modifiers = InputModifiers::default();
         self.last_pointer = Some((x, y));
-        self.with_pan(|pan, cx| pan.pointer_down(cx, PointerInput { x, y }))?;
-        self.temporary_pan = true;
+        self.begin_pan(PointerInput { x, y }, true)?;
         Ok(())
     }
 
     pub fn end_temporary_pan(&mut self) -> Result<(), ControllerError> {
-        if self.temporary_pan {
+        if matches!(
+            self.drag,
+            Some(ActiveDrag::Tool {
+                temporary: true,
+                ..
+            })
+        ) {
             self.pointer_up()?;
         }
         Ok(())
@@ -288,9 +311,11 @@ impl Controller {
     /// and selected color. Interrupted strokes commit; shape gestures discard
     /// their preview. Stroke commit errors are returned after resetting input.
     pub fn cancel_pointer(&mut self) -> Result<(), ControllerError> {
-        let result = if matches!(self.gesture, Some(Gesture::Stroke)) {
+        let result = if matches!(self.legacy_gesture(), Some(Gesture::Stroke)) {
             self.finish_stroke().map(|_| ())
-        } else if matches!(self.gesture, Some(Gesture::Sample)) || self.pan.is_dragging() {
+        } else if matches!(self.legacy_gesture(), Some(Gesture::Sample))
+            || matches!(self.drag, Some(ActiveDrag::Tool { .. }))
+        {
             self.clear_gesture();
             self.sample_snapshot = None;
             Ok(())

@@ -2,10 +2,10 @@
 //!
 //! This module edits a generic frame. Shape rasterization lives in hoshi-core;
 //! native pointer/key events are translated by the UI adapter.
-use super::tools::{PointerInput, ToolBehavior};
+use super::tools::{PointerInput, ToolBehavior, ToolCx, ToolState};
 use super::{
-    Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint, InputModifiers,
-    PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
+    ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint,
+    InputModifiers, PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
 };
 use hoshi_core::geometry::{Frame, Point, ResizeConstraints, ResizeHandle};
 use hoshi_core::{Shape, ShapeKind};
@@ -61,7 +61,7 @@ impl Controller {
         }
         self.modifiers = modifiers;
         if matches!(
-            self.gesture,
+            self.legacy_gesture(),
             Some(Gesture::Resize { .. } | Gesture::Rotate { .. } | Gesture::CreateShape { .. })
         ) && let Some((x, y)) = self.last_pointer
         {
@@ -142,10 +142,10 @@ impl Controller {
         if !matches!(self.tool, Tool::Rectangle | Tool::MoveShape) {
             return EditCursor::Draw;
         }
-        if matches!(self.gesture, Some(Gesture::Rotate { .. })) {
+        if matches!(self.legacy_gesture(), Some(Gesture::Rotate { .. })) {
             return EditCursor::Rotate;
         }
-        if matches!(self.gesture, Some(Gesture::Pivot { .. })) {
+        if matches!(self.legacy_gesture(), Some(Gesture::Pivot { .. })) {
             return EditCursor::Pivot;
         }
         let Some(shape) = self.document.active_shape() else {
@@ -254,10 +254,7 @@ impl Controller {
                 });
             }
             Tool::MoveShape => return Err(ControllerError::NoActiveShape),
-            Tool::Pan => {
-                self.clear_gesture();
-                self.with_pan(|pan, cx| pan.pointer_down(cx, PointerInput { x, y }))?;
-            }
+            Tool::Pan => self.begin_pan(PointerInput { x, y }, false)?,
             Tool::Eyedropper => {
                 self.sample_snapshot =
                     Some((self.document.snapshot(), self.document.active_shape()));
@@ -353,10 +350,19 @@ impl Controller {
         let p = self.document_point(x, y)?;
         let point = Point::new(p.0, p.1);
         self.last_pointer = Some((x, y));
-        if self.pan.is_dragging() {
-            return self.with_pan(|pan, cx| pan.pointer_move(cx, PointerInput { x, y }));
+        if let Some(ActiveDrag::Tool {
+            state: ToolState::Pan(pan),
+            ..
+        }) = &mut self.drag
+        {
+            return pan.pointer_move(
+                &mut ToolCx {
+                    viewport: &mut self.viewport,
+                },
+                PointerInput { x, y },
+            );
         }
-        match self.gesture {
+        match self.legacy_gesture() {
             Some(Gesture::Sample) => self.sample_color(p)?,
             Some(Gesture::Stroke) => self.paint_to(p)?,
             Some(Gesture::CreateShape { anchor }) => {
@@ -464,7 +470,7 @@ impl Controller {
             if let Some((x, y)) = self.last_pointer
                 && let Some(Gesture::Resize {
                     original, handle, ..
-                }) = self.gesture
+                }) = self.legacy_gesture()
             {
                 // The dragged physical corner changes sides after crossing its
                 // opposite. Rebase keyboard movement without losing that corner.
@@ -483,7 +489,7 @@ impl Controller {
                 });
             }
             if let Some((x, y)) = self.last_pointer
-                && let Some(Gesture::Move { .. }) = self.gesture
+                && let Some(Gesture::Move { .. }) = self.legacy_gesture()
             {
                 let p = self.document_point(x, y)?;
                 self.begin_gesture(Gesture::Move {
