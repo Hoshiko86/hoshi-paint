@@ -3,6 +3,7 @@ use crate::{
     AppWindow, HistoryRow, HistoryWindow, SharedController, localization, update,
     workspace::Workspace,
 };
+use hoshi_core::HistoryLabel;
 use slint::{ComponentHandle, Model, ModelNotify, ModelTracker};
 use std::{
     any::Any,
@@ -15,18 +16,54 @@ use std::{
 /// pointer motion does not walk the retained timeline or recreate its model.
 #[derive(Default)]
 struct TimelineRows {
-    labels: Vec<&'static str>,
+    labels: Vec<HistoryLabel>,
     generation: u64,
     structure_generation: u64,
     position: usize,
 }
-#[derive(Default)]
 struct HistoryModel {
     timelines: RefCell<HashMap<u32, TimelineRows>>,
     active: Cell<Option<u32>>,
     notify: ModelNotify,
+    text: localization::Localizer,
 }
+
+/// Catalog key for each core history label (#111). The core holds no text.
+fn label_key(label: HistoryLabel) -> &'static str {
+    match label {
+        HistoryLabel::OldestAvailableState => "history_oldest",
+        HistoryLabel::AddLayer => "history_add_layer",
+        HistoryLabel::DeleteLayer => "history_delete_layer",
+        HistoryLabel::RenameLayer => "history_rename_layer",
+        HistoryLabel::LayerProperties => "history_layer_properties",
+        HistoryLabel::ReorderLayer => "history_reorder_layer",
+        HistoryLabel::Rectangle => "history_rectangle",
+        HistoryLabel::Ellipse => "history_ellipse",
+        HistoryLabel::Brush => "history_brush",
+        HistoryLabel::Eraser => "history_eraser",
+        HistoryLabel::Resolution => "history_resolution",
+        HistoryLabel::CanvasSize => "history_canvas_size",
+        HistoryLabel::Resize => "history_resize",
+        HistoryLabel::FlipHorizontal => "history_flip_horizontal",
+        HistoryLabel::FlipVertical => "history_flip_vertical",
+        HistoryLabel::RotateClockwise => "history_rotate_clockwise",
+        HistoryLabel::RotateCounterClockwise => "history_rotate_counter_clockwise",
+        HistoryLabel::Rotate180 => "history_rotate_180",
+        HistoryLabel::Flatten => "history_flatten",
+        HistoryLabel::FlattenForSave => "history_flatten_for_save",
+    }
+}
+
 impl HistoryModel {
+    fn new(text: localization::Localizer) -> Self {
+        Self {
+            timelines: RefCell::default(),
+            active: Cell::default(),
+            notify: ModelNotify::default(),
+            text,
+        }
+    }
+
     fn sync(&self, workspace: &Workspace) -> Result<(), ()> {
         let active = workspace.active_id();
         let mut changed = self.active.replace(active) != active;
@@ -89,7 +126,7 @@ impl Model for HistoryModel {
         let timelines = self.timelines.borrow();
         let rows = timelines.get(&active)?;
         Some(HistoryRow {
-            label: (*rows.labels.get(index)?).into(),
+            label: self.text.text(label_key(*rows.labels.get(index)?)).into(),
             index: i32::try_from(index).ok()?,
             current: index == rows.position,
             redo: index > rows.position,
@@ -114,48 +151,65 @@ fn disk_size(bytes: u64) -> String {
     }
 }
 
+/// Installs the shared history model with the window's locale. Call once,
+/// before the first `refresh`.
+pub(super) fn install(ui: &AppWindow, text: &localization::Localizer) {
+    ui.set_history_rows(Rc::new(HistoryModel::new(text.clone())).into());
+}
+
 pub(super) fn refresh(ui: &AppWindow, workspace: &Workspace) {
     let old = ui.get_history_rows();
     let model;
     let rows = if let Some(rows) = old.as_any().downcast_ref::<HistoryModel>() {
         rows
     } else {
-        model = Rc::new(HistoryModel::default());
+        // Only reached if `install` was skipped; use the system locale.
+        model = Rc::new(HistoryModel::new(localization::Localizer::new(
+            &localization::system_selection(),
+        )));
         ui.set_history_rows(model.clone().into());
         model.as_ref()
     };
+    let text = &rows.text;
     if rows.sync(workspace).is_err() {
         rows.active.set(None);
         rows.notify.reset();
         ui.set_history_can_jump(false);
         ui.set_history_position(0);
-        ui.set_history_status("The history list could not allocate memory. Undo and Redo still work; the history on disk is unchanged.".into());
+        ui.set_history_status(text.text("history_status_no_memory").into());
         ui.invoke_sync_history();
         return;
     }
     let document = workspace.document();
     ui.set_history_can_jump(workspace.has_document() && document.active_shape().is_none());
     ui.set_history_position(document.history_position() as i32);
-    let pending = if document.active_shape().is_some() {
-        "Commit or cancel the active shape before selecting a history step."
+    let hint = text.text(if document.active_shape().is_some() {
+        "history_status_commit_first"
     } else {
-        "Select a step to return to it."
-    };
+        "history_status_select_step"
+    });
     ui.set_history_status(if workspace.has_document() {
-        format!(
-            "Undo: {} · Redo: {}\nSession history: {} on disk{}\n{pending}",
-            document.undo_len(),
-            document.redo_len(),
-            disk_size(document.history_storage_bytes()),
+        let (undo, redo) = (
+            document.undo_len().to_string(),
+            document.redo_len().to_string(),
+        );
+        let size = disk_size(document.history_storage_bytes());
+        text.format(
             if document.history_cleanup_pending() {
-                " · cleanup pending"
+                "history_status_cleanup"
             } else {
-                ""
-            }
+                "history_status"
+            },
+            &[
+                ("undo", &undo),
+                ("redo", &redo),
+                ("size", &size),
+                ("hint", hint),
+            ],
         )
         .into()
     } else {
-        "No image open.".into()
+        text.text("history_status_no_image").into()
     });
     ui.invoke_sync_history();
 }
@@ -286,4 +340,51 @@ pub(super) fn bind_window(
         }
     });
     Ok(window)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::label_key;
+    use crate::localization::{Localizer, REQUIRED_KEYS, select_preferred};
+    use hoshi_core::HistoryLabel;
+
+    #[test]
+    fn every_history_label_has_a_catalog_key() {
+        for label in HistoryLabel::ALL {
+            assert!(
+                REQUIRED_KEYS.contains(&label_key(label)),
+                "{label:?} has no catalog key"
+            );
+        }
+    }
+
+    #[test]
+    fn history_rows_and_status_follow_the_selected_locale() {
+        let english = Localizer::new(&select_preferred(["en-US"]));
+        let spanish = Localizer::new(&select_preferred(["es-ES"]));
+        let row = |text: &Localizer, label| text.text(label_key(label)).to_owned();
+        assert_eq!(
+            row(&english, HistoryLabel::OldestAvailableState),
+            "Oldest available state"
+        );
+        assert_eq!(
+            row(&spanish, HistoryLabel::OldestAvailableState),
+            "Estado más antiguo disponible"
+        );
+        assert_eq!(row(&english, HistoryLabel::Brush), "Brush");
+        assert_eq!(row(&spanish, HistoryLabel::Brush), "Pincel");
+        let status = spanish.format(
+            "history_status_cleanup",
+            &[
+                ("undo", "2"),
+                ("redo", "1"),
+                ("size", "4.0 KiB"),
+                ("hint", "…"),
+            ],
+        );
+        assert_eq!(
+            status,
+            "Deshacer: 2 · Rehacer: 1\nHistorial de la sesión: 4.0 KiB en disco · limpieza pendiente\n…"
+        );
+    }
 }

@@ -1041,6 +1041,7 @@ fn create_panels(
     let locale = localization::system_selection();
     let text = localization::Localizer::new(&locale);
     localization::apply(&ui, &text);
+    history::install(&ui, &text);
     let recent_store = if dialogs.is_some() {
         None
     } else {
