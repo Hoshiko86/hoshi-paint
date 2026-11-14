@@ -1047,7 +1047,7 @@ fn create_panels(
     let controller = Rc::new(RefCell::new(workspace::Workspace::with_recent_store(
         recent_store,
     )));
-    image_settings::bind(&ui, controller.clone());
+    image_settings::bind(&ui, controller.clone(), &text);
     bind_rendering(&ui, controller.clone());
     panel_hosts::bind(&ui);
     refresh(&ui, &controller.borrow());
