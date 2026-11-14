@@ -98,7 +98,7 @@ does not use `Tool::Eyedropper` yet.
 | [Shapes](https://www.getpaint.net/doc/latest/ShapeTools.html) | Presets: rectangle, rounded rectangle, ellipse, diamond, trapezoid, parallelogram, triangles, polygons/stars, arrows, callouts, symbols (lightning, check, multiply, gear, heart); A / Shift+A cycle | 🟡 | Rectangle exposed. Ellipse exists in core but has no UI. Rounded rect: #8. Others: roadmap 0.2.0 |
 | Shape: draw mode | Outline / Fill / Outline+Fill, Primary/Secondary roles | ✅ | Roles follow the mouse button |
 | Shape: brush width | Decimal; `[` `]`, Ctrl = ±5 | ✅ | 0.01–65,536 px; same keys |
-| Shape: line style | Dash styles in the toolbar | 🟡 | Solid, Dash, Dot, Dash-dot, Dash-dot-dot; no caps |
+| Shape: line style | Dash styles in the toolbar | 🟡 | Solid, Dash, Dot, Dash-dot, Dash-dot-dot; no caps; dash gaps transparent in Fill & Outline, as in Paint.NET (#73) |
 | Shape: fill style | Hatch patterns with both colors | 🟡 | 8 procedural patterns; full catalog missing |
 | Shape: handles, move, rotate | Nubs; Shift aspect, Alt center; drag inside; right-drag rotates, Shift = 15°; arrows ±1, Ctrl ±10 | ✅ | All of these, plus a movable pivot and numeric X/Y/W/H |
 | Toolbar: Antialiasing | Split button per tool | ✅ | Shapes only |
