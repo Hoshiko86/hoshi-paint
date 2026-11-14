@@ -158,5 +158,13 @@
   "palette_error_too_large": "Palette text exceeds the supported 1 MiB size.",
   "palette_error_unicode_path": "Palette file names must use Unicode text.",
   "palette_error_unknown_color_name": "Choose a recognized color name.",
-  "palette_error_write": "Cannot save {path}: {error}"
+  "palette_error_write": "Cannot save {path}: {error}",
+  "color_error_hex": "Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.",
+  "screen_pick_error_closed": "The Color Picker closed unexpectedly.",
+  "screen_pick_error_denied": "The desktop denied or could not complete screen sampling.",
+  "screen_pick_error_invalid_color": "The Color Picker returned an invalid color.",
+  "screen_pick_error_native": "The Color Picker could not sample the screen.",
+  "screen_pick_error_portal": "The Color Picker needs a desktop portal with PickColor support (GNOME or KDE). Details: {detail}",
+  "screen_pick_error_unsupported": "Screen sampling is unavailable on this platform.",
+  "screen_pick_prompt": "Choose a screen pixel. Escape cancels."
 }
