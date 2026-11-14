@@ -183,8 +183,7 @@ impl Controller {
     }
     fn begin_rotation(&mut self, shape: Shape, point: Point) {
         let pivot = self.pivot_for(shape);
-        self.end_pan();
-        self.gesture = Some(Gesture::Rotate {
+        self.begin_gesture(Gesture::Rotate {
             original: shape,
             pivot,
             anchor_angle: (point.y - pivot.y).atan2(point.x - pivot.x),
@@ -208,17 +207,13 @@ impl Controller {
             if let Some(hit) = self.hit_handle(x, y) {
                 match hit.kind {
                     ROTATION_HANDLE => self.begin_rotation(shape, point),
-                    PIVOT_HANDLE => {
-                        self.end_pan();
-                        self.gesture = Some(Gesture::Pivot {
-                            original: self.pivot_for(shape),
-                            anchor: point,
-                        })
-                    }
+                    PIVOT_HANDLE => self.begin_gesture(Gesture::Pivot {
+                        original: self.pivot_for(shape),
+                        anchor: point,
+                    }),
                     index => {
                         self.edit_state.numeric_ratio = None;
-                        self.end_pan();
-                        self.gesture = Some(Gesture::Resize {
+                        self.begin_gesture(Gesture::Resize {
                             original: shape,
                             handle: ResizeHandle::ALL[index as usize],
                             pointer_anchor: point,
@@ -233,8 +228,7 @@ impl Controller {
                 return Ok(());
             }
             if frame.contains(point) || self.tool == Tool::MoveShape {
-                self.end_pan();
-                self.gesture = Some(Gesture::Move {
+                self.begin_gesture(Gesture::Move {
                     original: shape,
                     anchor: point,
                     pivot: self.edit_state.pivot,
@@ -251,26 +245,24 @@ impl Controller {
                     || point.x >= f64::from(self.document.width())
                     || point.y >= f64::from(self.document.height())
                 {
-                    self.gesture = None;
+                    self.clear_gesture();
                     return Ok(());
                 }
                 self.edit_state.secondary_colors = button == PointerButton::Secondary;
-                self.gesture = Some(Gesture::CreateShape {
+                self.begin_gesture(Gesture::CreateShape {
                     anchor: self.clip_point((point.x, point.y)),
                 });
             }
             Tool::MoveShape => return Err(ControllerError::NoActiveShape),
             Tool::Pan => {
-                self.end_pan();
-                self.gesture = None;
+                self.clear_gesture();
                 self.with_pan(|pan, cx| pan.pointer_down(cx, PointerInput { x, y }))?;
             }
             Tool::Eyedropper => {
                 self.sample_snapshot =
                     Some((self.document.snapshot(), self.document.active_shape()));
                 self.sample_color(p)?;
-                self.end_pan();
-                self.gesture = Some(Gesture::Sample)
+                self.begin_gesture(Gesture::Sample)
             }
         }
         Ok(())
@@ -457,8 +449,7 @@ impl Controller {
             self.document.adjust_shape(updated)?;
             if let Some((x, y)) = self.last_pointer {
                 let p = self.document_point(x, y)?;
-                self.end_pan();
-                self.gesture = Some(Gesture::Rotate {
+                self.begin_gesture(Gesture::Rotate {
                     original: updated,
                     pivot,
                     anchor_angle: (p.1 - pivot.y).atan2(p.0 - pivot.x),
@@ -485,7 +476,7 @@ impl Controller {
                     index = [6, 5, 4, 3, 2, 1, 0, 7][index];
                 }
                 let p = self.document_point(x, y)?;
-                self.gesture = Some(Gesture::Resize {
+                self.begin_gesture(Gesture::Resize {
                     original: updated,
                     handle: ResizeHandle::ALL[index],
                     pointer_anchor: Point::new(p.0, p.1),
@@ -495,7 +486,7 @@ impl Controller {
                 && let Some(Gesture::Move { .. }) = self.gesture
             {
                 let p = self.document_point(x, y)?;
-                self.gesture = Some(Gesture::Move {
+                self.begin_gesture(Gesture::Move {
                     anchor: Point::new(p.0, p.1),
                     original: updated,
                     pivot: self.edit_state.pivot,
