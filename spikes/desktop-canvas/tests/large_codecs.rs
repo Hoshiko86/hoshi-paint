@@ -30,12 +30,10 @@ fn giant_native_project_is_compact_and_jpeg_rejects_its_format_dimension_limit_s
     assert_eq!(files::load(&path).unwrap().snapshot(), d.snapshot());
     let jpg = dir.path().join("existing.jpg");
     std::fs::write(&jpg, b"original").unwrap();
-    assert!(
-        files::save_atomic(&jpg, &d, FileFormat::Jpeg, 95)
-            .unwrap_err()
-            .to_string()
-            .contains("65535")
-    );
+    assert!(matches!(
+        files::save_atomic(&jpg, &d, FileFormat::Jpeg, 95),
+        Err(files::FileError::JpegDimensionsTooLarge)
+    ));
     assert_eq!(std::fs::read(&jpg).unwrap(), b"original");
 }
 #[test]

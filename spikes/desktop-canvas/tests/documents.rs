@@ -301,13 +301,39 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     let mut writer = encoder.write_header().unwrap();
     writer.write_image_data(&[0; 8]).unwrap();
     writer.finish().unwrap();
+    assert!(matches!(
+        files::load(&high),
+        Err(files::FileError::Unsupported16Bit)
+    ));
+}
+
+#[test]
+fn file_errors_are_described_in_the_selected_locale() {
+    use hoshi_canvas_spike::{describe_error_in, workspace::WorkspaceError};
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = Workspace::default();
+    let pdn = dir.path().join("picture.pdn");
+    std::fs::write(&pdn, b"pdn").unwrap();
+    let error = w.open_path(&pdn).unwrap_err();
+    assert!(matches!(
+        error,
+        WorkspaceError::File(files::FileError::PdnImportUnsupported)
+    ));
+    let english = describe_error_in(&error, &["en-US"]);
+    let spanish = describe_error_in(&error, &["es-ES"]);
     assert!(
-        files::load(&high)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("16-bit")
+        english.starts_with("Paint.NET .pdn files are not supported yet"),
+        "{english}"
     );
+    assert!(
+        spanish.starts_with("Los archivos .pdn de Paint.NET"),
+        "{spanish}"
+    );
+    // Developer text from Display never reaches the user.
+    assert_ne!(english, error.to_string());
+    // Placeholders are filled from the error's data.
+    let limit = describe_error_in(&WorkspaceError::OpenLimit, &["es-ES"]);
+    assert!(limit.contains("32"), "{limit}");
 }
 
 #[test]

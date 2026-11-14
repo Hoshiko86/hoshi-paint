@@ -138,7 +138,11 @@ impl Manager {
         let mut failures = Vec::new();
         for path in paths {
             if let Err(e) = self.state.borrow_mut().open_path(&path) {
-                failures.push(format!("{}: {e}", path.display()))
+                failures.push(format!(
+                    "{}: {}",
+                    path.display(),
+                    crate::error_text::workspace(&self.text, &e)
+                ))
             }
         }
         refresh_app(ui, &self.state.borrow());
@@ -176,7 +180,7 @@ impl Manager {
             }
             let result = self.state.borrow_mut().activate(id);
             if let Err(e) = result {
-                self.error(ui, e.to_string());
+                self.error(ui, crate::error_text::workspace(&self.text, &e));
                 return;
             }
             refresh_app(ui, &self.state.borrow());
@@ -202,7 +206,7 @@ impl Manager {
             if goal != Goal::SaveAll {
                 let result = self.state.borrow_mut().close_discard(id);
                 if let Err(e) = result {
-                    self.error(ui, e.to_string());
+                    self.error(ui, crate::error_text::workspace(&self.text, &e));
                     return;
                 }
             }
@@ -215,7 +219,7 @@ impl Manager {
             if goal != Goal::SaveAll {
                 let result = self.state.borrow_mut().close_discard(id);
                 if let Err(e) = result {
-                    self.error(ui, e.to_string());
+                    self.error(ui, crate::error_text::workspace(&self.text, &e));
                     return;
                 }
             }
@@ -262,7 +266,7 @@ impl Manager {
         let format = match FileFormat::for_path(&path) {
             Ok(f) => f,
             Err(e) => {
-                self.error(ui, e.to_string());
+                self.error(ui, crate::error_text::file(&self.text, &e));
                 return;
             }
         };
@@ -320,7 +324,7 @@ impl Manager {
                     "save_failed_preserved",
                     &[
                         ("path", &path.display().to_string()),
-                        ("error", &error.to_string()),
+                        ("error", &crate::error_text::workspace(&self.text, &error)),
                     ],
                 ),
             ),
@@ -413,7 +417,7 @@ pub(super) fn bind(
             let result = m.state.borrow_mut().activate(id as u32);
             match result {
                 Ok(()) => refresh_app(&ui, &m.state.borrow()),
-                Err(e) => m.error(&ui, e.to_string()),
+                Err(e) => m.error(&ui, crate::error_text::workspace(&m.text, &e)),
             }
         }
     });
@@ -426,7 +430,7 @@ pub(super) fn bind(
             let result = m.state.borrow_mut().cycle(backward);
             match result {
                 Ok(()) => refresh_app(&ui, &m.state.borrow()),
-                Err(e) => m.error(&ui, e.to_string()),
+                Err(e) => m.error(&ui, crate::error_text::workspace(&m.text, &e)),
             }
         }
     });
@@ -477,7 +481,7 @@ pub(super) fn bind(
                     if let Some(id) = id {
                         let result = m.state.borrow_mut().close_discard(id);
                         if let Err(e) = result {
-                            m.error(&ui, e.to_string());
+                            m.error(&ui, crate::error_text::workspace(&m.text, &e));
                             return;
                         }
                     }

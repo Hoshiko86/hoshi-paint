@@ -14,7 +14,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for path in paths {
         match state.borrow_mut().open_path(std::path::Path::new(&path)) {
             Ok(_) => opened = true,
-            Err(error) => errors.push(format!("{}: {error}", path.to_string_lossy())),
+            Err(error) => errors.push(format!(
+                "{}: {}",
+                path.to_string_lossy(),
+                hoshi_canvas_spike::describe_error(&error)
+            )),
         }
     }
     if opened && let Some(id) = initial {

@@ -44,16 +44,18 @@ pub enum ProjectError {
     MemoryLimit,
     Io(String),
 }
+/// Developer-facing description for logs. Adapters map each variant to text
+/// in their locale catalogs.
 impl std::fmt::Display for ProjectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidData => f.write_str("The file is truncated or has invalid project data."),
-            Self::UnsupportedVersion(v) => write!(f, "Project version {v} is not supported by this build."),
-            Self::InvalidDocument => f.write_str("The document exceeds supported dimensions, layers, resolution, or layer-name limits."),
-            Self::ActiveShape => f.write_str("Commit the active shape before saving."),
-            Self::Checksum => f.write_str("The project checksum does not match; the file may be damaged."),
-            Self::MemoryLimit => f.write_str("The project exceeds the shared image memory budget. Close other images or free undo history before trying again."),
-            Self::Io(e) => write!(f,"{e}"),
+            Self::InvalidData => f.write_str("truncated or invalid project data"),
+            Self::UnsupportedVersion(v) => write!(f, "unsupported project version {v}"),
+            Self::InvalidDocument => f.write_str("document exceeds project limits"),
+            Self::ActiveShape => f.write_str("active shape"),
+            Self::Checksum => f.write_str("project checksum mismatch"),
+            Self::MemoryLimit => f.write_str("memory budget exceeded"),
+            Self::Io(e) => write!(f, "io: {e}"),
         }
     }
 }
