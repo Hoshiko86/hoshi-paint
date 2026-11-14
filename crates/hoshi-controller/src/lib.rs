@@ -15,11 +15,13 @@ pub mod palette;
 mod preview;
 mod rendering;
 mod tool_id;
+mod tools;
 mod viewport;
 use editing::{EditState, Gesture};
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
+use tools::{PointerInput, ToolBehavior, ToolCx, pan::PanTool};
 pub use viewport::Viewport;
 pub const ROTATION_HANDLE: i32 = 8;
 pub const PIVOT_HANDLE: i32 = 9;
@@ -98,6 +100,8 @@ pub struct Controller {
     viewport: Viewport,
     tool: Tool,
     gesture: Option<Gesture>,
+    pan: PanTool,
+    temporary_pan: bool,
     primary_color: Color,
     secondary_color: Color,
     color_slot: ColorSlot,
@@ -124,6 +128,8 @@ impl Controller {
             viewport: Viewport::default(),
             tool: Tool::Rectangle,
             gesture: None,
+            pan: PanTool::default(),
+            temporary_pan: false,
             primary_color: Color::rgba(0, 0, 0, 255),
             secondary_color: Color::rgba(255, 255, 255, 255),
             color_slot: ColorSlot::Primary,
@@ -153,7 +159,7 @@ impl Controller {
         // Reject live previews before ending any active gesture. History row
         // navigation is explicit, unlike the toolbar's commit-then-undo action.
         let changed = self.document.go_to_history_step(index)?;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         self.modifiers = InputModifiers::default();
         self.last_pointer = None;
@@ -177,7 +183,7 @@ impl Controller {
         }
     }
     pub fn is_dragging(&self) -> bool {
-        self.gesture.is_some()
+        self.gesture.is_some() || self.pan.is_dragging()
     }
 
     /// Tool changes preserve the editable shape. Starting a new rectangle outside
@@ -185,7 +191,7 @@ impl Controller {
     pub fn set_tool(&mut self, tool: Tool) -> Result<(), ControllerError> {
         self.finish_stroke()?;
         if tool != self.tool {
-            self.gesture = None;
+            self.clear_gesture();
             self.sample_snapshot = None;
             self.tool = tool;
         }
@@ -224,6 +230,32 @@ impl Controller {
         Ok(())
     }
 
+    fn with_pan<R>(&mut self, action: impl FnOnce(&mut PanTool, &mut ToolCx<'_>) -> R) -> R {
+        action(
+            &mut self.pan,
+            &mut ToolCx {
+                viewport: &mut self.viewport,
+            },
+        )
+    }
+
+    /// Starts `gesture`, ending any tool drag first (one drag at a time).
+    fn begin_gesture(&mut self, gesture: Gesture) {
+        self.end_pan();
+        self.gesture = Some(gesture);
+    }
+
+    /// Ends every drag: legacy gestures and migrated tools.
+    fn clear_gesture(&mut self) {
+        self.end_pan();
+        self.gesture = None;
+    }
+
+    fn end_pan(&mut self) {
+        self.with_pan(|pan, cx| pan.pointer_up(cx));
+        self.temporary_pan = false;
+    }
+
     /// Temporarily navigate without selecting the Pan tool or committing the
     /// current preview. Coordinates are logical view pixels, like pointer_move.
     pub fn begin_temporary_pan(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
@@ -231,12 +263,13 @@ impl Controller {
         self.pointer_up()?;
         self.modifiers = InputModifiers::default();
         self.last_pointer = Some((x, y));
-        self.gesture = Some(Gesture::TemporaryPan { last: (x, y) });
+        self.with_pan(|pan, cx| pan.pointer_down(cx, PointerInput { x, y }))?;
+        self.temporary_pan = true;
         Ok(())
     }
 
     pub fn end_temporary_pan(&mut self) -> Result<(), ControllerError> {
-        if matches!(self.gesture, Some(Gesture::TemporaryPan { .. })) {
+        if self.temporary_pan {
             self.pointer_up()?;
         }
         Ok(())
@@ -245,7 +278,7 @@ impl Controller {
     /// Release commits a stroke and stops dragging, leaving shapes editable.
     pub fn pointer_up(&mut self) -> Result<(), ControllerError> {
         self.finish_stroke()?;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         Ok(())
     }
@@ -257,11 +290,8 @@ impl Controller {
     pub fn cancel_pointer(&mut self) -> Result<(), ControllerError> {
         let result = if matches!(self.gesture, Some(Gesture::Stroke)) {
             self.finish_stroke().map(|_| ())
-        } else if matches!(
-            self.gesture,
-            Some(Gesture::Sample | Gesture::Pan { .. } | Gesture::TemporaryPan { .. })
-        ) {
-            self.gesture = None;
+        } else if matches!(self.gesture, Some(Gesture::Sample)) || self.pan.is_dragging() {
+            self.clear_gesture();
             self.sample_snapshot = None;
             Ok(())
         } else {
@@ -275,7 +305,7 @@ impl Controller {
 
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
         let stroke_changed = self.finish_stroke()?;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         let changed = self.document.commit_shape()? || stroke_changed;
         self.edit_state = EditState::default();
@@ -283,7 +313,7 @@ impl Controller {
     }
 
     pub fn cancel(&mut self) {
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         self.document.cancel_shape();
         self.edit_state = EditState::default();
@@ -291,14 +321,14 @@ impl Controller {
 
     pub fn undo(&mut self) -> Result<bool, ControllerError> {
         self.finish_stroke()?;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         Ok(self.document.undo()?)
     }
 
     pub fn redo(&mut self) -> Result<bool, ControllerError> {
         self.finish_stroke()?;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         Ok(self.document.redo()?)
     }
@@ -339,7 +369,7 @@ impl Controller {
         self.edit_state.pivot = self.edit_state.pivot.map(|p| p.translated(dx, dy));
         // Numeric edits replace an unfinished pointer gesture, so its stale
         // drag-start frame cannot overwrite the entered bounds on release.
-        self.gesture = None;
+        self.clear_gesture();
         self.edit_state.numeric_ratio = None;
         Ok(())
     }
@@ -444,7 +474,7 @@ impl Controller {
     }
     pub fn replace_document(&mut self, document: Document) {
         self.document = document;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
@@ -461,7 +491,7 @@ impl Controller {
     ) -> Result<(), ControllerError> {
         let document = Document::new_with_background(width, height, resolution, background)?;
         self.document = document;
-        self.gesture = None;
+        self.clear_gesture();
         self.sample_snapshot = None;
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
