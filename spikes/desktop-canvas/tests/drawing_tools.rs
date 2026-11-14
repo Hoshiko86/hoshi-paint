@@ -167,7 +167,12 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
         assert_eq!(state.borrow().brush_width(), 2.5);
         assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
     }
-    ui.invoke_choose_tool(3); // Remove focus from the rail before a shared edit.
+    // Click a different tool so the width editor actually loses keyboard focus.
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Color Picker")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    ui.window().take_snapshot().unwrap();
     ui.invoke_edit_stroke_width_pixels(0.25);
     ui.invoke_choose_tool(5);
     ui.window().take_snapshot().unwrap();
