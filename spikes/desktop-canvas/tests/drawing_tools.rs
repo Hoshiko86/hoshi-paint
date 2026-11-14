@@ -180,3 +180,31 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
     assert_eq!(state.borrow().brush_width(), 0.25);
     ui.hide().unwrap();
 }
+
+#[test]
+fn rail_offers_canvas_color_picker_and_screen_picker_as_separate_buttons() {
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, state) = create_app().unwrap();
+    ui.window().set_size(LogicalSize::new(1120.0, 760.0));
+    ui.show().unwrap();
+    ui.window().take_snapshot().unwrap();
+    let find = |label: &str| {
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, label).count()
+    };
+    // Icons are not exposed to ElementHandle; the smoke snapshots show them.
+    assert_eq!(find("Color Picker"), 1);
+    assert!(find("Pick color from screen") >= 1);
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Color Picker")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    assert_eq!(state.borrow().tool(), Tool::Eyedropper);
+    ui.hide().unwrap();
+}
