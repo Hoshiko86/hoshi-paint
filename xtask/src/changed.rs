@@ -264,6 +264,38 @@ mod tests {
         }
     }
 
+    /// Each package builds its integration tests as one binary
+    /// (`tests/main.rs`, `autotests = false`), so a `tests/*.rs` file that is
+    /// neither a module of it nor its own `[[test]]` would never run.
+    #[test]
+    fn every_integration_test_file_is_built() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        for package in PACKAGES {
+            let dir = root.join(package.dir);
+            let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
+            assert!(
+                manifest.contains("autotests = false"),
+                "{}: integration tests must be one binary",
+                package.dir
+            );
+            let main = std::fs::read_to_string(dir.join("tests/main.rs")).unwrap();
+            for entry in std::fs::read_dir(dir.join("tests")).unwrap() {
+                let file = entry.unwrap().file_name().into_string().unwrap();
+                let Some(module) = file.strip_suffix(".rs") else {
+                    continue;
+                };
+                let built = module == "main"
+                    || main.lines().any(|line| line == format!("mod {module};"))
+                    || manifest.contains(&format!("path = \"tests/{file}\""));
+                assert!(
+                    built,
+                    "{}/tests/{file} is not in tests/main.rs",
+                    package.dir
+                );
+            }
+        }
+    }
+
     #[test]
     fn every_workspace_member_is_known() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");

@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+# One integration-test binary (tests/main.rs) instead of one per file.
+autotests = false
 
 [dependencies]
 hoshi-controller = { path = "../../crates/hoshi-controller" }
@@ -34,3 +36,7 @@ windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Grap
 objc2 = "=0.6.5"
 block2 = "=0.6.2"
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSColor", "NSColorSpace", "NSColorSampler", "block2", "objc2-core-foundation"] }
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"
