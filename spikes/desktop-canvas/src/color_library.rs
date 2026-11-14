@@ -2,7 +2,9 @@
 //! independent of document history; choosing a color uses the existing editor commands.
 use crate::{
     AppWindow, ColorPickerWindow, NamedColorSuggestion, PaletteSwatch, SharedController,
-    palette_store::PaletteLibrary, update,
+    localization::Localizer,
+    palette_store::{PaletteLibrary, PaletteStoreError},
+    update,
 };
 use hoshi_controller::{ColorSlot, named_colors};
 use slint::{ComponentHandle, ModelRc, VecModel};
@@ -27,8 +29,18 @@ struct Library {
     inserting: Cell<bool>,
     expanded: Cell<bool>,
     startup_error: Option<String>,
+    text: Localizer,
 }
 impl Library {
+    /// Shows the outcome of a palette operation: its error in the window's locale.
+    fn report(&self, result: Result<(), PaletteStoreError>) {
+        self.refresh(
+            result
+                .err()
+                .map(|error| crate::error_text::palette(&self.text, &error)),
+        );
+    }
+
     fn blocked(&self) -> bool {
         self.main.upgrade().is_none_or(|ui| ui.get_modal_visible())
     }
@@ -62,7 +74,7 @@ impl Library {
         ))
         .into();
         let names: ModelRc<slint::SharedString> = Rc::new(VecModel::from(
-            std::iter::once("Default".into())
+            std::iter::once(self.text.text("palette_default").into())
                 .chain(library.entries().iter().map(|p| p.name.clone().into()))
                 .collect::<Vec<_>>(),
         ))
@@ -73,8 +85,11 @@ impl Library {
         picker.set_palette_names(names);
         ui.set_palette_selected(library.selected_index());
         picker.set_palette_selected(library.selected_index());
-        ui.set_palette_title(library.title().into());
-        picker.set_palette_title(library.title().into());
+        let title = library
+            .title()
+            .unwrap_or_else(|| self.text.text("palette_default"));
+        ui.set_palette_title(title.into());
+        picker.set_palette_title(title.into());
         ui.set_palette_dirty(library.dirty());
         picker.set_palette_dirty(library.dirty());
         ui.set_palette_inserting(self.inserting.get());
@@ -123,7 +138,7 @@ impl Library {
         if result.is_ok() {
             self.inserting.set(false);
         }
-        self.refresh(result.err());
+        self.report(result);
     }
     fn dialog(&self, action: PaletteFileAction) {
         let Some(ui) = self.main.upgrade() else {
@@ -142,15 +157,19 @@ impl Library {
         };
         let mut dialog = rfd::FileDialog::new()
             .set_parent(&parent.window_handle())
-            .add_filter("Paint.NET palette", &["txt"]);
+            .add_filter(self.text.text("palette_dialog_filter"), &["txt"]);
         if let Ok(folder) = self.palettes.borrow().folder() {
             dialog = dialog.set_directory(folder);
         }
         ui.set_file_busy(true);
         let path = if matches!(action, PaletteFileAction::Import) {
-            dialog.set_title("Import palette").pick_file()
+            dialog
+                .set_title(self.text.text("palette_dialog_import"))
+                .pick_file()
         } else {
-            dialog.set_file_name("Palette.txt").save_file()
+            dialog
+                .set_file_name(self.text.text("palette_dialog_file_name"))
+                .save_file()
         };
         ui.set_file_busy(false);
         if let Some(path) = path {
@@ -164,12 +183,16 @@ pub(super) fn bind(
     picker: &ColorPickerWindow,
     controller: SharedController,
     root: Option<PathBuf>,
+    text: &Localizer,
 ) {
     let (palettes, error) = match PaletteLibrary::open(root) {
         Ok(library) => (library, None),
         Err(error) => (
-            PaletteLibrary::open(None).expect("in-memory palette"),
-            Some(format!("{error}. Using a temporary palette.")),
+            PaletteLibrary::in_memory(),
+            Some(text.format(
+                "palette_error_temporary",
+                &[("error", &crate::error_text::palette(text, &error))],
+            )),
         ),
     };
     let library = Rc::new(Library {
@@ -180,11 +203,12 @@ pub(super) fn bind(
         inserting: Cell::new(false),
         expanded: Cell::new(false),
         startup_error: error.clone(),
+        text: text.clone(),
     });
     let l = library.clone();
     ui.on_refresh_palette_library(move || {
         let result = l.palettes.borrow_mut().refresh();
-        l.refresh(result.err());
+        l.report(result);
     });
     let l = library.clone();
     ui.on_search_color_name(move |q| l.search(q));
@@ -202,7 +226,7 @@ pub(super) fn bind(
             l.search("".into());
             l.refresh(None);
         } else {
-            l.refresh(Some("Choose a recognized color name.".into()));
+            l.refresh(Some(l.text.text("palette_error_unknown_color_name").into()));
         }
     });
     let l = library.clone();
@@ -219,7 +243,7 @@ pub(super) fn bind(
             if result.is_ok() {
                 l.inserting.set(false);
             }
-            l.refresh(result.err());
+            l.report(result);
         } else {
             let color = l.palettes.borrow().current().colors().get(index).copied();
             if let Some(color) = color {
@@ -255,10 +279,10 @@ pub(super) fn bind(
             return;
         }
         let result = usize::try_from(index)
-            .map_err(|_| "Choose a saved palette.".into())
+            .map_err(|_| PaletteStoreError::InvalidSelection)
             .and_then(|i| l.palettes.borrow_mut().select(i));
         l.inserting.set(false);
-        l.refresh(result.err());
+        l.report(result);
     });
     let l = library.clone();
     ui.on_reset_palette(move || {
@@ -267,7 +291,7 @@ pub(super) fn bind(
         }
         let result = l.palettes.borrow_mut().reset();
         l.inserting.set(false);
-        l.refresh(result.err());
+        l.report(result);
     });
     let l = library.clone();
     ui.on_import_palette_path(move |p| {
@@ -289,20 +313,26 @@ pub(super) fn bind(
     ui.on_export_palette(move || l.dialog(PaletteFileAction::Export));
     let l = library.clone();
     ui.on_open_palettes_folder(move || {
-        let result = l.palettes.borrow().folder().and_then(|folder| {
-            let command = if cfg!(target_os = "windows") {
-                "explorer.exe"
-            } else if cfg!(target_os = "macos") {
-                "open"
-            } else {
-                "xdg-open"
-            };
-            std::process::Command::new(command)
-                .arg(folder)
-                .spawn()
-                .map(|_| ())
-                .map_err(|e| format!("Cannot open palettes folder: {e}"))
-        });
+        let folder = l.palettes.borrow().folder();
+        let result = folder
+            .map_err(|error| crate::error_text::palette(&l.text, &error))
+            .and_then(|folder| {
+                let command = if cfg!(target_os = "windows") {
+                    "explorer.exe"
+                } else if cfg!(target_os = "macos") {
+                    "open"
+                } else {
+                    "xdg-open"
+                };
+                std::process::Command::new(command)
+                    .arg(folder)
+                    .spawn()
+                    .map(|_| ())
+                    .map_err(|e| {
+                        l.text
+                            .format("palette_error_open_folder", &[("error", &e.to_string())])
+                    })
+            });
         l.refresh(result.err());
     });
     macro_rules! forward { ($on:ident, $invoke:ident $(, $arg:ident)*) => { let weak = ui.as_weak(); picker.$on(move |$($arg),*| { if let Some(ui) = weak.upgrade() { ui.$invoke($($arg),*); } }); }; }
