@@ -139,15 +139,19 @@ impl RasterShape {
             ShapeStyle::Outline { color, width } => {
                 (!self.contains(p, width) && stroke(width)).then_some(color)
             }
+            // The fill stops at the band's inner edge; a dash gap in the band
+            // stays transparent, as in Outline mode (Paint.NET parity, #73).
             ShapeStyle::Both {
                 fill,
                 outline,
                 width,
-            } => Some(if !self.contains(p, width) && stroke(width) {
-                outline
-            } else {
-                self.fill_at(p, fill)
-            }),
+            } => {
+                if self.contains(p, width) {
+                    Some(self.fill_at(p, fill))
+                } else {
+                    stroke(width).then_some(outline)
+                }
+            }
         }
     }
 

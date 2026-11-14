@@ -12,7 +12,7 @@ Open **Shape Properties** using the Shapes tool or sliders icon. It can float or
 - Fill patterns: Solid, Horizontal, Vertical, Forward diagonal, Backward diagonal, Cross, Diagonal cross, Checkerboard.
 - `[` / `]` change width by one pixel; Ctrl/Cmd changes the step to five. These shortcuts operate with canvas focus; text fields retain ordinary typing.
 
-Fill-only and outline-only use Primary for left-button creation, Secondary for right-button creation. With both enabled, left-button shapes use Primary outlines and Secondary fills; right-button shapes reverse the roles. Patterned fills use the other workspace color for their background. Both color slots, including alpha, update the editable shape live. Gaps in a dashed outline show the fill in Both mode and remain transparent in Outline mode.
+Fill-only and outline-only use Primary for left-button creation, Secondary for right-button creation. With both enabled, left-button shapes use Primary outlines and Secondary fills; right-button shapes reverse the roles. Patterned fills use the other workspace color for their background. Both color slots, including alpha, update the editable shape live. Gaps in a dashed outline are transparent in both Outline and Fill & Outline modes: the fill stops at the inner edge of the outline band, as in Paint.NET 5.2.
 
 Patterns use an eight-pixel local tile (checkerboard uses four-pixel squares). They translate, rotate and mirror with the shape. This is a procedural starter palette, not a claim that all Paint.NET hatch presets have shipped.
 

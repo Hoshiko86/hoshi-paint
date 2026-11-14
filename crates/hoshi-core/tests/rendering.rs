@@ -57,41 +57,73 @@ fn antialiasing_preserves_translucent_edge_hue_and_can_be_disabled() {
     }
 }
 #[test]
-fn dash_patterns_have_gaps_and_fill_the_gaps_in_both_mode() {
+fn dash_patterns_have_gaps_and_gaps_stay_transparent_in_both_mode() {
+    // Paint.NET 5.2 draws the outline inside the shape and paints no fill under
+    // the outline band, so dash gaps are transparent in Fill & Outline (#73).
     for kind in [ShapeKind::Rectangle, ShapeKind::Ellipse] {
-        let solid = {
-            let mut s = rectangle(ShapeStyle::Outline {
-                color: RED,
-                width: 2.,
-            });
-            s.kind = kind;
-            render(s)
-        };
-        let solid_alpha: u64 = solid.iter().map(|p| u64::from(p.a)).sum();
-        for style in [
-            LineStyle::Dash,
-            LineStyle::Dot,
-            LineStyle::DashDot,
-            LineStyle::DashDotDot,
-        ] {
-            let mut shape = rectangle(ShapeStyle::Outline {
-                color: RED,
-                width: 2.,
-            });
-            shape.kind = kind;
-            shape.rendering.line_style = style;
-            let dashed = render(shape);
-            assert!(dashed.iter().map(|p| u64::from(p.a)).sum::<u64>() < solid_alpha);
-            assert!(dashed.iter().any(|p| p.a > 0));
-            shape.style = ShapeStyle::Both {
-                fill: BLUE,
-                outline: RED,
-                width: 2.,
-            };
-            let both = render(shape);
-            assert!(both.contains(&BLUE));
-            if kind == ShapeKind::Rectangle {
-                assert!((8..40).all(|x| both[8 * 48 + x].a == 255));
+        for rotation in [0, 27] {
+            for antialias in [true, false] {
+                let shape_with = |style, line_style| {
+                    let mut s = rectangle(style);
+                    s.kind = kind;
+                    s.rotation_degrees = rotation;
+                    s.rendering.antialias = antialias;
+                    s.rendering.line_style = line_style;
+                    s
+                };
+                let outline = ShapeStyle::Outline {
+                    color: RED,
+                    width: 2.,
+                };
+                let both = ShapeStyle::Both {
+                    fill: BLUE,
+                    outline: RED,
+                    width: 2.,
+                };
+                let alpha = |pixels: &[Color]| pixels.iter().map(|p| u64::from(p.a)).sum::<u64>();
+                let solid_outline = render(shape_with(outline, LineStyle::Solid));
+                let solid_both = render(shape_with(both, LineStyle::Solid));
+                for style in [
+                    LineStyle::Dash,
+                    LineStyle::Dot,
+                    LineStyle::DashDot,
+                    LineStyle::DashDotDot,
+                ] {
+                    let case = format!("{kind:?} {rotation}° aa={antialias} {style:?}");
+                    let dashed = render(shape_with(outline, style));
+                    assert!(alpha(&dashed) < alpha(&solid_outline), "{case}");
+                    assert!(dashed.iter().any(|p| p.a > 0), "{case}");
+                    let dashed_both = render(shape_with(both, style));
+                    assert!(dashed_both.contains(&BLUE), "{case}: fill inside the band");
+                    assert!(
+                        alpha(&dashed_both) < alpha(&solid_both),
+                        "{case}: gaps add no fill"
+                    );
+                    assert!(
+                        solid_both
+                            .iter()
+                            .zip(&dashed_both)
+                            .any(|(solid, dashed)| solid.a == 255 && dashed.a == 0),
+                        "{case}: a gap pixel is transparent"
+                    );
+                    // Wherever the dashed outline paints nothing, Both mode
+                    // shows only fill or nothing: never outline color.
+                    assert!(
+                        dashed
+                            .iter()
+                            .zip(&dashed_both)
+                            .filter(|(o, _)| o.a == 0)
+                            .all(|(_, b)| b.a == 0 || (b.r, b.g, b.b) == (BLUE.r, BLUE.g, BLUE.b)),
+                        "{case}"
+                    );
+                    if kind == ShapeKind::Rectangle && rotation == 0 {
+                        // Top band row: identical to Outline mode, gaps included.
+                        assert!(
+                            (8..40).all(|x| dashed_both[8 * 48 + x] == dashed[8 * 48 + x]),
+                            "{case}"
+                        );
+                    }
+                }
             }
         }
     }
