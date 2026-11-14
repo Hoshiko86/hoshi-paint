@@ -7,12 +7,38 @@ on:
 permissions:
   contents: read
 jobs:
+  # Decides what the change needs (xtask/src/changed.rs, docs/TESTING.md).
+  # Pull requests run only that; pushes to main and manual runs run everything.
+  # Later jobs skip steps rather than whole jobs, so required checks report.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      packages: ${{ steps.plan.outputs.packages }}
+      smoke: ${{ steps.plan.outputs.smoke }}
+      scripts: ${{ steps.plan.outputs.scripts }}
+      coverage: ${{ steps.plan.outputs.coverage }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0  # merge-base with the PR's base branch
+      - name: Install pinned Rust
+        run: rustup show
+      - id: plan
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'all' }}
+        run: |
+          cargo xtask ci-plan "$BASE" | tee -a "$GITHUB_OUTPUT"
+          { echo '### CI plan'; echo '```'; cat "$GITHUB_OUTPUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
   project-sync-tests:
+    needs: plan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - run: python3 -m unittest discover -s scripts -v  # = cargo xtask test scripts, without a Rust toolchain
+      - if: needs.plan.outputs.scripts == 'true'
+        run: python3 -m unittest discover -s scripts -v  # = cargo xtask test scripts, without a Rust toolchain
   core:
+    needs: plan
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -22,11 +48,13 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Linux desktop prerequisites
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.plan.outputs.rust == 'true'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
       - name: Install pinned Rust
+        if: needs.plan.outputs.rust == 'true'
         run: rustup show
       - name: Install cargo-nextest (prebuilt, pinned)
+        if: needs.plan.outputs.rust == 'true'
         shell: bash
         env:
           NEXTEST: "0.9.151"
@@ -46,10 +74,12 @@ jobs:
             | tar xzf - -C "$bin"
           if command -v cygpath >/dev/null; then cygpath -w "$bin"; else echo "$bin"; fi >> "$GITHUB_PATH"
           PATH="$bin:$PATH" cargo nextest --version
-      - run: cargo xtask test lint
-      - run: cargo xtask test unit
+      - if: needs.plan.outputs.rust == 'true'
+        run: cargo xtask test lint
+      - if: needs.plan.outputs.rust == 'true'
+        run: cargo xtask test unit ${{ needs.plan.outputs.packages }}
       - name: Upload test results (JUnit)
-        if: always()
+        if: always() && needs.plan.outputs.rust == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: junit-${{ matrix.os }}
@@ -57,8 +87,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Native desktop smoke suite (xtask/src/smoke.rs)
+        if: needs.plan.outputs.smoke == 'true'
         run: cargo xtask test smoke
       - name: Include license notices with debug artifacts
+        if: needs.plan.outputs.smoke == 'true'
         shell: python
         run: |
           from pathlib import Path
@@ -75,14 +107,19 @@ jobs:
               shutil.copy2(snapshot, package / snapshot.name)
           shutil.copytree("licenses", package / "licenses", dirs_exist_ok=True)
       - name: Bundle corresponding source and locked dependencies
+        if: needs.plan.outputs.smoke == 'true'
         run: python3 scripts/package_source.py target/spike-package/hoshi-paint-source.tar.gz
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+      - if: needs.plan.outputs.smoke == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
           name: canvas-spike-${{ matrix.os }}
           path: target/spike-package/
           if-no-files-found: error
           retention-days: 14
   coverage:
+    needs: plan
+    # Not a matrix, so skipping the whole job still reports a check.
+    if: needs.plan.outputs.coverage == 'true'
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:

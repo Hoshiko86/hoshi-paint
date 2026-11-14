@@ -14,7 +14,8 @@ usage: cargo xtask <command>
 
 commands:
   test lint            rustfmt check + clippy -D warnings
-  test unit            workspace unit, integration and doc tests
+  test unit [PKG..]    unit, integration and doc tests of the workspace,
+                       or of the named packages
                        (cargo-nextest when installed, else cargo test)
   test scripts         Python tests for scripts/
   test smoke [NAME..]  native desktop smoke examples (all, or the named ones)
@@ -23,6 +24,8 @@ commands:
                        (default origin/main; see docs/TESTING.md)
   test coverage        line coverage of the domain crates with floors
                        (needs cargo-llvm-cov and llvm-tools-preview)
+  ci-plan [BASE|all]   print what CI must run for the diff since BASE
+                       (default origin/main) as GitHub step outputs
   list                 print the smoke table";
 
 fn main() -> ExitCode {
@@ -44,7 +47,7 @@ fn dispatch(args: &[String]) -> Result<(), Error> {
     let words: Vec<&str> = args.iter().map(String::as_str).collect();
     match words.as_slice() {
         ["test", "lint"] => lint(&workspace),
-        ["test", "unit"] => unit(&workspace, &[]),
+        ["test", "unit", packages @ ..] => unit(&workspace, packages),
         ["test", "scripts"] => scripts(&workspace),
         ["test", "smoke", names @ ..] => smoke(&workspace, names),
         ["test", "full"] => {
@@ -56,6 +59,12 @@ fn dispatch(args: &[String]) -> Result<(), Error> {
         ["test", "coverage"] => coverage(&workspace),
         ["test", "changed"] => changed(&workspace, "origin/main"),
         ["test", "changed", base] => changed(&workspace, base),
+        ["ci-plan", "all"] => {
+            print!("{}", changed::Selection::all().ci_outputs());
+            Ok(())
+        }
+        ["ci-plan"] => ci_plan(&workspace, "origin/main"),
+        ["ci-plan", base] => ci_plan(&workspace, base),
         ["list"] => {
             for entry in smoke::SMOKES {
                 println!("{:<26} {}", entry.name, entry.purpose);
@@ -177,7 +186,9 @@ fn coverage(workspace: &Workspace) -> Result<(), Error> {
     }
 }
 
-fn changed(workspace: &Workspace, base: &str) -> Result<(), Error> {
+/// Which suites the diff since `base` needs: committed since the merge-base,
+/// uncommitted, or untracked.
+fn select_changes(workspace: &Workspace, base: &str) -> Result<changed::Selection, Error> {
     let merge_base = workspace
         .capture(&Step::new("git").args(&["merge-base", base, "HEAD"]))
         .ok_or_else(|| {
@@ -193,7 +204,19 @@ fn changed(workspace: &Workspace, base: &str) -> Result<(), Error> {
         .capture(&Step::new("git").args(&["ls-files", "--others", "--exclude-standard"]))
         .unwrap_or_default();
     let selection = changed::select(tracked.lines().chain(untracked.lines()));
-    println!("xtask: changes since {base} ({merge_base}) need {selection:?}");
+    eprintln!("xtask: changes since {base} ({merge_base}) need {selection:?}");
+    Ok(selection)
+}
+
+/// Prints the plan as `key=value` lines for `$GITHUB_OUTPUT`; the log line
+/// goes to stderr so stdout stays machine-readable.
+fn ci_plan(workspace: &Workspace, base: &str) -> Result<(), Error> {
+    print!("{}", select_changes(workspace, base)?.ci_outputs());
+    Ok(())
+}
+
+fn changed(workspace: &Workspace, base: &str) -> Result<(), Error> {
+    let selection = select_changes(workspace, base)?;
     lint(workspace)?;
     if selection.everything {
         unit(workspace, &[])?;

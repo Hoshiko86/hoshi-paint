@@ -56,8 +56,47 @@ pub struct Selection {
 }
 
 impl Selection {
+    /// Every suite, for pushes to `main` and manual runs.
+    pub fn all() -> Self {
+        Self {
+            everything: true,
+            ..Self::default()
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         !self.everything && self.packages.is_empty() && !self.smoke && !self.scripts
+    }
+
+    /// Rust builds and tests (lint, unit) are needed. Smoke implies this:
+    /// it always selects the spike package.
+    pub fn rust(&self) -> bool {
+        self.everything || !self.packages.is_empty()
+    }
+
+    /// A crate with a coverage floor is affected.
+    pub fn coverage(&self) -> bool {
+        self.everything
+            || crate::coverage::FLOORS
+                .iter()
+                .any(|floor| self.packages.contains(floor.package))
+    }
+
+    /// The plan as GitHub step outputs, one `key=value` per line. `packages`
+    /// is empty when the whole workspace runs (`cargo xtask test unit`).
+    pub fn ci_outputs(&self) -> String {
+        let packages = if self.everything {
+            String::new()
+        } else {
+            self.packages.iter().copied().collect::<Vec<_>>().join(" ")
+        };
+        format!(
+            "rust={}\npackages={packages}\nsmoke={}\nscripts={}\ncoverage={}\n",
+            self.rust(),
+            self.everything || self.smoke,
+            self.everything || self.scripts,
+            self.coverage(),
+        )
     }
 }
 
@@ -74,9 +113,9 @@ pub fn select<'a>(paths: impl IntoIterator<Item = &'a str>) -> Selection {
             add_with_dependents(&mut selection.packages, package.name);
         } else if path.starts_with("scripts/") {
             selection.scripts = true;
-            // The native cursor smoke drives this script.
+            // The native cursor smoke (a spike example) drives this script.
             if path == "scripts/check_x11_cursor.py" {
-                selection.smoke = true;
+                add_with_dependents(&mut selection.packages, SPIKE);
             }
         } else {
             selection.everything = true;
@@ -144,7 +183,9 @@ mod tests {
     fn scripts_change_runs_scripts_and_cursor_script_adds_smoke() {
         let selection = select(["scripts/sync_project.py"]);
         assert!(selection.scripts && !selection.smoke && selection.packages.is_empty());
-        assert!(select(["scripts/check_x11_cursor.py"]).smoke);
+        let cursor = select(["scripts/check_x11_cursor.py"]);
+        assert!(cursor.scripts && cursor.smoke && cursor.rust());
+        assert_eq!(packages(&cursor), ["hoshi-canvas-spike"]);
     }
 
     #[test]
@@ -166,6 +207,37 @@ mod tests {
     #[test]
     fn a_crate_directory_prefix_is_not_a_match() {
         assert!(select(["crates/hoshi-core-extra/src/lib.rs"]).everything);
+    }
+
+    #[test]
+    fn ci_outputs_for_docs_only_skip_everything() {
+        assert_eq!(
+            select(["docs/TESTING.md"]).ci_outputs(),
+            "rust=false\npackages=\nsmoke=false\nscripts=false\ncoverage=false\n"
+        );
+    }
+
+    #[test]
+    fn ci_outputs_for_a_spike_change_skip_coverage() {
+        assert_eq!(
+            select(["spikes/desktop-canvas/src/lib.rs"]).ci_outputs(),
+            "rust=true\npackages=hoshi-canvas-spike\nsmoke=true\nscripts=false\ncoverage=false\n"
+        );
+    }
+
+    #[test]
+    fn ci_outputs_for_a_controller_change_list_its_dependents() {
+        assert_eq!(
+            select(["crates/hoshi-controller/src/lib.rs"]).ci_outputs(),
+            "rust=true\npackages=hoshi-canvas-spike hoshi-controller\nsmoke=true\nscripts=false\ncoverage=true\n"
+        );
+    }
+
+    #[test]
+    fn ci_outputs_for_everything_run_the_whole_workspace() {
+        let expected = "rust=true\npackages=\nsmoke=true\nscripts=true\ncoverage=true\n";
+        assert_eq!(Selection::all().ci_outputs(), expected);
+        assert_eq!(select(["Cargo.lock"]).ci_outputs(), expected);
     }
 
     /// `depends_on` must match the path dependencies in each Cargo.toml, so the
