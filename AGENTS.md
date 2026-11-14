@@ -102,7 +102,8 @@ cargo xtask test unit   # cargo test --workspace --locked
 If you touched `spikes/desktop-canvas`, also run `cargo xtask test smoke` when
 Xvfb is available; otherwise say it was not run. Where tests go and what they
 must assert: `docs/TESTING.md`. A new `examples/*_smoke.rs` needs an entry in
-`xtask/src/smoke.rs`. Each crate's integration tests build as one binary, so a
+`xtask/src/smoke.rs` and a `mod` line plus match arm in
+`spikes/desktop-canvas/examples/smoke.rs`. Each crate's integration tests build as one binary, so a
 new `tests/<area>.rs` also needs `mod <area>;` in that crate's `tests/main.rs`
 (count it as part of the same change, not an extra file).
 

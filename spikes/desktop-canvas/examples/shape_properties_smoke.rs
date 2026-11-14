@@ -22,7 +22,7 @@ fn save(window: &slint::Window, name: &str) {
     )
     .unwrap();
 }
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state, properties) = create_app_with_shape_properties()?;
     ui.window().set_size(LogicalSize::new(1120., 760.));
     properties.window().set_size(LogicalSize::new(340., 560.));

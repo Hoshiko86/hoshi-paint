@@ -15,7 +15,7 @@ fn snapshot(ui: &hoshi_canvas_spike::AppWindow) {
     )
     .unwrap();
 }
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state, _, history) = hoshi_canvas_spike::create_app_with_panels()?;
     ui.window().set_size(LogicalSize::new(1260., 900.));
     let weak = ui.as_weak();

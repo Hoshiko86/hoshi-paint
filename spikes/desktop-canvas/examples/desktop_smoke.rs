@@ -3,7 +3,7 @@ use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
 use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, controller) = hoshi_canvas_spike::create_app()?;
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {

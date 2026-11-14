@@ -1,5 +1,5 @@
 #[cfg(target_os = "linux")]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     use slint::ComponentHandle;
     use std::{process::Command, time::Duration};
     const SCRIPT: &str = concat!(
@@ -74,6 +74,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn main() {
+pub fn main() {
     println!("Native cursor inspection uses X11 and runs in Linux CI.");
 }

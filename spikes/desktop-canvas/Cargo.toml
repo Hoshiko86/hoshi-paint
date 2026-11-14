@@ -6,6 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 # One integration-test binary (tests/main.rs) instead of one per file.
 autotests = false
+# One smoke binary (examples/smoke.rs) instead of one per smoke.
+autoexamples = false
 
 [dependencies]
 hoshi-controller = { path = "../../crates/hoshi-controller" }
@@ -40,3 +42,11 @@ objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std
 [[test]]
 name = "integration"
 path = "tests/main.rs"
+
+[[example]]
+name = "smoke"
+path = "examples/smoke.rs"
+
+[[example]]
+name = "ui_resize_profile"
+path = "examples/ui_resize_profile.rs"

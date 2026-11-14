@@ -24,7 +24,7 @@ fn save(window: &slint::Window, name: &str) {
     .unwrap();
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = create_app_with_palette_root(None)?;
     app.ui.window().set_size(LogicalSize::new(1120., 760.));
     app.colors.window().set_size(LogicalSize::new(640., 950.));

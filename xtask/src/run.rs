@@ -251,11 +251,11 @@ impl Workspace {
 
     /// The process steps for one smoke entry: one per display scale.
     pub fn smoke_steps(&self, smoke: &Smoke, output: &Path) -> Vec<Step> {
-        let exe = self.target.join("debug/examples").join(format!(
-            "{}{}",
-            smoke.name,
-            std::env::consts::EXE_SUFFIX
-        ));
+        // Every smoke is a subcommand of one example binary (examples/smoke.rs).
+        let exe = self
+            .target
+            .join("debug/examples")
+            .join(format!("smoke{}", std::env::consts::EXE_SUFFIX));
         let runs: Vec<(Option<&str>, Option<&str>)> = if smoke.scales.is_empty() {
             vec![(None, smoke.screen)]
         } else {
@@ -275,10 +275,13 @@ impl Workspace {
                         if let Some(screen) = screen {
                             step = step.arg("-s").arg(format!("-screen 0 {screen}x24"));
                         }
-                        step.arg(&exe)
+                        step.arg(&exe).arg(smoke.name)
                     }
-                    (Host::DbusSession, true) => Step::new("dbus-run-session").arg("--").arg(&exe),
-                    (_, false) => Step::new(&exe),
+                    (Host::DbusSession, true) => Step::new("dbus-run-session")
+                        .arg("--")
+                        .arg(&exe)
+                        .arg(smoke.name),
+                    (_, false) => Step::new(&exe).arg(smoke.name),
                 };
                 if smoke.host == Host::Xvfb {
                     step = step.env("SLINT_BACKEND", "winit-software");
