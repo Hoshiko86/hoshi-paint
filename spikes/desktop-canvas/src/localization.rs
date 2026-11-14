@@ -140,66 +140,80 @@ pub struct LocaleSelection {
 pub(super) struct Localizer {
     locale: SupportedLocale,
     values: Rc<BTreeMap<String, String>>,
+    fallback: Rc<BTreeMap<String, String>>,
 }
 
 impl Localizer {
     pub(super) fn new(selection: &LocaleSelection) -> Self {
+        let fallback = Rc::new(catalog(SupportedLocale::EnglishUnitedStates));
+        let values = if selection.resolved == SupportedLocale::EnglishUnitedStates {
+            Rc::clone(&fallback)
+        } else {
+            Rc::new(catalog(selection.resolved))
+        };
         Self {
             locale: selection.resolved,
-            values: Rc::new(catalog(selection.resolved)),
+            values,
+            fallback,
         }
     }
 
-    pub(super) fn text(&self, key: &str) -> &str {
-        self.values
-            .get(key)
-            .unwrap_or_else(|| panic!("missing {} catalog key {key}", self.locale.tag()))
+    pub(super) fn text<'a>(&'a self, key: &'a str) -> &'a str {
+        if let Some(value) = self.values.get(key) {
+            return value;
+        }
+        debug_assert!(false, "missing {} catalog key {key}", self.locale.tag());
+        self.fallback.get(key).map(String::as_str).unwrap_or(key)
     }
 
     pub(super) fn format(&self, key: &str, arguments: &[(&str, &str)]) -> String {
         let template = self.text(key);
-        let expected = placeholder_names(template).unwrap_or_else(|error| {
-            panic!("invalid {} catalog key {key}: {error}", self.locale.tag())
-        });
+        let expected = placeholder_names(template);
+        debug_assert!(
+            expected.is_ok(),
+            "invalid {} catalog key {key}: {expected:?}",
+            self.locale.tag()
+        );
+        let expected = expected.unwrap_or_default();
         let supplied: BTreeSet<&str> = arguments.iter().map(|(name, _)| *name).collect();
-        assert_eq!(
+        debug_assert_eq!(
             supplied.len(),
             arguments.len(),
             "duplicate argument for catalog key {key}"
         );
-        assert_eq!(
+        debug_assert_eq!(
             supplied,
             expected.iter().map(String::as_str).collect(),
             "arguments do not match placeholders for {} catalog key {key}",
             self.locale.tag()
         );
-        let mut value = String::with_capacity(template.len());
-        let mut rest = template;
-        while let Some(open) = rest.find('{') {
-            value.push_str(&rest[..open]);
-            let placeholder = &rest[open + 1..];
-            let close = placeholder.find('}').unwrap_or_else(|| {
-                panic!(
-                    "unclosed placeholder in {} catalog key {key}",
-                    self.locale.tag()
-                )
-            });
-            let name = &placeholder[..close];
-            let replacement = arguments
-                .iter()
-                .find_map(|(candidate, value)| (*candidate == name).then_some(*value))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "missing argument {name} for {} catalog key {key}",
-                        self.locale.tag()
-                    )
-                });
-            value.push_str(replacement);
-            rest = &placeholder[close + 1..];
-        }
-        value.push_str(rest);
-        value
+        format_template(template, arguments)
     }
+}
+
+fn format_template(template: &str, arguments: &[(&str, &str)]) -> String {
+    let mut value = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        value.push_str(&rest[..open]);
+        let placeholder = &rest[open + 1..];
+        let Some(close) = placeholder.find('}') else {
+            value.push_str(&rest[open..]);
+            return value;
+        };
+        let name = &placeholder[..close];
+        let Some(replacement) = arguments
+            .iter()
+            .find_map(|(candidate, value)| (*candidate == name).then_some(*value))
+        else {
+            value.push_str(&rest[open..]);
+            return value;
+        };
+        value.push_str(replacement);
+        rest = &placeholder[close + 1..];
+    }
+    value.push_str(rest);
+    value
 }
 
 fn placeholder_names(template: &str) -> Result<BTreeSet<String>, String> {
@@ -433,6 +447,21 @@ mod tests {
         );
         assert!(rendered.contains("{error}.png"));
         assert!(rendered.contains("disk {path} unavailable"));
+    }
+
+    #[test]
+    fn formatting_preserves_remaining_template_when_arguments_or_braces_are_missing() {
+        assert_eq!(
+            format_template(
+                "Saved {path}: {missing}; {error}",
+                &[("path", "a.png"), ("error", "disk")]
+            ),
+            "Saved a.png: {missing}; {error}"
+        );
+        assert_eq!(
+            format_template("Saved {path}: {unclosed", &[("path", "a.png")]),
+            "Saved a.png: {unclosed"
+        );
     }
 
     #[test]
