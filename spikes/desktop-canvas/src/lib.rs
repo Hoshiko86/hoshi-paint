@@ -77,7 +77,6 @@ slint::slint! {
         callback bounds-lock-changed(bool);
         changed shape-bounds-locked => { root.bounds-lock-changed(root.shape-bounds-locked); }
         in property <int> shape-mode;
-        in property <int> stroke-width: 2;
         in property <float> stroke-width-pixels: 2;
         in property <bool> shape-antialiasing: true;
         in property <int> line-style;
@@ -97,7 +96,6 @@ slint::slint! {
         callback reset-colors();
         in property <int> color-slot;
         callback select-shape-mode(int);
-        callback edit-stroke-width(int);
         callback select-color-slot(int);
         in property <color> selected-color;
         in property <string> selected-hex;
@@ -865,7 +863,6 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         ShapeMode::Outline => 1,
         ShapeMode::Both => 2,
     });
-    ui.set_stroke_width(controller.stroke_width() as i32);
     shape_rendering::refresh(ui, controller);
     shape_bounds::refresh(ui, controller);
     ui.set_color_slot(if controller.color_slot() == ColorSlot::Primary {
@@ -1096,10 +1093,6 @@ fn create_panels(
                 _ => ShapeMode::Fill,
             })
         });
-    });
-    let (weak, state) = (ui.as_weak(), controller.clone());
-    ui.on_edit_stroke_width(move |width| {
-        update(&weak, &state, |c| c.set_stroke_width(width.max(0) as u32))
     });
 
     let (weak, state) = (ui.as_weak(), controller.clone());
