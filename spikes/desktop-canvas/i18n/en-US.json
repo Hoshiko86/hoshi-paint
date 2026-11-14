@@ -124,5 +124,12 @@
   "error_project_checksum": "The project checksum does not match; the file may be damaged.",
   "error_project_invalid_data": "The file is truncated or has invalid project data.",
   "error_project_invalid_document": "The document exceeds supported dimensions, layers, resolution, or layer-name limits.",
-  "error_project_version": "Project version {version} is not supported by this build."
+  "error_project_version": "Project version {version} is not supported by this build.",
+  "image_error_apply_limits": "Cannot apply: dimensions must be 1–262,144 pixels; resolution must be 1–100,000 pixels/inch.",
+  "image_error_invalid_choice": "Choose a valid option.",
+  "image_error_not_positive": "Enter a valid positive number.",
+  "image_error_pixel_range": "Dimensions must be at least one pixel and within the image limit.",
+  "image_error_resolution_range": "Resolution must be 1–100,000 pixels/inch.",
+  "image_error_whole_pixels": "Pixel dimensions must be whole numbers.",
+  "image_summary": "{width} × {height} pixels · {width_in} × {height_in} inches\nUp to 262,144 pixels per dimension; memory use depends on image content."
 }

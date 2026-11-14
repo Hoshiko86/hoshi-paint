@@ -124,5 +124,12 @@
   "error_project_checksum": "La suma de comprobación del proyecto no coincide; el archivo puede estar dañado.",
   "error_project_invalid_data": "El archivo está truncado o contiene datos de proyecto no válidos.",
   "error_project_invalid_document": "El documento supera los límites admitidos de dimensiones, capas, resolución o nombres de capa.",
-  "error_project_version": "Esta versión no admite la versión de proyecto {version}."
+  "error_project_version": "Esta versión no admite la versión de proyecto {version}.",
+  "image_error_apply_limits": "No se puede aplicar: las dimensiones deben estar entre 1 y 262.144 píxeles y la resolución entre 1 y 100.000 píxeles por pulgada.",
+  "image_error_invalid_choice": "Elige una opción válida.",
+  "image_error_not_positive": "Introduce un número positivo válido.",
+  "image_error_pixel_range": "Las dimensiones deben ser de al menos un píxel y estar dentro del límite de la imagen.",
+  "image_error_resolution_range": "La resolución debe estar entre 1 y 100.000 píxeles por pulgada.",
+  "image_error_whole_pixels": "Las dimensiones en píxeles deben ser números enteros.",
+  "image_summary": "{width} × {height} píxeles · {width_in} × {height_in} pulgadas\nHasta 262.144 píxeles por dimensión; el uso de memoria depende del contenido de la imagen."
 }
