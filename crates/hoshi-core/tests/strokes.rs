@@ -3,8 +3,8 @@
 
 use hoshi_core::geometry::Point;
 use hoshi_core::{
-    Anchor, BrushTip, Color, Document, Error, Shape, ShapeKind, ShapeStyle, StrokeBlend,
-    StrokeStyle,
+    Anchor, BrushTip, Color, Document, Error, HistoryLabel, Shape, ShapeKind, ShapeStyle,
+    StrokeBlend, StrokeStyle,
 };
 
 const RED: Color = Color::rgba(255, 0, 0, 255);
@@ -31,7 +31,7 @@ fn draw_line(doc: &mut Document, style: StrokeStyle) {
     }
 }
 
-fn last_label(doc: &Document) -> &'static str {
+fn last_label(doc: &Document) -> HistoryLabel {
     doc.history_step(doc.history_position()).unwrap().label
 }
 
@@ -43,7 +43,7 @@ fn one_brush_stroke_is_one_history_entry_and_undo_redo_restore_exactly() {
     assert!(doc.commit_stroke().unwrap());
     assert!(!doc.has_active_stroke());
     assert_eq!(doc.undo_len(), 1);
-    assert_eq!(last_label(&doc), "Brush");
+    assert_eq!(last_label(&doc), HistoryLabel::Brush);
     let painted = doc.composite(false);
     assert_eq!(painted[8 * 16 + 8], RED);
     assert!(doc.undo().unwrap());
@@ -71,7 +71,7 @@ fn eraser_clears_alpha_under_the_path() {
     let mut doc = Document::new_with_background(16, 16, 96.0, WHITE).unwrap();
     draw_line(&mut doc, eraser());
     assert!(doc.commit_stroke().unwrap());
-    assert_eq!(last_label(&doc), "Eraser");
+    assert_eq!(last_label(&doc), HistoryLabel::Eraser);
     let pixels = doc.composite(false);
     assert_eq!(pixels[8 * 16 + 8], Color::TRANSPARENT);
     assert_eq!(pixels[0], WHITE);
