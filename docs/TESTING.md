@@ -130,3 +130,4 @@ instrumenting it would rebuild Slint.
 - Linux smoke: `xvfb`, `dbus`, `libxkbcommon-x11-0`, `libxfixes3`,
   `libfontconfig-dev` (Debian/Ubuntu package names), plus `python3` for the
   cursor check and `scripts` suite.
+
