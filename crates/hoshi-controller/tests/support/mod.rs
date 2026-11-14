@@ -9,9 +9,10 @@ const ISOLATED_TEST: &str = "HOSHI_ISOLATED_TEST";
 /// process-wide memory budget (`hoshi_core::memory_budget`). `cargo test` runs
 /// tests as threads of one process, so they would otherwise interfere.
 ///
-/// Call it as the whole test body, with `test_name` equal to the test's own
-/// function name. The parent re-runs this test binary with `--exact
-/// test_name` and asserts the child ran exactly one test, so a renamed test
+/// Call it as the whole test body, with `test_name` equal to the test's full
+/// libtest name: its module (the file under `tests/`) and function, such as
+/// `painting::capture_loss_reports_commit_failure_and_resets_drag`. The
+/// parent re-runs this test binary with `--exact test_name` and asserts the child ran exactly one test, so a renamed test
 /// or a typo fails instead of passing without running `body`.
 pub fn run_isolated(test_name: &str, body: impl FnOnce()) {
     if std::env::var(ISOLATED_TEST).as_deref() == Ok(test_name) {

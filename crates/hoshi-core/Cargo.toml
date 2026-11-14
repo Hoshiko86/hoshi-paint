@@ -4,8 +4,20 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+# One integration-test binary (tests/main.rs) instead of one per file.
+autotests = false
 
 [dependencies]
 crc32fast = "1.5"
 tempfile = "3"
 lz4_flex = { version = "0.11", default-features = false, features = ["std"] }
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"
+
+# Exhausts the process-wide memory budget, so it keeps its own process
+# under plain `cargo test` (which runs tests as threads).
+[[test]]
+name = "large_documents"
+path = "tests/large_documents.rs"

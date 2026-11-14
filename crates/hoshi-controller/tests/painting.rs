@@ -1,5 +1,3 @@
-mod support;
-
 use hoshi_controller::{Color, Controller, EditCursor, PointerButton, Tool};
 
 fn painter(tool: Tool) -> Controller {
@@ -165,8 +163,8 @@ fn tool_switch_commit_and_redo_finish_active_strokes() {
 #[test]
 fn capture_loss_reports_commit_failure_and_resets_drag() {
     // Budget reservations are global: isolate exhaustion from parallel tests.
-    support::run_isolated(
-        "capture_loss_reports_commit_failure_and_resets_drag",
+    crate::support::run_isolated(
+        "painting::capture_loss_reports_commit_failure_and_resets_drag",
         || {
             let mut c = painter(Tool::Brush);
             drag(&mut c);
@@ -198,7 +196,7 @@ fn capture_loss_reports_commit_failure_and_resets_drag() {
 #[test]
 #[should_panic(expected = "ran no test")]
 fn isolation_helper_rejects_a_name_that_matches_no_test() {
-    support::run_isolated("no_such_test_in_this_binary", || {
+    crate::support::run_isolated("no_such_test_in_this_binary", || {
         unreachable!("the parent never runs the body");
     });
 }

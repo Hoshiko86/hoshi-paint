@@ -64,6 +64,14 @@ Put each test in the lowest layer that can observe the behavior.
 | Native smoke | `spikes/desktop-canvas/examples/*_smoke.rs` | the real winit window, OS event loop, D-Bus portal and cursor; saves snapshots | `cargo xtask test smoke` (Xvfb on Linux) |
 | Reference | fixtures under `crates/*/tests/fixtures/` | output matches a pinned reference (blend modes vs Paint.NET 5.2, [BLEND_REFERENCE.md](BLEND_REFERENCE.md)) | `cargo test` |
 
+Each crate builds its integration tests as **one** test binary:
+`tests/main.rs` declares every `tests/<area>.rs` file as a module
+(`autotests = false`). Rust links every test binary statically against all its
+dependencies, so one binary per file meant dozens of full copies of Slint and
+the codecs. When you add a test file, add `mod <area>;` to `tests/main.rs`;
+`cargo test -p xtask` fails otherwise. Run one area with
+`cargo test -p <crate> --test integration <area>::`.
+
 Rules:
 
 - **Behavior, not implementation.** Assert what a user or caller can observe:
