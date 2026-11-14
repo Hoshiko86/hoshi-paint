@@ -7,6 +7,7 @@ pub mod geometry;
 mod memory;
 mod painting;
 mod pixels;
+mod polygon;
 mod stroke;
 pub use memory::{MemoryReservation, configure_memory_budget, memory_budget, memory_usage};
 pub use pixels::{PixelStore, TILE_SIZE};
