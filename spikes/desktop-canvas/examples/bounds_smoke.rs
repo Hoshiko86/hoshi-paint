@@ -2,6 +2,15 @@
 use hoshi_canvas_spike::create_app;
 use slint::{ComponentHandle, LogicalSize};
 use std::time::Duration;
+/// Snapshot directory: `HOSHI_SMOKE_SNAPSHOT_DIR` (set by `cargo xtask test
+/// smoke`), else `target/`. Created if missing so a fresh checkout works.
+fn snapshot_path(name: &str) -> std::path::PathBuf {
+    let dir = std::path::PathBuf::from(
+        std::env::var_os("HOSHI_SMOKE_SNAPSHOT_DIR").unwrap_or_else(|| "target".into()),
+    );
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(name)
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state) = create_app()?;
     ui.window().set_size(LogicalSize::new(1120., 760.));
@@ -35,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(state.borrow().document().undo_len(), 0);
         let image = ui.window().take_snapshot().unwrap();
         image::save_buffer(
-            "target/spike-shape-bounds.png",
+            snapshot_path("spike-shape-bounds.png"),
             image.as_bytes(),
             image.width(),
             image.height(),

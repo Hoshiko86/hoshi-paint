@@ -2,10 +2,19 @@
 use hoshi_canvas_spike::create_app_with_shape_properties;
 use slint::{ComponentHandle, LogicalSize};
 use std::time::Duration;
-fn save(window: &slint::Window, path: &str) {
+/// Snapshot directory: `HOSHI_SMOKE_SNAPSHOT_DIR` (set by `cargo xtask test
+/// smoke`), else `target/`. Created if missing so a fresh checkout works.
+fn snapshot_path(name: &str) -> std::path::PathBuf {
+    let dir = std::path::PathBuf::from(
+        std::env::var_os("HOSHI_SMOKE_SNAPSHOT_DIR").unwrap_or_else(|| "target".into()),
+    );
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(name)
+}
+fn save(window: &slint::Window, name: &str) {
     let snapshot = window.take_snapshot().unwrap();
     image::save_buffer(
-        path,
+        snapshot_path(name),
         snapshot.as_bytes(),
         snapshot.width(),
         snapshot.height(),
@@ -41,16 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         properties.invoke_edit_stroke_width_pixels(6.5);
         properties.invoke_select_line_style(1);
         let preview = state.borrow().document().active_shape();
-        save(
-            properties.window(),
-            "target/spike-shape-properties-floating.png",
-        );
+        save(properties.window(), "spike-shape-properties-floating.png");
         properties.invoke_placement_selected(2);
-        save(ui.window(), "target/spike-shape-properties-docked.png");
+        save(ui.window(), "spike-shape-properties-docked.png");
         assert_eq!(state.borrow().document().active_shape(), preview);
         assert_eq!(state.borrow().document().undo_len(), 0);
         properties.invoke_placement_selected(3);
-        save(ui.window(), "target/spike-shape-properties-top.png");
+        save(ui.window(), "spike-shape-properties-top.png");
         properties.invoke_close_panel();
         ui.hide().unwrap();
         println!(
