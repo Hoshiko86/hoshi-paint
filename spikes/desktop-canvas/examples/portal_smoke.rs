@@ -1,11 +1,11 @@
 //! Exercises the real D-Bus request/signal contract against a private fake portal.
-//! Run with `dbus-run-session -- cargo run -p hoshi-canvas-spike --example portal_smoke`.
+//! Run with `dbus-run-session -- cargo run -p hoshi-canvas-spike --example smoke -- portal_smoke`.
 #[cfg(target_os = "linux")]
 #[path = "../src/screen_pick.rs"]
 mod screen_pick;
 
 #[cfg(target_os = "linux")]
-fn main() {
+pub fn main() {
     use hoshi_controller::Color;
     use std::{
         collections::HashMap,
@@ -123,6 +123,6 @@ fn main() {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn main() {
+pub fn main() {
     println!("Linux-only desktop portal contract check");
 }

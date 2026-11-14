@@ -15,7 +15,7 @@ fn save(window: &slint::Window, variable: &str) {
         .unwrap();
     }
 }
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state, colors, history) = hoshi_canvas_spike::create_app_with_panels()?;
     let weak = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {

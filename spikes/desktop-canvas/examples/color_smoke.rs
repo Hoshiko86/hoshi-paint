@@ -3,7 +3,7 @@ use hoshi_controller::Color;
 use slint::ComponentHandle;
 use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state, picker) = hoshi_canvas_spike::create_app_with_colors()?;
     let main = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {

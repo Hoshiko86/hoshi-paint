@@ -97,9 +97,12 @@ Rules:
 
 ## Adding a native smoke
 
-1. Write `spikes/desktop-canvas/examples/<name>_smoke.rs`. It must exit by
-   itself, panic on failure, and read snapshot paths from environment
-   variables.
+1. Write `spikes/desktop-canvas/examples/<name>_smoke.rs` with a `pub fn
+   main()`. It must exit by itself, panic on failure, and read snapshot paths
+   from environment variables. Add `mod <name>_smoke;` and its match arm to
+   `examples/smoke.rs`: all smokes are subcommands of that one binary, so
+   Slint is linked once (`cargo run -p hoshi-canvas-spike --example smoke --
+   <name>_smoke`).
 2. Add one entry to `SMOKES` in `xtask/src/smoke.rs` with its purpose, screen
    size, snapshot variables and display scales. `cargo xtask test smoke`
    refuses to run while an example is missing from the table.

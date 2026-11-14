@@ -1,6 +1,7 @@
 //! Native desktop smoke suite: the single source of truth for which
 //! `spikes/desktop-canvas/examples/*_smoke.rs` programs run, how, and which
-//! snapshots they write.
+//! snapshots they write. Each one is a subcommand of the single
+//! `examples/smoke.rs` binary.
 
 /// How an environment variable is filled in for a smoke run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -227,6 +228,27 @@ mod tests {
                 examples.join(format!("{}.rs", smoke.name)).is_file(),
                 "{} has no example file",
                 smoke.name
+            );
+        }
+    }
+
+    /// All smokes are subcommands of one binary, so each entry needs a module
+    /// and a dispatch arm in `examples/smoke.rs`, or `xtask` would run nothing.
+    #[test]
+    fn every_table_entry_is_dispatched_by_the_smoke_binary() {
+        let dispatcher = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../spikes/desktop-canvas/examples/smoke.rs"),
+        )
+        .unwrap();
+        for smoke in SMOKES {
+            let name = smoke.name;
+            assert!(
+                dispatcher
+                    .lines()
+                    .any(|line| line == format!("mod {name};"))
+                    && dispatcher.contains(&format!("\"{name}\" => run({name}::main)")),
+                "examples/smoke.rs does not dispatch {name}"
             );
         }
     }

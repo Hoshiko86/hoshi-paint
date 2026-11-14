@@ -11,7 +11,7 @@ fn snapshot_path(name: &str) -> std::path::PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state) = create_app()?;
     ui.window().set_size(LogicalSize::new(1120., 760.));
     let weak = ui.as_weak();

@@ -16,7 +16,7 @@ fn screenshot(ui: &hoshi_canvas_spike::AppWindow, name: &str) {
         .unwrap();
     }
 }
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state) = create_app()?;
     ui.window().set_size(LogicalSize::new(1120., 850.));
     let weak = ui.as_weak();
