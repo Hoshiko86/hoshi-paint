@@ -33,9 +33,9 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
     ui.window().take_snapshot().unwrap();
     ui.invoke_choose_tool(4);
     assert_eq!(state.borrow().tool(), Tool::Brush);
-    ui.invoke_edit_brush_width(20);
-    assert_eq!(state.borrow().brush_width(), 20.0);
-    assert_eq!(ui.get_brush_width(), 20);
+    ui.invoke_edit_brush_width(2.5);
+    assert_eq!(state.borrow().brush_width(), 2.5);
+    assert_eq!(ui.get_stroke_width_pixels(), 2.5);
     let before = state.borrow().composite();
     press(&ui);
     let outside = LogicalPosition::new(-30.0, -30.0);
@@ -101,5 +101,82 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
     assert_eq!(calls.get(), 1);
     assert_eq!(state.borrow().tool(), Tool::Eyedropper);
     assert_eq!(state.borrow().document().undo_len(), 0);
+    ui.hide().unwrap();
+}
+
+fn width_field(ui: &AppWindow) -> i_slint_backend_testing::ElementHandle {
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(ui, "Brush width")
+        .next()
+        .unwrap()
+}
+
+fn enter_width(ui: &AppWindow, text: &str) {
+    use slint::platform::Key;
+    width_field(ui).mock_single_click(PointerEventButton::Left);
+    let key = |text: slint::SharedString| {
+        ui.window()
+            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        ui.window()
+            .dispatch_event(WindowEvent::KeyReleased { text });
+    };
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Control.into(),
+    });
+    key("a".into());
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Control.into(),
+    });
+    key(Key::Backspace.into());
+    for character in text.chars() {
+        key(character.to_string().into());
+    }
+    key(Key::Return.into());
+}
+
+#[test]
+fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits() {
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, state) = create_app().unwrap();
+    ui.window().set_size(LogicalSize::new(1120.0, 760.0));
+    ui.show().unwrap();
+    ui.invoke_choose_tool(4);
+    ui.invoke_edit_stroke_width_pixels(2.5);
+    ui.window().take_snapshot().unwrap();
+    assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
+
+    enter_width(&ui, "3.25");
+    assert_eq!(state.borrow().brush_width(), 3.25);
+    enter_width(&ui, "2.5");
+    assert_eq!(state.borrow().brush_width(), 2.5);
+    assert_eq!(state.borrow().stroke_width_pixels(), 2.5);
+    assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
+    for invalid in [0.25, 2001.0, f32::NAN] {
+        ui.invoke_edit_brush_width(invalid);
+        assert_eq!(state.borrow().brush_width(), 2.5);
+        assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
+    }
+    for invalid in ["0", "invalid"] {
+        enter_width(&ui, invalid);
+        assert_eq!(state.borrow().brush_width(), 2.5);
+        assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
+    }
+    // Click a different tool so the width editor actually loses keyboard focus.
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Color Picker")
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+    ui.window().take_snapshot().unwrap();
+    ui.invoke_edit_stroke_width_pixels(0.25);
+    ui.invoke_choose_tool(5);
+    ui.window().take_snapshot().unwrap();
+    assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("0.25"));
+    assert_eq!(state.borrow().brush_width(), 0.25);
     ui.hide().unwrap();
 }
