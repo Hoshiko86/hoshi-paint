@@ -78,7 +78,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.invoke_select_color_slot(1);
         ui.invoke_edit_rgba(80, 140, 200, 255);
         ui.invoke_select_shape_mode(2);
-        ui.invoke_edit_stroke_width(8);
+        ui.invoke_edit_stroke_width_pixels(8.0);
         ui.invoke_select_color_slot(0);
         ui.invoke_edit_rgba(210, 60, 70, 255);
         let shape = state.borrow().document().active_shape().unwrap();

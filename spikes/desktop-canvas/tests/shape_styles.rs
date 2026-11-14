@@ -43,7 +43,7 @@ fn style_controls_and_both_color_hosts_edit_separate_channels_without_committing
             .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: key.into() });
     }
     assert_eq!(ui.get_shape_mode(), 2);
-    ui.invoke_edit_stroke_width(6);
+    ui.invoke_edit_stroke_width_pixels(6.0);
     ui.invoke_select_color_slot(0);
     picker.invoke_set_rgba(240, 60, 20, 128);
     ui.invoke_show_colors();
