@@ -274,11 +274,12 @@ fn failed_multi_tile_reservation_preserves_existing_pixels_and_releases_pending_
         let output = std::process::Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "stroke::tests::failed_multi_tile_reservation_preserves_existing_pixels_and_releases_pending_tiles", "--nocapture"])
             .env(CHILD, "1").output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stdout}\n{stderr}");
         assert!(
-            output.status.success(),
-            "{}\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            stdout.lines().any(|line| line.trim() == "running 1 test"),
+            "isolated stroke atomicity test ran no test; is the name wrong?\n{stdout}"
         );
         return;
     }
