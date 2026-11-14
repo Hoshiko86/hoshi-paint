@@ -14,6 +14,7 @@ pub use stroke::{BrushTip, StrokeBlend, StrokeStyle};
 mod history;
 mod history_store;
 use history::History;
+pub use history::HistoryLabel;
 /// Maximum number of layers in a document, bounding dense pixel-buffer allocation.
 pub const MAX_LAYERS: usize = 32;
 
@@ -139,7 +140,7 @@ struct State {
 /// is the oldest state still available, not necessarily the original document.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HistoryStep {
-    pub label: &'static str,
+    pub label: HistoryLabel,
     pub is_current: bool,
     pub is_redo: bool,
 }
@@ -251,7 +252,7 @@ impl Document {
             Ok(false)
         }
     }
-    fn checkpoint(&mut self, before: State, label: &'static str) -> Result<(), Error> {
+    fn checkpoint(&mut self, before: State, label: HistoryLabel) -> Result<(), Error> {
         if before == self.state {
             return Ok(());
         }
@@ -304,7 +305,7 @@ impl Document {
             )),
         });
         self.state.selected = index;
-        self.checkpoint(before, "Add layer")?;
+        self.checkpoint(before, HistoryLabel::AddLayer)?;
         Ok(index)
     }
 
@@ -319,7 +320,7 @@ impl Document {
             self.state.selected -= 1;
         }
         self.state.selected = self.state.selected.min(self.state.layers.len() - 1);
-        self.checkpoint(before, "Delete layer")?;
+        self.checkpoint(before, HistoryLabel::DeleteLayer)?;
         Ok(())
     }
 
@@ -327,7 +328,7 @@ impl Document {
         self.editable(layer)?;
         let before = self.state.clone();
         self.state.layers[layer].name = name.into();
-        self.checkpoint(before, "Rename layer")?;
+        self.checkpoint(before, HistoryLabel::RenameLayer)?;
         Ok(())
     }
 
@@ -341,7 +342,7 @@ impl Document {
         let before = self.state.clone();
         self.state.layers[layer].visible = visible;
         self.state.layers[layer].opacity = opacity;
-        self.checkpoint(before, "Layer properties")?;
+        self.checkpoint(before, HistoryLabel::LayerProperties)?;
         Ok(())
     }
 
@@ -363,7 +364,7 @@ impl Document {
         } else {
             self.state.selected
         };
-        self.checkpoint(before, "Reorder layer")?;
+        self.checkpoint(before, HistoryLabel::ReorderLayer)?;
         Ok(())
     }
 
@@ -398,8 +399,8 @@ impl Document {
         shape.rendering = shape.rendering.for_style(shape.style);
         let before = self.state.clone();
         let label = match shape.kind {
-            ShapeKind::Rectangle => "Rectangle",
-            ShapeKind::Ellipse => "Ellipse",
+            ShapeKind::Rectangle => HistoryLabel::Rectangle,
+            ShapeKind::Ellipse => HistoryLabel::Ellipse,
         };
         let raster = RasterShape::new(shape);
         let source = &self.state.layers[self.state.selected].pixels;

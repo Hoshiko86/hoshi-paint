@@ -1,4 +1,4 @@
-use hoshi_controller::{Color, Controller, EditCursor, PointerButton, Tool};
+use hoshi_controller::{Color, Controller, EditCursor, HistoryLabel, PointerButton, Tool};
 
 fn painter(tool: Tool) -> Controller {
     let mut c = Controller::new(32, 32).unwrap();
@@ -27,7 +27,7 @@ fn stroke_preview_is_isolated_and_release_records_one_brush_entry() {
     assert_eq!(c.document().undo_len(), 0);
     c.pointer_up().unwrap();
     assert_eq!(c.document().undo_len(), 1);
-    assert_eq!(c.history_steps().last().unwrap().label, "Brush");
+    assert_eq!(c.history_steps().last().unwrap().label, HistoryLabel::Brush);
     assert!(!c.is_dragging());
 }
 
@@ -65,7 +65,10 @@ fn eraser_removes_opaque_background() {
     drag(&mut c);
     c.pointer_up().unwrap();
     assert_eq!(c.document().composite(false)[8 * 32 + 12].a, 0);
-    assert_eq!(c.history_steps().last().unwrap().label, "Eraser");
+    assert_eq!(
+        c.history_steps().last().unwrap().label,
+        HistoryLabel::Eraser
+    );
 }
 
 #[test]

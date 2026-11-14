@@ -3,7 +3,7 @@
 
 use crate::geometry::Point;
 use crate::stroke::{CoverageMask, StrokeBlend, StrokeStyle};
-use crate::{Color, Document, Error};
+use crate::{Color, Document, Error, HistoryLabel};
 use std::sync::Arc;
 
 /// A stroke in progress. Its coverage lives outside layer pixels until commit,
@@ -64,7 +64,7 @@ impl Document {
     }
 
     /// Writes the stroke into its layer as exactly one history entry labelled
-    /// "Brush" or "Eraser". Returns whether pixels changed; a no-op adds no
+    /// `HistoryLabel::Brush` or `Eraser`. Returns whether pixels changed; a no-op adds no
     /// entry. On error the layer and history are unchanged and the stroke
     /// stays active so the caller can retry or cancel.
     pub fn commit_stroke(&mut self) -> Result<bool, Error> {
@@ -75,8 +75,8 @@ impl Document {
             return Ok(false);
         }
         let label = match stroke.style.blend {
-            StrokeBlend::Paint(_) => "Brush",
-            StrokeBlend::Erase => "Eraser",
+            StrokeBlend::Paint(_) => HistoryLabel::Brush,
+            StrokeBlend::Erase => HistoryLabel::Eraser,
         };
         let Some(layer) = self.state.layers.get(stroke.layer) else {
             return Err(Error::InvalidLayer);

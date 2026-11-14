@@ -27,8 +27,8 @@ pub const ROTATION_HANDLE: i32 = 8;
 pub const PIVOT_HANDLE: i32 = 9;
 
 pub use hoshi_core::{
-    Anchor, Color, FillPattern, HistoryStep, ImageTransform, LineStyle, RenderOptions, Resampling,
-    ResizeOptions, ShapeStyle,
+    Anchor, Color, FillPattern, HistoryLabel, HistoryStep, ImageTransform, LineStyle,
+    RenderOptions, Resampling, ResizeOptions, ShapeStyle,
 };
 use hoshi_core::{Document, DocumentSnapshot, Error, Shape, ShapeKind};
 

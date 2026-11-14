@@ -85,7 +85,7 @@ impl Document {
         self.image_editable()?;
         let before = self.state.clone();
         self.state.resolution = (resolution * 1000.0).round() as u32;
-        self.checkpoint(before, "Resolution")?;
+        self.checkpoint(before, HistoryLabel::Resolution)?;
         Ok(())
     }
     /// New document initialization, without adding an undo entry.
@@ -163,7 +163,7 @@ impl Document {
         self.state.layers = layers;
         self.state.width = width;
         self.state.height = height;
-        self.checkpoint(before, "Canvas Size")?;
+        self.checkpoint(before, HistoryLabel::CanvasSize)?;
         Ok(())
     }
     /// Resize each layer in premultiplied alpha to avoid dark fringes at transparency.
@@ -194,7 +194,7 @@ impl Document {
         self.state.width = width;
         self.state.height = height;
         self.state.resolution = (resolution * 1000.0).round() as u32;
-        self.checkpoint(before, "Resize")?;
+        self.checkpoint(before, HistoryLabel::Resize)?;
         Ok(())
     }
     pub fn transform_image(&mut self, transform: ImageTransform) -> Result<(), Error> {
@@ -237,11 +237,11 @@ impl Document {
         self.checkpoint(
             before,
             match transform {
-                ImageTransform::FlipHorizontal => "Flip Horizontal",
-                ImageTransform::FlipVertical => "Flip Vertical",
-                ImageTransform::RotateClockwise => "Rotate 90° Clockwise",
-                ImageTransform::RotateCounterClockwise => "Rotate 90° Counter-Clockwise",
-                ImageTransform::Rotate180 => "Rotate 180°",
+                ImageTransform::FlipHorizontal => HistoryLabel::FlipHorizontal,
+                ImageTransform::FlipVertical => HistoryLabel::FlipVertical,
+                ImageTransform::RotateClockwise => HistoryLabel::RotateClockwise,
+                ImageTransform::RotateCounterClockwise => HistoryLabel::RotateCounterClockwise,
+                ImageTransform::Rotate180 => HistoryLabel::Rotate180,
             },
         )?;
         Ok(())
@@ -262,7 +262,7 @@ impl Document {
             pixels: Arc::new(self.flattened_pixels(None)?),
         }];
         self.state.selected = 0;
-        self.checkpoint(before, "Flatten")?;
+        self.checkpoint(before, HistoryLabel::Flatten)?;
         Ok(())
     }
 }

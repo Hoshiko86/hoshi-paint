@@ -1,4 +1,4 @@
-use hoshi_controller::{Controller, ControllerError};
+use hoshi_controller::{Controller, ControllerError, HistoryLabel};
 
 #[test]
 fn history_navigation_requires_explicit_preview_completion() {
@@ -18,7 +18,7 @@ fn history_navigation_requires_explicit_preview_completion() {
     controller.pointer_up().unwrap();
     controller.commit().unwrap();
     assert_eq!(controller.history_position(), 1);
-    assert_eq!(controller.history_steps()[1].label, "Rectangle");
+    assert_eq!(controller.history_steps()[1].label, HistoryLabel::Rectangle);
     assert!(controller.go_to_history_step(0).unwrap());
     assert_eq!(controller.document().composite(false)[3 * 16 + 3].a, 0);
     assert!(controller.go_to_history_step(1).unwrap());

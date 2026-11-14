@@ -4,9 +4,64 @@ use crate::{
     history_store::{HistoryStore, StateRecord},
 };
 use std::path::{Path, PathBuf};
+
+/// What a history step did. Text for each label lives in the adapter's
+/// locale catalogs; the core holds no user-facing strings (#111).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum HistoryLabel {
+    /// The first row: the oldest state still available, not necessarily the
+    /// original document.
+    OldestAvailableState,
+    AddLayer,
+    DeleteLayer,
+    RenameLayer,
+    LayerProperties,
+    ReorderLayer,
+    Rectangle,
+    Ellipse,
+    Brush,
+    Eraser,
+    Resolution,
+    CanvasSize,
+    Resize,
+    FlipHorizontal,
+    FlipVertical,
+    RotateClockwise,
+    RotateCounterClockwise,
+    Rotate180,
+    Flatten,
+    FlattenForSave,
+}
+
+impl HistoryLabel {
+    /// Every label, so adapters can prove each one has text.
+    pub const ALL: [Self; 20] = [
+        Self::OldestAvailableState,
+        Self::AddLayer,
+        Self::DeleteLayer,
+        Self::RenameLayer,
+        Self::LayerProperties,
+        Self::ReorderLayer,
+        Self::Rectangle,
+        Self::Ellipse,
+        Self::Brush,
+        Self::Eraser,
+        Self::Resolution,
+        Self::CanvasSize,
+        Self::Resize,
+        Self::FlipHorizontal,
+        Self::FlipVertical,
+        Self::RotateClockwise,
+        Self::RotateCounterClockwise,
+        Self::Rotate180,
+        Self::Flatten,
+        Self::FlattenForSave,
+    ];
+}
+
 struct Entry {
     record: StateRecord,
-    label: &'static str,
+    label: HistoryLabel,
     selected: usize,
 }
 pub(crate) struct History {
@@ -65,9 +120,9 @@ impl History {
     pub fn bytes(&self) -> u64 {
         self.store.as_ref().map_or(0, HistoryStore::bytes)
     }
-    pub fn label(&self, index: usize) -> Option<&'static str> {
+    pub fn label(&self, index: usize) -> Option<HistoryLabel> {
         if index == 0 {
-            Some("Oldest available state")
+            Some(HistoryLabel::OldestAvailableState)
         } else {
             self.entries.get(index).map(|e| e.label)
         }
@@ -76,7 +131,7 @@ impl History {
         &mut self,
         before: &State,
         after: &State,
-        label: &'static str,
+        label: HistoryLabel,
     ) -> Result<(), Error> {
         // Reserve timeline metadata before touching disk or the redo branch.
         let desired = self.cursor.checked_add(2).ok_or(Error::MemoryLimit)?;
@@ -104,7 +159,7 @@ impl History {
         if self.entries.is_empty() {
             self.entries.push(Entry {
                 record: first,
-                label: "Oldest available state",
+                label: HistoryLabel::OldestAvailableState,
                 selected: before.selected,
             })
         } else {

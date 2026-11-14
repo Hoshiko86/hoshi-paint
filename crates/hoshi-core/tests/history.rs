@@ -1,4 +1,4 @@
-use hoshi_core::{Color, Document, Error, Shape, ShapeKind, ShapeStyle};
+use hoshi_core::{Color, Document, Error, HistoryLabel, Shape, ShapeKind, ShapeStyle};
 
 fn rectangle(color: Color) -> Shape {
     Shape {
@@ -33,10 +33,10 @@ fn chronological_history_tracks_current_redo_and_navigation() {
     assert_eq!(
         labels(),
         [
-            "Oldest available state",
-            "Add layer",
-            "Rename layer",
-            "Layer properties"
+            HistoryLabel::OldestAvailableState,
+            HistoryLabel::AddLayer,
+            HistoryLabel::RenameLayer,
+            HistoryLabel::LayerProperties
         ]
     );
     assert_eq!(doc.history_position(), 3);
@@ -66,7 +66,10 @@ fn all_history_remains_available_and_branch_discards_only_redo() {
     }
     assert_eq!(doc.history_steps().len(), 26);
     assert_eq!(doc.history_position(), 25);
-    assert_eq!(doc.history_steps()[0].label, "Oldest available state");
+    assert_eq!(
+        doc.history_steps()[0].label,
+        HistoryLabel::OldestAvailableState
+    );
     doc.go_to_history_step(0).unwrap();
     assert_eq!(doc.layers()[0].name(), "Background");
     assert!(doc.history_steps()[0].is_current);
@@ -77,7 +80,10 @@ fn all_history_remains_available_and_branch_discards_only_redo() {
     doc.rename_layer(0, "Branch").unwrap();
     assert_eq!(doc.redo_len(), 0);
     assert_eq!(doc.history_steps().len(), 12);
-    assert_eq!(doc.history_steps().last().unwrap().label, "Rename layer");
+    assert_eq!(
+        doc.history_steps().last().unwrap().label,
+        HistoryLabel::RenameLayer
+    );
     assert!(doc.history_steps().last().unwrap().is_current);
     assert_eq!(doc.go_to_history_step(12), Err(Error::InvalidHistoryStep));
 }
@@ -99,7 +105,7 @@ fn previews_noops_and_toolbar_undo_keep_existing_history_contract() {
         "toolbar Undo still commits then undoes the preview"
     );
     assert_eq!((doc.undo_len(), doc.redo_len()), (0, 1));
-    assert_eq!(doc.history_steps()[1].label, "Rectangle");
+    assert_eq!(doc.history_steps()[1].label, HistoryLabel::Rectangle);
     assert!(doc.history_steps()[1].is_redo);
     doc.go_to_history_step(1).unwrap();
     assert_eq!(doc.composite(false)[0], Color::rgba(255, 0, 0, 255));

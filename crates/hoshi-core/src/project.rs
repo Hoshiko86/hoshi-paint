@@ -123,7 +123,7 @@ impl Document {
             pixels: Arc::new(pixels),
         }];
         self.state.selected = 0;
-        self.checkpoint(before, "Flatten for Save")?;
+        self.checkpoint(before, HistoryLabel::FlattenForSave)?;
         Ok(())
     }
     /// Stream V2 tile records without allocating an encoded copy of the document.
