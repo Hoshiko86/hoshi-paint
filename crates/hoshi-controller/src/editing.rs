@@ -2,6 +2,7 @@
 //!
 //! This module edits a generic frame. Shape rasterization lives in hoshi-core;
 //! native pointer/key events are translated by the UI adapter.
+use super::tools::{PointerInput, ToolBehavior};
 use super::{
     Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint, InputModifiers,
     PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
@@ -25,12 +26,6 @@ pub(super) enum Gesture {
         anchor: Point,
         original: Shape,
         pivot: Option<Point>,
-    },
-    Pan {
-        last: (f64, f64),
-    },
-    TemporaryPan {
-        last: (f64, f64),
     },
     Resize {
         original: Shape,
@@ -188,6 +183,7 @@ impl Controller {
     }
     fn begin_rotation(&mut self, shape: Shape, point: Point) {
         let pivot = self.pivot_for(shape);
+        self.end_pan();
         self.gesture = Some(Gesture::Rotate {
             original: shape,
             pivot,
@@ -213,6 +209,7 @@ impl Controller {
                 match hit.kind {
                     ROTATION_HANDLE => self.begin_rotation(shape, point),
                     PIVOT_HANDLE => {
+                        self.end_pan();
                         self.gesture = Some(Gesture::Pivot {
                             original: self.pivot_for(shape),
                             anchor: point,
@@ -220,6 +217,7 @@ impl Controller {
                     }
                     index => {
                         self.edit_state.numeric_ratio = None;
+                        self.end_pan();
                         self.gesture = Some(Gesture::Resize {
                             original: shape,
                             handle: ResizeHandle::ALL[index as usize],
@@ -235,6 +233,7 @@ impl Controller {
                 return Ok(());
             }
             if frame.contains(point) || self.tool == Tool::MoveShape {
+                self.end_pan();
                 self.gesture = Some(Gesture::Move {
                     original: shape,
                     anchor: point,
@@ -261,11 +260,16 @@ impl Controller {
                 });
             }
             Tool::MoveShape => return Err(ControllerError::NoActiveShape),
-            Tool::Pan => self.gesture = Some(Gesture::Pan { last: (x, y) }),
+            Tool::Pan => {
+                self.end_pan();
+                self.gesture = None;
+                self.with_pan(|pan, cx| pan.pointer_down(cx, PointerInput { x, y }))?;
+            }
             Tool::Eyedropper => {
                 self.sample_snapshot =
                     Some((self.document.snapshot(), self.document.active_shape()));
                 self.sample_color(p)?;
+                self.end_pan();
                 self.gesture = Some(Gesture::Sample)
             }
         }
@@ -357,6 +361,9 @@ impl Controller {
         let p = self.document_point(x, y)?;
         let point = Point::new(p.0, p.1);
         self.last_pointer = Some((x, y));
+        if self.pan.is_dragging() {
+            return self.with_pan(|pan, cx| pan.pointer_move(cx, PointerInput { x, y }));
+        }
         match self.gesture {
             Some(Gesture::Sample) => self.sample_color(p)?,
             Some(Gesture::Stroke) => self.paint_to(p)?,
@@ -426,15 +433,6 @@ impl Controller {
                 self.edit_state.pivot =
                     Some(original.translated(point.x - anchor.x, point.y - anchor.y))
             }
-            Some(Gesture::Pan { last } | Gesture::TemporaryPan { last }) => {
-                let temporary = matches!(self.gesture, Some(Gesture::TemporaryPan { .. }));
-                self.pan(x - last.0, y - last.1)?;
-                self.gesture = Some(if temporary {
-                    Gesture::TemporaryPan { last: (x, y) }
-                } else {
-                    Gesture::Pan { last: (x, y) }
-                });
-            }
             None => (),
         }
         Ok(())
@@ -459,6 +457,7 @@ impl Controller {
             self.document.adjust_shape(updated)?;
             if let Some((x, y)) = self.last_pointer {
                 let p = self.document_point(x, y)?;
+                self.end_pan();
                 self.gesture = Some(Gesture::Rotate {
                     original: updated,
                     pivot,

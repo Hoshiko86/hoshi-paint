@@ -18,6 +18,22 @@ impl Default for Viewport {
 }
 
 impl Viewport {
+    /// Apply a logical-pixel offset only when both resulting coordinates are valid.
+    pub(crate) fn pan_by(&mut self, dx: f64, dy: f64) -> Result<(), ControllerError> {
+        let x = self.offset_x + dx;
+        let y = self.offset_y + dy;
+        if !x.is_finite()
+            || !y.is_finite()
+            || x.abs() > MAX_VIEW_OFFSET
+            || y.abs() > MAX_VIEW_OFFSET
+        {
+            return Err(ControllerError::InvalidInput);
+        }
+        self.offset_x = x;
+        self.offset_y = y;
+        Ok(())
+    }
+
     pub fn to_document(self, x: f64, y: f64) -> (f64, f64) {
         (
             (x - self.offset_x) / self.zoom,
@@ -57,18 +73,7 @@ impl Controller {
     }
 
     pub fn pan(&mut self, dx: f64, dy: f64) -> Result<(), ControllerError> {
-        let x = self.viewport.offset_x + dx;
-        let y = self.viewport.offset_y + dy;
-        if !x.is_finite()
-            || !y.is_finite()
-            || x.abs() > MAX_VIEW_OFFSET
-            || y.abs() > MAX_VIEW_OFFSET
-        {
-            return Err(ControllerError::InvalidInput);
-        }
-        self.viewport.offset_x = x;
-        self.viewport.offset_y = y;
-        Ok(())
+        self.viewport.pan_by(dx, dy)
     }
 
     /// Keeps the document coordinate beneath a logical pointer fixed.
