@@ -16,7 +16,8 @@ pub mod palette_store;
 mod panel_hosts;
 mod panel_layout;
 mod resources;
-mod screen_pick;
+/// Native screen sampling (public so every platform build sees its full error type).
+pub mod screen_pick;
 mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
