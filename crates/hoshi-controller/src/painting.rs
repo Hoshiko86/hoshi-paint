@@ -1,6 +1,7 @@
 //! Brush gestures use the document's isolated, single-entry stroke preview.
-use super::{Controller, ControllerError, Gesture, PointerButton, Tool};
-use hoshi_core::{BrushTip, StrokeBlend, StrokeStyle, geometry::Point};
+use super::tools::{PointerInput, ToolState, brush::BrushTool};
+use super::{ActiveDrag, Controller, ControllerError, PointerButton, Tool};
+use hoshi_core::{BrushTip, StrokeBlend, StrokeStyle};
 
 impl Controller {
     /// Circular brush diameter, shared with shape outlines, in document pixels.
@@ -16,7 +17,7 @@ impl Controller {
 
     pub(super) fn begin_paint(
         &mut self,
-        p: (f64, f64),
+        p: PointerInput,
         button: PointerButton,
     ) -> Result<(), ControllerError> {
         self.commit()?;
@@ -29,19 +30,21 @@ impl Controller {
                 PointerButton::Secondary => self.secondary_color,
             })
         };
-        self.document
-            .begin_stroke(StrokeStyle { tip, blend }, Point::new(p.0, p.1))?;
-        self.begin_gesture(Gesture::Stroke);
-        Ok(())
-    }
-
-    pub(super) fn paint_to(&mut self, p: (f64, f64)) -> Result<(), ControllerError> {
-        self.document.extend_stroke(Point::new(p.0, p.1))?;
-        Ok(())
+        self.begin_tool(
+            ToolState::Brush(BrushTool::new(StrokeStyle { tip, blend })),
+            p,
+            false,
+        )
     }
 
     pub(super) fn finish_stroke(&mut self) -> Result<bool, ControllerError> {
-        if matches!(self.legacy_gesture(), Some(Gesture::Stroke)) {
+        if matches!(
+            self.drag,
+            Some(ActiveDrag::Tool {
+                state: ToolState::Brush(_),
+                ..
+            })
+        ) {
             self.clear_gesture();
         }
         match self.document.commit_stroke() {
