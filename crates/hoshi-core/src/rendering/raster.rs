@@ -18,7 +18,14 @@ impl RasterShape {
         shape.rendering = shape.rendering.for_style(shape.style);
         let mut arc_lengths = [0.; ARC_STEPS + 1];
         if shape.kind == ShapeKind::Ellipse && shape.rendering.line_style != LineStyle::Solid {
-            let (rx, ry) = (f64::from(shape.width) / 2., f64::from(shape.height) / 2.);
+            let width = match shape.style {
+                ShapeStyle::Outline { width, .. } | ShapeStyle::Both { width, .. } => width,
+                ShapeStyle::Fill(_) => 0.,
+            };
+            let (rx, ry) = (
+                (f64::from(shape.width) - width).max(0.) / 2.,
+                (f64::from(shape.height) - width).max(0.) / 2.,
+            );
             let mut previous = Point::new(0., -ry);
             for (i, length) in arc_lengths.iter_mut().enumerate().skip(1) {
                 let angle = i as f64 * std::f64::consts::TAU / ARC_STEPS as f64;
@@ -99,8 +106,14 @@ impl RasterShape {
                 }
             }
             ShapeKind::Ellipse => {
-                let rx = f64::from(self.shape.width) / 2.;
-                let ry = f64::from(self.shape.height) / 2.;
+                let (mut rx, mut ry) = (
+                    (f64::from(self.shape.width) - width).max(0.) / 2.,
+                    (f64::from(self.shape.height) - width).max(0.) / 2.,
+                );
+                if rx == 0. || ry == 0. {
+                    rx = f64::from(self.shape.width) / 2.;
+                    ry = f64::from(self.shape.height) / 2.;
+                }
                 let angle = (p.x / rx)
                     .atan2(-p.y / ry)
                     .rem_euclid(std::f64::consts::TAU);
