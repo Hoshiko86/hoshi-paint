@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub const MAX_DIMENSION: u32 = 262_144;
 pub mod geometry;
+mod mask;
 mod memory;
 mod painting;
 mod pixels;
