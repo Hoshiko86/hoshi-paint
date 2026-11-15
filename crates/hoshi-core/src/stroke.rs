@@ -1,7 +1,6 @@
 //! Validated brush styles and sparse, maximum-combined stroke coverage.
 
-use crate::{Color, Error, MemoryReservation, TILE_SIZE, geometry::Point};
-use std::collections::HashMap;
+use crate::{Color, Error, TILE_SIZE, geometry::Point, mask::MaskStore};
 
 /// A finite circular brush width in document pixels and its edge sampling mode.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -88,33 +87,12 @@ pub struct StrokeStyle {
     pub blend: StrokeBlend,
 }
 
-struct CoverageTile {
-    values: Vec<u8>,
-    _reservation: MemoryReservation,
-}
-
-impl CoverageTile {
-    fn new() -> Result<Self, Error> {
-        let count = (TILE_SIZE * TILE_SIZE) as usize;
-        let reservation = MemoryReservation::new(count as u64)?;
-        let mut values = Vec::new();
-        values
-            .try_reserve_exact(count)
-            .map_err(|_| Error::MemoryLimit)?;
-        values.resize(count, 0);
-        Ok(Self {
-            values,
-            _reservation: reservation,
-        })
-    }
-}
-
 /// Sparse coverage clipped to `width` by `height` document pixels. Tile buffers
 /// own budget reservations; revisiting a pixel combines coverage with maximum.
 pub(crate) struct CoverageMask {
     width: u32,
     height: u32,
-    tiles: HashMap<(u32, u32), CoverageTile>,
+    tiles: MaskStore,
 }
 
 impl CoverageMask {
@@ -123,7 +101,7 @@ impl CoverageMask {
         Self {
             width,
             height,
-            tiles: HashMap::new(),
+            tiles: MaskStore::new(width, height, 0),
         }
     }
 
@@ -136,45 +114,25 @@ impl CoverageMask {
         tip: BrushTip,
     ) -> Result<(), Error> {
         let segment = Segment::new(from, to, tip)?;
-        let mut pending = HashMap::new();
+        let mut pending = self.tiles.reserve_tiles();
         segment.visit(self.width, self.height, |x, y, _| {
-            let key = (x / TILE_SIZE, y / TILE_SIZE);
-            if !self.tiles.contains_key(&key) && !pending.contains_key(&key) {
-                pending.try_reserve(1).map_err(|_| Error::MemoryLimit)?;
-                pending.insert(key, CoverageTile::new()?);
-            }
-            Ok(())
+            pending.reserve_pixel(x, y)
         })?;
-        self.tiles
-            .try_reserve(pending.len())
-            .map_err(|_| Error::MemoryLimit)?;
-        self.tiles.extend(pending);
+        pending.commit()?;
         segment.visit(self.width, self.height, |x, y, coverage| {
-            if let Some(tile) = self.tiles.get_mut(&(x / TILE_SIZE, y / TILE_SIZE))
-                && let Some(value) = tile.values.get_mut(pixel_index(x, y))
-            {
-                *value = (*value).max(coverage);
-            }
-            Ok(())
+            self.tiles.set_max(x, y, coverage)
         })
     }
 
     /// Returns zero outside the document and in untouched tiles.
     pub(crate) fn coverage(&self, x: u32, y: u32) -> u8 {
-        if x >= self.width || y >= self.height {
-            return 0;
-        }
-        self.tiles
-            .get(&(x / TILE_SIZE, y / TILE_SIZE))
-            .and_then(|tile| tile.values.get(pixel_index(x, y)))
-            .copied()
-            .unwrap_or(0)
+        self.tiles.get(x, y)
     }
 
     /// Yields occupied tile rectangles as `(left, top, right, bottom)`, with
     /// exclusive right/bottom bounds clipped to the document; order is unspecified.
     pub(crate) fn covered_rects(&self) -> impl Iterator<Item = (u32, u32, u32, u32)> + '_ {
-        self.tiles.keys().map(|&(tx, ty)| {
+        self.tiles.stored_tiles().map(|((tx, ty), _)| {
             let x = tx * TILE_SIZE;
             let y = ty * TILE_SIZE;
             (
@@ -190,10 +148,6 @@ impl CoverageMask {
     pub(crate) fn is_empty(&self) -> bool {
         self.tiles.is_empty()
     }
-}
-
-fn pixel_index(x: u32, y: u32) -> usize {
-    ((y % TILE_SIZE) * TILE_SIZE + x % TILE_SIZE) as usize
 }
 
 struct Segment {
