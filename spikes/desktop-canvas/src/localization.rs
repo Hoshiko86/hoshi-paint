@@ -10,7 +10,10 @@ const EN_US: &str = include_str!("../i18n/en-US.json");
 const ES_ES: &str = include_str!("../i18n/es-ES.json");
 pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
+    "add_to_palette",
+    "add_to_palette_tooltip",
     "all_files",
+    "alpha",
     "antialiasing",
     "antialiasing_tooltip",
     "bounds_error_position",
@@ -29,19 +32,33 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "cancel_closing_document",
     "cancel_shape",
     "canvas_label",
+    "choose_palette_slot",
+    "clear_color_search",
     "clear_recent",
     "cli_usage",
+    "close",
     "close_document",
+    "close_panel",
     "color_error_hex",
+    "color_name",
+    "color_name_placeholder",
+    "color_name_tooltip",
+    "color_palette",
     "colors",
     "colors_heading",
     "colors_tooltip",
     "commit_shape",
     "confirm_format_and_save",
     "crop_to_selection",
+    "current",
+    "current_color",
     "current_state",
     "discard_and_close",
+    "dock_location",
+    "dock_panel",
     "dont_save",
+    "editing_primary",
+    "editing_secondary",
     "eraser",
     "error_action_unavailable",
     "error_commit_shape_before_save",
@@ -82,6 +99,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "error_project_invalid_data",
     "error_project_invalid_document",
     "error_project_version",
+    "export_palette",
+    "export_palette_tooltip",
     "eyedropper",
     "file_operation_failed",
     "fill",
@@ -90,9 +109,12 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "fill_pattern_selector",
     "finish_shape",
     "fit_canvas",
+    "float_panel",
     "handle_move_pivot",
     "handle_resize",
     "handle_rotate",
+    "hex_apply",
+    "hex_color",
     "history",
     "history_add_layer",
     "history_brush",
@@ -121,6 +143,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "history_status_no_memory",
     "history_status_select_step",
     "hoshi_layered_project",
+    "hsv_range",
+    "hue",
     "image_error_apply_limits",
     "image_error_invalid_choice",
     "image_error_not_positive",
@@ -129,6 +153,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "image_error_whole_pixels",
     "image_summary",
     "images_hoshi_projects",
+    "import_palette",
+    "import_palette_tooltip",
     "jpeg_image",
     "jpeg_lossy_warning",
     "jpeg_quality",
@@ -166,8 +192,13 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "menu_rotate_counter_clockwise",
     "menu_save_all",
     "menu_save_as",
+    "no_matching_colors",
     "ok",
     "open_image",
+    "open_palettes_folder",
+    "open_palettes_folder_tooltip",
+    "original",
+    "original_color",
     "outline",
     "outline_width",
     "outline_width_label",
@@ -199,6 +230,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "palette_error_unicode_path",
     "palette_error_unknown_color_name",
     "palette_error_write",
+    "palette_size_tooltip",
     "pattern_backward_diagonal",
     "pattern_checkerboard",
     "pattern_cross",
@@ -207,13 +239,27 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "pattern_horizontal",
     "pattern_solid",
     "pattern_vertical",
+    "picker_editing_shape",
+    "picker_next_color",
+    "placement_bottom",
+    "placement_float",
+    "placement_left",
+    "placement_right",
+    "placement_top",
     "png_image",
     "primary_color",
     "rectangle",
     "redo",
     "redo_available",
     "reset_colors",
+    "reset_colors_label",
+    "reset_palette",
+    "reset_palette_tooltip",
     "reset_view",
+    "restore",
+    "restore_original_color",
+    "rgb_range",
+    "saturation_value_area",
     "save",
     "save_as",
     "save_before_closing",
@@ -224,6 +270,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "save_failed_preserved",
     "save_flatten_warning",
     "save_format_guidance",
+    "save_palette_as",
+    "save_palette_as_tooltip",
     "save_target_changed",
     "save_target_changed_before_write",
     "screen_pick_error_closed",
@@ -244,12 +292,16 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "shapes",
     "shortcut_redo",
     "shortcut_undo",
+    "show_all_96",
+    "show_first_32",
     "status_document",
     "status_no_image",
     "status_shape",
     "style_heading",
     "swap_colors",
+    "swap_colors_label",
     "tab_unsaved",
+    "toggle_dock_tooltip",
     "tool",
     "tools_heading",
     "undo",
@@ -257,6 +309,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "unsaved_changes_warning",
     "untitled",
     "untitled_numbered",
+    "use_color",
     "window_title",
     "zoom_in",
     "zoom_out",
@@ -500,6 +553,59 @@ pub fn apply_shapes(ui: &ShapePropertiesWindow, localizer: &Localizer) {
 fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
     translations.set_locale(localizer.locale.tag().into());
+    translations.set_placement_float(text("placement_float"));
+    translations.set_placement_left(text("placement_left"));
+    translations.set_placement_right(text("placement_right"));
+    translations.set_placement_top(text("placement_top"));
+    translations.set_placement_bottom(text("placement_bottom"));
+    translations.set_dock_location(text("dock_location"));
+    translations.set_toggle_dock_tooltip(text("toggle_dock_tooltip"));
+    translations.set_float_panel(text("float_panel"));
+    translations.set_dock_panel(text("dock_panel"));
+    translations.set_close_panel(text("close_panel"));
+    translations.set_swap_colors_label(text("swap_colors_label"));
+    translations.set_reset_colors_label(text("reset_colors_label"));
+    translations.set_editing_primary(text("editing_primary"));
+    translations.set_editing_secondary(text("editing_secondary"));
+    translations.set_original(text("original"));
+    translations.set_current(text("current"));
+    translations.set_original_color(text("original_color"));
+    translations.set_current_color(text("current_color"));
+    translations.set_restore(text("restore"));
+    translations.set_restore_original_color(text("restore_original_color"));
+    translations.set_saturation_value_area(text("saturation_value_area"));
+    translations.set_hue(text("hue"));
+    translations.set_alpha(text("alpha"));
+    translations.set_rgb_range(text("rgb_range"));
+    translations.set_hsv_range(text("hsv_range"));
+    translations.set_hex_color(text("hex_color"));
+    translations.set_hex_apply(text("hex_apply"));
+    translations.set_picker_editing_shape(text("picker_editing_shape"));
+    translations.set_picker_next_color(text("picker_next_color"));
+    translations.set_close(text("close"));
+    translations.set_color_name_placeholder(text("color_name_placeholder"));
+    translations.set_color_name(text("color_name"));
+    translations.set_color_name_tooltip(text("color_name_tooltip"));
+    translations.set_clear_color_search(text("clear_color_search"));
+    translations.set_no_matching_colors(text("no_matching_colors"));
+    translations.set_use_color(text("use_color"));
+    translations.set_color_palette(text("color_palette"));
+    translations.set_show_first_32(text("show_first_32"));
+    translations.set_show_all_96(text("show_all_96"));
+    translations.set_palette_size_tooltip(text("palette_size_tooltip"));
+    translations.set_add_to_palette(text("add_to_palette"));
+    translations.set_add_to_palette_tooltip(text("add_to_palette_tooltip"));
+    translations.set_save_palette_as(text("save_palette_as"));
+    translations.set_save_palette_as_tooltip(text("save_palette_as_tooltip"));
+    translations.set_import_palette(text("import_palette"));
+    translations.set_import_palette_tooltip(text("import_palette_tooltip"));
+    translations.set_export_palette(text("export_palette"));
+    translations.set_export_palette_tooltip(text("export_palette_tooltip"));
+    translations.set_open_palettes_folder(text("open_palettes_folder"));
+    translations.set_open_palettes_folder_tooltip(text("open_palettes_folder_tooltip"));
+    translations.set_reset_palette(text("reset_palette"));
+    translations.set_reset_palette_tooltip(text("reset_palette_tooltip"));
+    translations.set_choose_palette_slot(text("choose_palette_slot"));
     translations.set_handle_move_pivot(text("handle_move_pivot"));
     translations.set_handle_rotate(text("handle_rotate"));
     translations.set_handle_resize(text("handle_resize"));
@@ -653,6 +759,26 @@ mod tests {
         assert_eq!(translations.get_bounds_width(), "Ancho de la forma");
         assert_eq!(translations.get_line_dash(), "Guiones");
         assert_eq!(translations.get_antialiasing(), "Suavizado");
+    }
+
+    #[test]
+    fn color_window_labels_follow_the_selected_locale() {
+        use slint::ComponentHandle;
+        i_slint_backend_testing::init_no_event_loop();
+        let window = ColorPickerWindow::new().unwrap();
+        apply_colors(&window, &Localizer::new(&select_preferred(["es-ES"])));
+        for label in [
+            "Restaurar el color original",
+            "Importar paleta",
+            "Colores · ubicación del panel",
+        ] {
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&window, label)
+                    .count(),
+                1,
+                "{label}"
+            );
+        }
     }
 
     #[test]
