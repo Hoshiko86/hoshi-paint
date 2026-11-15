@@ -128,23 +128,17 @@ Evaluate accelerated presentation/compositing while preserving deterministic
 document semantics. Core CPU reference results must remain available for tests.
 No GPU dependency is required by the current slice.
 
-## Open: UI framework
+## UI framework
 
-The [source-backed evaluation](UI_EVALUATION.md) recommends a bounded Slint-first
-spike, with egui as a desktop fallback. This is not a production stack selection;
-toolchain compatibility, licensing, desktop input and Apple-host validation remain
-gates before adopting a framework.
+**Desktop: Slint 1.18.1 under GPL-3.0** ([ADR 0006](adr/0006-desktop-ui-toolkit.md)).
+The desktop adapter is production code under this quality gate. Slint types
+stay in that crate; the core and controller remain UI-independent. The software
+renderer stays until #137 and a renderer ADR with measurements.
 
-The first [desktop integration spike](SPIKE_RESULTS.md) uses Slint 1.18.1,
-software rendering and a separate UI-independent `hoshi-controller` crate.
-Rust is now pinned to 1.99.1. This establishes a desktop evaluation baseline,
-not production framework selection, GPU validation or iOS support.
-
-Compare Slint, egui, and a native-shell approach. Evaluate: desktop pointer
-capture, pen/pressure, IME and text, accessibility, menus/dialogs, high DPI,
-iOS compilation/distribution, custom canvas integration with wgpu, licensing,
-maintenance, and build complexity. Record supported versions and evidence.
-Do not commit the product to a framework based solely on advertised portability.
+**iPad/iOS: open.** The [evaluation](UI_EVALUATION.md) criteria still apply
+there: pointer and Pencil input, IME, accessibility, and build and distribution
+on an Apple host ([checklist](IOS_SPIKE_CHECKLIST.md)). Do not commit iPad to a
+framework based solely on advertised portability.
 
 ## Proposed: versioned project container and Wasm effects
 

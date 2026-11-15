@@ -2,7 +2,9 @@
 
 ## Decision
 
-**Continue the Slint evaluation; production adoption remains undecided.** The
+**Superseded for desktop by [ADR 0006](adr/0006-desktop-ui-toolkit.md)
+(2026-11-15): Slint is the production desktop toolkit.** The record below is
+the original evaluation. The
 first desktop slice demonstrates that the Rust core/controller can drive a
 software-rendered Slint canvas with temporary editable shapes. ARCH-1 remains
 open for the GPU, real-device/input, accessibility, performance and iOS gates.
