@@ -21,6 +21,16 @@ impl MaskTile {
             _reservation: reservation,
         })
     }
+
+    fn set_max(&mut self, x: u32, y: u32, value: u8) -> Result<bool, Error> {
+        let pixel = self
+            .values
+            .get_mut(pixel_index(x, y))
+            .ok_or(Error::MemoryLimit)?;
+        let changed = value > *pixel;
+        *pixel = (*pixel).max(value);
+        Ok(changed)
+    }
 }
 
 /// A raw tile's stored bytes or implicit background; callers clip edge-tile padding.
@@ -75,20 +85,27 @@ impl MaskStore {
 
     /// Combines by maximum, reserving a missing tile before any pixel or bounds changes.
     pub(crate) fn set_max(&mut self, x: u32, y: u32, value: u8) -> Result<(), Error> {
-        if x >= self.width || y >= self.height || value <= self.get(x, y) {
+        if x >= self.width || y >= self.height {
             return Ok(());
         }
-        if !self.tiles.contains_key(&(x / TILE_SIZE, y / TILE_SIZE)) {
+        let key = (x / TILE_SIZE, y / TILE_SIZE);
+        let changed = if let Some(tile) = self.tiles.get_mut(&key) {
+            tile.set_max(x, y, value)?
+        } else {
+            if value <= self.background {
+                return Ok(());
+            }
             let mut pending = self.reserve_tiles();
             pending.reserve_pixel(x, y)?;
             pending.commit()?;
+            self.tiles
+                .get_mut(&key)
+                .ok_or(Error::MemoryLimit)?
+                .set_max(x, y, value)?
+        };
+        if !changed {
+            return Ok(());
         }
-        let pixel = self
-            .tiles
-            .get_mut(&(x / TILE_SIZE, y / TILE_SIZE))
-            .and_then(|tile| tile.values.get_mut(pixel_index(x, y)))
-            .ok_or(Error::MemoryLimit)?;
-        *pixel = (*pixel).max(value);
         self.bounds = Some(match self.bounds {
             Some((left, top, right, bottom)) => {
                 (left.min(x), top.min(y), right.max(x + 1), bottom.max(y + 1))
