@@ -43,8 +43,11 @@ Dependencies point inward only: `spikes/desktop-canvas` â†’ `hoshi-controller` â
   short lowercase developer text for logs, with no advice to the user.
 - User copy lives in `spikes/desktop-canvas/i18n/en-US.json` **and**
   `es-ES.json`, with every key in `REQUIRED_KEYS` (`localization.rs`). The
-  adapter maps each error variant to a key where it is shown; see how
-  `lib.rs::update` handles `HistoryIo`.
+  adapter maps each error variant to a key where it is shown (`error_text.rs`).
+- `cargo test -p xtask` fails on a string literal that reads like English
+  prose (a capitalized word, then a lowercase word) in non-test Rust source
+  (`xtask/src/english.rs`). Developer-only text is lowercase; legal notices
+  are the only allowlisted exception.
 - Existing English strings may stay until their ticket moves them (#86), but
   don't add new ones. If a task seems to need one, add the catalog key instead.
 

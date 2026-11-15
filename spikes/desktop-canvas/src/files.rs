@@ -180,7 +180,7 @@ impl Seek for InputFile {
         let target = u64::try_from(target).map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Invalid image file offset",
+                "image file offset out of range",
             )
         })?;
         self.position = self.file.seek(SeekFrom::Start(target))?;
