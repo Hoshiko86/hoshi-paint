@@ -25,14 +25,8 @@ const ROOTS: &[&str] = &[
 
 /// `(file, literal prefix)` pairs that are allowed, each with a reason.
 #[cfg(test)]
-const ALLOWED: &[(&str, &str)] = &[
-    // About box: copyright and license notices stay as written.
-    (
-        "apps/desktop/src/lib.rs",
-        "Copyright 2026 Hoshi Paint contributors",
-    ),
-    ("apps/desktop/src/lib.rs", "Icons: Lucide 1.71.0"),
-];
+/// Empty since the About box moved to `ui/main-window.slint` (`SLINT_ALLOWED`).
+const ALLOWED: &[(&str, &str)] = &[];
 
 /// Slint layouts the stricter `.slint` scan covers.
 #[cfg(test)]
@@ -47,6 +41,18 @@ const SLINT_ALLOWED: &[(&str, &str)] = &[
     ("shape-properties.slint", " · Hoshi Paint"),
     // The hexadecimal channel symbol, like R/G/B and H/S/V.
     ("colors.slint", "Hex"),
+    // Main window: product name (default title and About heading) and font.
+    ("main-window.slint", "Hoshi Paint"),
+    ("main-window.slint", "DejaVu Sans"),
+    // About box: copyright and license notices stay as written.
+    (
+        "main-window.slint",
+        r"Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only",
+    ),
+    (
+        "main-window.slint",
+        r"Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md.",
+    ),
 ];
 
 /// Literals on a `.slint` line that read as copy: two consecutive ASCII
