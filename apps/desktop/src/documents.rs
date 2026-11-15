@@ -281,14 +281,14 @@ impl Manager {
         let flatten = self.state.borrow().requires_flatten(format);
         if format == FileFormat::Jpeg || flatten {
             self.prepare(ui);
-            ui.set_save_quality(
-                self.state
-                    .borrow()
-                    .active_tab()
-                    .unwrap()
-                    .jpeg_quality
-                    .into(),
-            );
+            let quality = {
+                let state = self.state.borrow();
+                let Some(tab) = state.active_tab() else {
+                    return;
+                };
+                tab.jpeg_quality
+            };
+            ui.set_save_quality(quality.into());
             ui.set_save_config_jpeg(format == FileFormat::Jpeg);
             ui.set_save_config_warning(
                 self.text
@@ -605,5 +605,33 @@ pub(super) fn refresh(ui: &AppWindow, state: &Workspace) {
     );
     if !state.has_document() {
         ui.set_status(state.text().text("status_no_image").into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_format_without_active_tab_does_not_show_configuration() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (ui, state) = crate::create_app().unwrap();
+        let text = Localizer::new(&crate::localization::select_preferred(["en-US"]));
+        let manager = Manager {
+            state: state.clone(),
+            flow: RefCell::new(Flow::default()),
+            dialogs: Rc::new(NativeDialogs { text: text.clone() }),
+            text,
+        };
+        let id = state.borrow().active_id().unwrap();
+        let closing = state.clone();
+        ui.on_clear_navigation_state(move || {
+            closing.borrow_mut().close_discard(id).unwrap();
+        });
+        manager.save_path(&ui, id, PathBuf::from("untitled.jpg"));
+        assert!(!state.borrow().has_document());
+        assert!(!ui.get_save_config_visible());
+        manager.save_path(&ui, id, PathBuf::from("untitled.jpg"));
+        assert!(!ui.get_save_config_visible());
     }
 }
