@@ -5,6 +5,7 @@
 
 use crate::files::FileError;
 use crate::localization::Localizer;
+use crate::palette_store::PaletteStoreError;
 use crate::workspace::WorkspaceError;
 use hoshi_controller::ControllerError;
 use hoshi_core::{Error as CoreError, MAX_DIMENSION, ProjectError};
@@ -51,7 +52,86 @@ pub(crate) const KEYS: &[&str] = &[
     "error_project_invalid_data",
     "error_project_invalid_document",
     "error_project_version",
+    "palette_error_color",
+    "palette_error_folder",
+    "palette_error_io",
+    "palette_error_is_folder",
+    "palette_error_list",
+    "palette_error_no_storage",
+    "palette_error_not_utf8",
+    "palette_error_open_folder",
+    "palette_error_read",
+    "palette_error_read_only",
+    "palette_error_rollback",
+    "palette_error_selection",
+    "palette_error_settings_destination",
+    "palette_error_settings_invalid",
+    "palette_error_settings_read",
+    "palette_error_settings_version",
+    "palette_error_settings_write",
+    "palette_error_slot",
+    "palette_error_temporary",
+    "palette_error_too_large",
+    "palette_error_unicode_path",
+    "palette_error_unknown_color_name",
+    "palette_error_write",
 ];
+
+pub(crate) fn palette(text: &Localizer, error: &PaletteStoreError) -> String {
+    let detail = |key: &str, error: &dyn std::fmt::Display| {
+        text.format(key, &[("error", &error.to_string())])
+    };
+    let path_detail = |key: &str, path: &std::path::Path, error: &std::io::Error| {
+        text.format(
+            key,
+            &[
+                ("path", &path.display().to_string()),
+                ("error", &error.to_string()),
+            ],
+        )
+    };
+    let key = match error {
+        PaletteStoreError::SettingsRead(error) => {
+            return detail("palette_error_settings_read", error);
+        }
+        PaletteStoreError::SettingsWrite(error) => {
+            return detail("palette_error_settings_write", error);
+        }
+        PaletteStoreError::Folder(error) => return detail("palette_error_folder", error),
+        PaletteStoreError::List(error) => return detail("palette_error_list", error),
+        PaletteStoreError::Io(error) => return detail("palette_error_io", error),
+        PaletteStoreError::Read { path, source } => {
+            return path_detail("palette_error_read", path, source);
+        }
+        PaletteStoreError::Write { path, source } => {
+            return path_detail("palette_error_write", path, source);
+        }
+        PaletteStoreError::InvalidColor { line } => {
+            return text.format("palette_error_color", &[("line", &line.to_string())]);
+        }
+        PaletteStoreError::RollbackFailed { error, rollback } => {
+            return text.format(
+                "palette_error_rollback",
+                &[
+                    ("error", &palette(text, error)),
+                    ("rollback", &palette(text, rollback)),
+                ],
+            );
+        }
+        PaletteStoreError::SettingsInvalid => "palette_error_settings_invalid",
+        PaletteStoreError::SettingsVersion => "palette_error_settings_version",
+        PaletteStoreError::InvalidSlot => "palette_error_slot",
+        PaletteStoreError::InvalidSelection => "palette_error_selection",
+        PaletteStoreError::NoStorage => "palette_error_no_storage",
+        PaletteStoreError::NonUnicodePath => "palette_error_unicode_path",
+        PaletteStoreError::TooLarge => "palette_error_too_large",
+        PaletteStoreError::NotUtf8 => "palette_error_not_utf8",
+        PaletteStoreError::SettingsDestination => "palette_error_settings_destination",
+        PaletteStoreError::IsFolder => "palette_error_is_folder",
+        PaletteStoreError::ReadOnly => "palette_error_read_only",
+    };
+    text.text(key).into()
+}
 
 pub(crate) fn workspace(text: &Localizer, error: &WorkspaceError) -> String {
     let max = crate::workspace::MAX_DOCUMENTS.to_string();
@@ -159,5 +239,30 @@ mod tests {
                 "{key} missing from REQUIRED_KEYS"
             );
         }
+    }
+
+    #[test]
+    fn palette_errors_follow_the_selected_locale() {
+        use crate::localization::{Localizer, select_preferred};
+        use crate::palette_store::PaletteStoreError;
+        let english = Localizer::new(&select_preferred(["en-US"]));
+        let spanish = Localizer::new(&select_preferred(["es-ES"]));
+        let color = PaletteStoreError::InvalidColor { line: 7 };
+        assert_eq!(
+            super::palette(&english, &color),
+            "Palette line 7 must contain eight ARGB hexadecimal digits."
+        );
+        assert_eq!(
+            super::palette(&spanish, &color),
+            "La línea 7 de la paleta debe contener ocho dígitos hexadecimales ARGB."
+        );
+        let rollback = PaletteStoreError::RollbackFailed {
+            error: Box::new(PaletteStoreError::ReadOnly),
+            rollback: Box::new(PaletteStoreError::IsFolder),
+        };
+        assert_eq!(
+            super::palette(&spanish, &rollback),
+            "El destino de la paleta es de solo lectura. Tampoco se pudo restaurar el archivo de paleta: Elige un archivo, no una carpeta."
+        );
     }
 }

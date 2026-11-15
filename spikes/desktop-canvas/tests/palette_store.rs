@@ -54,7 +54,7 @@ fn import_and_export_preserve_argb_and_do_not_silently_save_working_changes() {
     let before = (
         library.current().clone(),
         library.dirty(),
-        library.title().to_string(),
+        library.title().map(str::to_owned),
         library.selected_index(),
     );
     library.export(&output).unwrap();
@@ -64,7 +64,7 @@ fn import_and_export_preserve_argb_and_do_not_silently_save_working_changes() {
         (
             library.current().clone(),
             library.dirty(),
-            library.title().to_string(),
+            library.title().map(str::to_owned),
             library.selected_index()
         ),
         before
@@ -165,4 +165,26 @@ fn oversized_import_preserves_work_and_duplicate_names_remain_distinguishable() 
     let order = library.entries().to_vec();
     library.refresh().unwrap();
     assert_eq!(library.entries(), order);
+}
+
+#[test]
+fn settings_from_older_builds_keep_the_built_in_palette_unnamed() {
+    // Before #119 the built-in palette's English name was stored as its title.
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("settings");
+    PaletteLibrary::open(Some(root.clone()))
+        .unwrap()
+        .replace(0, COLOR)
+        .unwrap();
+    let state = root.join("palette-state.json");
+    let text = fs::read_to_string(&state).unwrap();
+    assert!(text.contains("\"title\": null"), "{text}");
+    fs::write(
+        &state,
+        text.replace("\"title\": null", "\"title\": \"Default\""),
+    )
+    .unwrap();
+    let restored = PaletteLibrary::open(Some(root)).unwrap();
+    assert_eq!(restored.title(), None);
+    assert_eq!(restored.current().colors()[0], COLOR);
 }

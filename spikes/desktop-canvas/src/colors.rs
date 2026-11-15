@@ -58,6 +58,7 @@ pub(super) fn bind_picker(
     ui: &AppWindow,
     controller: SharedController,
     palette_root: Option<std::path::PathBuf>,
+    text: &crate::localization::Localizer,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
     let original = Rc::new(Cell::new(controller.borrow().selected_color()));
@@ -492,7 +493,7 @@ pub(super) fn bind_picker(
             let _ = p.hide();
         }
     });
-    crate::color_library::bind(ui, &picker, controller.clone(), palette_root);
+    crate::color_library::bind(ui, &picker, controller.clone(), palette_root, text);
     Ok(picker)
 }
 
