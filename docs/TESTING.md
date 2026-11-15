@@ -129,8 +129,9 @@ reference: a local run can differ by a fraction of a percent.
 | `hoshi-core` | 95.1% (3,704) | 95% | `history.rs` 88.8%, `lib.rs` 90.1% |
 | `hoshi-controller` | 94.3% (1,468) after #71 | 93% | `lib.rs` 87.5%, `painting.rs` 92.1% |
 
-The desktop spike is not instrumented. Its code is a disposable adapter, and
-instrumenting it would rebuild Slint.
+The desktop app is not instrumented yet, because instrumenting it rebuilds
+Slint. Since ADR 0006 it is production code, so a coverage floor for it is a
+follow-up; today its integration and smoke tests carry it.
 
 ## Local prerequisites
 

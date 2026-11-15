@@ -1,6 +1,7 @@
 # UI architecture evaluation — ARCH-1
 
-Status: research complete; **production framework decision remains open**.
+Status: research complete. **Decided for desktop: Slint**, under GPL-3.0
+([ADR 0006](adr/0006-desktop-ui-toolkit.md), 2026-11-15). iPad/iOS remains open.
 The subsequent desktop experiment and its actual validation are recorded in
 [SPIKE_RESULTS.md](SPIKE_RESULTS.md); statements below describe the research phase.
 Evidence reviewed on 2026-10-31. This document recommends the next bounded

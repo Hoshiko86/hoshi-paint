@@ -10,7 +10,7 @@ Deeper references: `docs/ARCHITECTURE.md` (quality gate — binding),
 ## System shape
 
 ```
-spikes/desktop-canvas (Slint 1.18.1 adapter, disposable)
+spikes/desktop-canvas (Slint 1.18.1 desktop app, production — ADR 0006)
    └─> hoshi-controller (tools, gestures, viewport, colors; no UI deps)
           └─> hoshi-core (document, sparse COW tiles, history-on-disk, .hoshi I/O)
 ```
@@ -71,8 +71,9 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   pointer capture / focus loss **commits** an active stroke; a failed stroke commit **discards** it (#77). Brush size is one
   shared toolbar value. Ctrl+Shift+Z = Layer Rotate/Zoom (not Redo).
   Esc commits live edits (Paint.NET). Fonts: all system fonts + a bundled
-  curated open-font pack (OFL/Apache/UFL). License is not fixed to GPL-3.0;
-  revisit if a dependency needs it. Open: blend reference renders (owner).
+  curated open-font pack (OFL/Apache/UFL). **Slint is the production
+  desktop toolkit, GPL-3.0 (ADR 0006)**; iPad toolkit open until the Apple-host
+  checklist runs. Open: blend reference renders (owner).
 - [ ] #50 Esc commits shape (needs #49 merged — done).
 - [ ] TOOL epic #51 (ADR 0003): #53 ToolId → trait/ToolCx → Slint string IDs
       (after #47) → Pan/Zoom → Brush/Eraser → Shapes → HandleKind → settings
