@@ -89,8 +89,8 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   replace `Workspace`'s `empty` controller with a `Drawing` settings value,
   then drop `Deref` caller file by file (note: `empty` currently carries
   drawing settings while no tab is open, so a plain no-op is a regression);
-  move core error copy to adapter; split spike `lib.rs` (slint! macro → `.slint`
-  file, `refresh` → `view_model.rs`); split `Color`/`Layer` out of core `lib.rs`.
+  move core error copy to adapter; desktop `refresh` → `view_model.rs`
+  (main window markup is in `ui/main-window.slint` since ADR 0006 slice 3); split `Color`/`Layer` out of core `lib.rs`.
 
 ## PR review checklist
 

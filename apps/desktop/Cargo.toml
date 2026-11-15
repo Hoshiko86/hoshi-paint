@@ -22,6 +22,9 @@ sys-locale = "0.3"
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal", "wayland"] }
 slint = { version = "=1.18.1", default-features = false, features = ["std", "backend-winit", "renderer-software", "accessibility", "compat-1-18", "raw-window-handle-06"] }
 
+[build-dependencies]
+slint-build = "=1.18.1"
+
 [dev-dependencies]
 i-slint-backend-testing = { version = "=1.18.1", features = ["renderer-software"] }
 image = { version = "0.25", default-features = false, features = ["png"] }

@@ -1,8 +1,7 @@
 // User-facing strings cross the adapter through this global. Rust initializes
 // every value from the selected catalog before showing the component tree.
 export global Translations {
-    // Tooltip text from the catalogs. The Rust `slint!` macro cannot spell
-    // `\{..}` interpolation, so it converts plain strings through this.
+    // Tooltip text from the catalogs, as plain (unformatted) styled text.
     public pure function styled(text: string) -> styled-text {
         return @markdown("\{text}");
     }
