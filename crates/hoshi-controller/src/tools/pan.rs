@@ -43,6 +43,11 @@ mod tests {
         let mut cx = ToolCx {
             viewport: &mut viewport,
             document: &mut document,
+            modifiers: crate::InputModifiers::default(),
+            pivot: &mut None,
+            template: crate::Controller::new(1, 1)
+                .unwrap()
+                .create_shape(0, 0, 1, 1),
         };
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
@@ -65,6 +70,11 @@ mod tests {
             &mut ToolCx {
                 viewport: &mut viewport,
                 document: &mut document,
+                modifiers: crate::InputModifiers::default(),
+                pivot: &mut None,
+                template: crate::Controller::new(1, 1)
+                    .unwrap()
+                    .create_shape(0, 0, 1, 1),
             },
             PointerInput { x: 20.0, y: 30.0 },
         )
@@ -74,6 +84,11 @@ mod tests {
             &mut ToolCx {
                 viewport: &mut viewport,
                 document: &mut document,
+                modifiers: crate::InputModifiers::default(),
+                pivot: &mut None,
+                template: crate::Controller::new(1, 1)
+                    .unwrap()
+                    .create_shape(0, 0, 1, 1),
             },
             PointerInput { x: 20.0, y: 30.0 },
         )
@@ -89,6 +104,11 @@ mod tests {
         let mut cx = ToolCx {
             viewport: &mut viewport,
             document: &mut document,
+            modifiers: crate::InputModifiers::default(),
+            pivot: &mut None,
+            template: crate::Controller::new(1, 1)
+                .unwrap()
+                .create_shape(0, 0, 1, 1),
         };
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })

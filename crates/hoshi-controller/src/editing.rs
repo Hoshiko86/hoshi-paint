@@ -2,12 +2,12 @@
 //!
 //! This module edits a generic frame. Shape rasterization lives in hoshi-core;
 //! native pointer/key events are translated by the UI adapter.
-use super::tools::{PointerInput, ToolCx};
+use super::tools::{PointerInput, shapes::ShapeGesture};
 use super::{
     ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint,
     InputModifiers, PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
 };
-use hoshi_core::geometry::{Frame, Point, ResizeConstraints, ResizeHandle};
+use hoshi_core::geometry::{Frame, Point, ResizeHandle};
 use hoshi_core::{Shape, ShapeKind};
 #[derive(Clone, Copy, Default)]
 pub(super) struct EditState {
@@ -18,28 +18,6 @@ pub(super) struct EditState {
 #[derive(Clone, Copy)]
 pub(super) enum Gesture {
     Sample,
-    CreateShape {
-        anchor: (f64, f64),
-    },
-    Move {
-        anchor: Point,
-        original: Shape,
-        pivot: Option<Point>,
-    },
-    Resize {
-        original: Shape,
-        handle: ResizeHandle,
-        pointer_anchor: Point,
-    },
-    Rotate {
-        original: Shape,
-        pivot: Point,
-        anchor_angle: f64,
-    },
-    Pivot {
-        original: Point,
-        anchor: Point,
-    },
 }
 impl Controller {
     pub fn aspect_lock(&self) -> bool {
@@ -60,8 +38,12 @@ impl Controller {
         }
         self.modifiers = modifiers;
         if matches!(
-            self.legacy_gesture(),
-            Some(Gesture::Resize { .. } | Gesture::Rotate { .. } | Gesture::CreateShape { .. })
+            self.shape_gesture().copied(),
+            Some(
+                ShapeGesture::Resize { .. }
+                    | ShapeGesture::Rotate { .. }
+                    | ShapeGesture::CreateShape { .. }
+            )
         ) && let Some((x, y)) = self.last_pointer
         {
             self.pointer_move(x, y)?;
@@ -141,10 +123,16 @@ impl Controller {
         if !matches!(self.tool, Tool::Rectangle | Tool::MoveShape) {
             return EditCursor::Draw;
         }
-        if matches!(self.legacy_gesture(), Some(Gesture::Rotate { .. })) {
+        if matches!(
+            self.shape_gesture().copied(),
+            Some(ShapeGesture::Rotate { .. })
+        ) {
             return EditCursor::Rotate;
         }
-        if matches!(self.legacy_gesture(), Some(Gesture::Pivot { .. })) {
+        if matches!(
+            self.shape_gesture().copied(),
+            Some(ShapeGesture::Pivot { .. })
+        ) {
             return EditCursor::Pivot;
         }
         let Some(shape) = self.document.active_shape() else {
@@ -182,7 +170,7 @@ impl Controller {
     }
     fn begin_rotation(&mut self, shape: Shape, point: Point) {
         let pivot = self.pivot_for(shape);
-        self.begin_gesture(Gesture::Rotate {
+        self.begin_shape(ShapeGesture::Rotate {
             original: shape,
             pivot,
             anchor_angle: (point.y - pivot.y).atan2(point.x - pivot.x),
@@ -206,13 +194,13 @@ impl Controller {
             if let Some(hit) = self.hit_handle(x, y) {
                 match hit.kind {
                     ROTATION_HANDLE => self.begin_rotation(shape, point),
-                    PIVOT_HANDLE => self.begin_gesture(Gesture::Pivot {
+                    PIVOT_HANDLE => self.begin_shape(ShapeGesture::Pivot {
                         original: self.pivot_for(shape),
                         anchor: point,
                     }),
                     index => {
                         self.edit_state.numeric_ratio = None;
-                        self.begin_gesture(Gesture::Resize {
+                        self.begin_shape(ShapeGesture::Resize {
                             original: shape,
                             handle: ResizeHandle::ALL[index as usize],
                             pointer_anchor: point,
@@ -227,7 +215,7 @@ impl Controller {
                 return Ok(());
             }
             if frame.contains(point) || self.tool == Tool::MoveShape {
-                self.begin_gesture(Gesture::Move {
+                self.begin_shape(ShapeGesture::Move {
                     original: shape,
                     anchor: point,
                     pivot: self.edit_state.pivot,
@@ -248,7 +236,7 @@ impl Controller {
                     return Ok(());
                 }
                 self.edit_state.secondary_colors = button == PointerButton::Secondary;
-                self.begin_gesture(Gesture::CreateShape {
+                self.begin_shape(ShapeGesture::CreateShape {
                     anchor: self.clip_point((point.x, point.y)),
                 });
             }
@@ -263,170 +251,18 @@ impl Controller {
         }
         Ok(())
     }
-    fn shape_from_drag(&self, anchor: (f64, f64), point: (f64, f64)) -> Shape {
-        if self.modifiers.alt {
-            // Alt fixes the creation center. Bounds may extend beyond the canvas;
-            // the rasterizer clips them, just as it does when moving a shape.
-            let mut half_width = (point.0 - anchor.0).abs();
-            let mut half_height = (point.1 - anchor.1).abs();
-            if self.modifiers.shift {
-                half_width = half_width.max(half_height);
-                half_height = half_width;
-            }
-            let width = (2. * half_width)
-                .round()
-                .clamp(1., f64::from(hoshi_core::MAX_DIMENSION));
-            let height = (2. * half_height)
-                .round()
-                .clamp(1., f64::from(hoshi_core::MAX_DIMENSION));
-            return self.create_shape(
-                (anchor.0 - width / 2.).round() as i32,
-                (anchor.1 - height / 2.).round() as i32,
-                width as u32,
-                height as u32,
-            );
-        }
-        // Bounds stay inside this small document. The gesture handler only calls
-        // this for a drag with nonzero extent; a click alone creates no shape.
-        let left = anchor
-            .0
-            .min(point.0)
-            .floor()
-            .min(f64::from(self.document.width() - 1));
-        let top = anchor
-            .1
-            .min(point.1)
-            .floor()
-            .min(f64::from(self.document.height() - 1));
-        let right = anchor.0.max(point.0).ceil();
-        let bottom = anchor.1.max(point.1).ceil();
-        let (left, top, width, height) = if self.modifiers.shift {
-            // Snap the fixed corner outward once, then use equal integer extents.
-            // Limit both axes together so clipping cannot turn a square into a rectangle.
-            let ax = if point.0 < anchor.0 {
-                anchor.0.ceil()
-            } else {
-                anchor.0.floor()
-            };
-            let ay = if point.1 < anchor.1 {
-                anchor.1.ceil()
-            } else {
-                anchor.1.floor()
-            };
-            let available_x = if point.0 < anchor.0 {
-                ax
-            } else {
-                f64::from(self.document.width()) - ax
-            };
-            let available_y = if point.1 < anchor.1 {
-                ay
-            } else {
-                f64::from(self.document.height()) - ay
-            };
-            let size = (right - left)
-                .max(bottom - top)
-                .min(available_x)
-                .min(available_y)
-                .max(1.0);
-            (
-                if point.0 < anchor.0 { ax - size } else { ax },
-                if point.1 < anchor.1 { ay - size } else { ay },
-                size,
-                size,
-            )
-        } else {
-            (left, top, right - left, bottom - top)
-        };
-        self.create_shape(
-            left as i32,
-            top as i32,
-            (width as u32).max(1),
-            (height as u32).max(1),
-        )
-    }
-
     pub fn pointer_move(&mut self, x: f64, y: f64) -> Result<(), ControllerError> {
         let p = self.document_point(x, y)?;
-        let point = Point::new(p.0, p.1);
         self.last_pointer = Some((x, y));
-        if let Some(ActiveDrag::Tool { state, .. }) = &mut self.drag {
-            return state.pointer_move(
-                &mut ToolCx {
-                    viewport: &mut self.viewport,
-                    document: &mut self.document,
-                },
-                PointerInput { x, y },
-            );
-        }
-        match self.legacy_gesture() {
-            Some(Gesture::Sample) => self.sample_color(p)?,
-            Some(Gesture::CreateShape { anchor }) => {
-                let p = self.clip_point(p);
-                if (p.0 == anchor.0 && p.1 == anchor.1)
-                    || (!self.modifiers.shift && (p.0 == anchor.0 || p.1 == anchor.1))
-                {
-                    self.document.cancel_shape();
-                } else {
-                    let shape = self.shape_from_drag(anchor, p);
-                    if self.document.active_shape().is_some() {
-                        self.document.adjust_shape(shape)?
-                    } else {
-                        self.document.begin_shape(shape)?
-                    }
+        if let Some(mut drag) = self.drag.take() {
+            let result = match &mut drag {
+                ActiveDrag::Tool { state, .. } => {
+                    state.pointer_move(&mut self.tool_cx(), PointerInput { x, y })
                 }
-            }
-            Some(Gesture::Move {
-                anchor,
-                mut original,
-                pivot,
-            }) => {
-                let dx = (point.x - anchor.x).round() as i32;
-                let dy = (point.y - anchor.y).round() as i32;
-                original.x = original.x.saturating_add(dx);
-                original.y = original.y.saturating_add(dy);
-                self.document.adjust_shape(original)?;
-                self.edit_state.pivot = pivot.map(|p| p.translated(f64::from(dx), f64::from(dy)));
-            }
-            Some(Gesture::Resize {
-                original,
-                handle,
-                pointer_anchor,
-            }) => {
-                let frame = Frame::from_shape(original).resized(
-                    handle,
-                    pointer_anchor,
-                    point,
-                    ResizeConstraints {
-                        preserve_aspect: self.modifiers.shift,
-                        from_center: self.modifiers.alt,
-                    },
-                );
-                self.document.adjust_shape(frame.apply_to(original))?;
-            }
-            Some(Gesture::Rotate {
-                original,
-                pivot,
-                anchor_angle,
-            }) => {
-                if point.distance(pivot) > f64::EPSILON {
-                    let delta =
-                        ((point.y - pivot.y).atan2(point.x - pivot.x) - anchor_angle).to_degrees();
-                    let mut angle = f64::from(original.rotation_degrees) + delta;
-                    if self.modifiers.shift {
-                        angle = (angle / 15.).round() * 15.;
-                    }
-                    self.document.adjust_shape(
-                        Frame::from_shape(original)
-                            .rotated_about(pivot, angle)
-                            .apply_to(original),
-                    )?;
-                }
-            }
-            Some(Gesture::Pivot { original, anchor }) => {
-                self.edit_state.pivot =
-                    Some(original.translated(point.x - anchor.x, point.y - anchor.y))
-            }
-            None => (),
+                ActiveDrag::Gesture(Gesture::Sample) => self.sample_color(p),
+            };
+            self.drag = Some(drag);
+            result?;
         }
         Ok(())
     }
@@ -450,7 +286,7 @@ impl Controller {
             self.document.adjust_shape(updated)?;
             if let Some((x, y)) = self.last_pointer {
                 let p = self.document_point(x, y)?;
-                self.begin_gesture(Gesture::Rotate {
+                self.begin_shape(ShapeGesture::Rotate {
                     original: updated,
                     pivot,
                     anchor_angle: (p.1 - pivot.y).atan2(p.0 - pivot.x),
@@ -463,9 +299,9 @@ impl Controller {
                 return Ok(());
             };
             if let Some((x, y)) = self.last_pointer
-                && let Some(Gesture::Resize {
+                && let Some(ShapeGesture::Resize {
                     original, handle, ..
-                }) = self.legacy_gesture()
+                }) = self.shape_gesture().copied()
             {
                 // The dragged physical corner changes sides after crossing its
                 // opposite. Rebase keyboard movement without losing that corner.
@@ -477,17 +313,17 @@ impl Controller {
                     index = [6, 5, 4, 3, 2, 1, 0, 7][index];
                 }
                 let p = self.document_point(x, y)?;
-                self.begin_gesture(Gesture::Resize {
+                self.begin_shape(ShapeGesture::Resize {
                     original: updated,
                     handle: ResizeHandle::ALL[index],
                     pointer_anchor: Point::new(p.0, p.1),
                 });
             }
             if let Some((x, y)) = self.last_pointer
-                && let Some(Gesture::Move { .. }) = self.legacy_gesture()
+                && let Some(ShapeGesture::Move { .. }) = self.shape_gesture().copied()
             {
                 let p = self.document_point(x, y)?;
-                self.begin_gesture(Gesture::Move {
+                self.begin_shape(ShapeGesture::Move {
                     anchor: Point::new(p.0, p.1),
                     original: updated,
                     pivot: self.edit_state.pivot,
