@@ -7,7 +7,39 @@ use std::sync::{
     mpsc::{self, Receiver},
 };
 
-pub type PickResult = Result<Option<Color>, String>;
+/// `Ok(None)` means the user cancelled.
+pub type PickResult = Result<Option<Color>, ScreenPickError>;
+
+/// Why screen sampling failed. Display is developer text; the adapter maps each
+/// kind to catalog text (`error_text::screen_pick`, #119).
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ScreenPickError {
+    /// This build has no screen sampler for the operating system.
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[error("screen sampling is unsupported on this platform")]
+    Unsupported,
+    /// The platform returned a color outside sRGB 0–1 or a non-finite value.
+    #[error("screen sampler returned an invalid color")]
+    InvalidColor,
+    /// Linux: the XDG desktop portal is missing or failed; `detail` is the
+    /// D-Bus error for diagnostics.
+    #[error("desktop portal failed: {detail}")]
+    Portal { detail: String },
+    /// The desktop denied the request or reported failure.
+    #[error("desktop denied or failed screen sampling")]
+    Denied,
+    /// A native sampling step failed (window, cursor, pixel read, color space).
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[error("native screen sampling failed: {step}")]
+    Native { step: &'static str },
+}
+
+#[cfg(target_os = "linux")]
+fn portal(error: impl std::fmt::Display) -> ScreenPickError {
+    ScreenPickError::Portal {
+        detail: error.to_string(),
+    }
+}
 
 pub struct ScreenPick {
     pub receiver: Receiver<PickResult>,
@@ -41,7 +73,7 @@ pub fn start() -> ScreenPick {
             #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             let result = {
                 let _ = flag;
-                Err("Screen sampling is unavailable on this platform.".into())
+                Err(ScreenPickError::Unsupported)
             };
             let _ = sender.send(result);
         });
@@ -61,7 +93,7 @@ fn from_rgb(rgb: (f64, f64, f64)) -> PickResult {
         .iter()
         .any(|c| !c.is_finite() || !(0.0..=1.0).contains(c))
     {
-        return Err("Color Picker returned an invalid color.".into());
+        return Err(ScreenPickError::InvalidColor);
     }
     let byte = |c: f64| (c * 255.0).round() as u8;
     Ok(Some(Color::rgba(byte(r), byte(g), byte(b), 255)))
@@ -81,7 +113,7 @@ mod linux {
     };
 
     pub fn pick(cancelled: Arc<AtomicBool>) -> PickResult {
-        future::block_on(run(cancelled)).map_err(|e| format!("Color Picker: {e}. A desktop portal with PickColor support is required (GNOME/KDE)."))
+        future::block_on(run(cancelled))
     }
 
     async fn wait_for_cancel(cancelled: &AtomicBool, deadline: Instant) {
@@ -112,12 +144,10 @@ mod linux {
     }
 
     async fn run(cancelled: Arc<AtomicBool>) -> PickResult {
-        let connection = zbus::Connection::session()
-            .await
-            .map_err(|e| e.to_string())?;
+        let connection = zbus::Connection::session().await.map_err(portal)?;
         let sender = connection
             .unique_name()
-            .ok_or("No desktop bus identity")?
+            .ok_or_else(|| portal("no desktop bus identity"))?
             .as_str()
             .trim_start_matches(':')
             .replace('.', "_");
@@ -128,17 +158,17 @@ mod linux {
         let rule = MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
             .sender("org.freedesktop.portal.Desktop")
-            .map_err(|e| e.to_string())?
+            .map_err(portal)?
             .interface("org.freedesktop.portal.Request")
-            .map_err(|e| e.to_string())?
+            .map_err(portal)?
             .member("Response")
-            .map_err(|e| e.to_string())?
+            .map_err(portal)?
             .path(path.as_str())
-            .map_err(|e| e.to_string())?
+            .map_err(portal)?
             .build();
         let mut stream = MessageStream::for_match_rule(rule, &connection, Some(1))
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(portal)?;
         let options = HashMap::from([("handle_token", Value::from(token.as_str()))]);
         let deadline = Instant::now() + Duration::from_secs(60);
         let call_body = ("", options);
@@ -166,49 +196,51 @@ mod linux {
             close_request(&connection, &path).await;
             return Ok(None);
         };
-        let reply = reply.map_err(|e| e.to_string())?;
-        let returned: OwnedObjectPath = reply.body().deserialize().map_err(|e| e.to_string())?;
+        let reply = reply.map_err(portal)?;
+        let returned: OwnedObjectPath = reply.body().deserialize().map_err(portal)?;
         if returned.as_str() != path {
             close_request(&connection, returned.as_str()).await;
-            return Err("Desktop portal returned an unexpected request identity".into());
+            return Err(portal("unexpected request identity"));
         }
+        // `Ok(None)` from the race means the user cancelled while waiting.
         let response = future::race(
             async {
                 stream
                     .next()
                     .await
-                    .ok_or("Desktop portal disconnected".to_string())?
-                    .map_err(|e| e.to_string())
+                    .ok_or_else(|| portal("portal disconnected"))?
+                    .map(Some)
+                    .map_err(portal)
             },
             async {
                 wait_for_cancel(&cancelled, deadline).await;
-                Err("cancelled".into())
+                Ok(None)
             },
         )
         .await;
         let message = match response {
-            Ok(message) => message,
+            Ok(Some(message)) => message,
+            Ok(None) => {
+                close_request(&connection, &path).await;
+                return Ok(None);
+            }
             Err(error) => {
                 close_request(&connection, &path).await;
-                return if error == "cancelled" {
-                    Ok(None)
-                } else {
-                    Err(error)
-                };
+                return Err(error);
             }
         };
         let (response, mut values): (u32, HashMap<String, OwnedValue>) =
-            message.body().deserialize().map_err(|e| e.to_string())?;
+            message.body().deserialize().map_err(portal)?;
         match response {
             0 => {
                 let value = values
                     .remove("color")
-                    .ok_or("Desktop portal omitted color")?;
-                let rgb = <(f64, f64, f64)>::try_from(value).map_err(|e| e.to_string())?;
+                    .ok_or_else(|| portal("portal omitted color"))?;
+                let rgb = <(f64, f64, f64)>::try_from(value).map_err(portal)?;
                 from_rgb(rgb)
             }
             1 => Ok(None),
-            _ => Err("Desktop denied or failed screen sampling".into()),
+            _ => Err(ScreenPickError::Denied),
         }
     }
 }
@@ -225,9 +257,9 @@ mod macos {
         cancelled: Arc<AtomicBool>,
     ) -> Option<objc2::rc::Retained<NSColorSampler>> {
         if MainThreadMarker::new().is_none() {
-            let _ = sender.send(Err(
-                "The macOS Color Picker must start on the main thread.".into()
-            ));
+            let _ = sender.send(Err(ScreenPickError::Native {
+                step: "start off the main thread",
+            }));
             return None;
         }
         let callback = block2::RcBlock::new(move |color: *mut NSColor| {
@@ -238,7 +270,9 @@ mod macos {
             let result = unsafe { color.as_ref() }.map_or(Ok(None), |color| {
                 color
                     .colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())
-                    .ok_or("Unable to convert sampled color to sRGB.".into())
+                    .ok_or(ScreenPickError::Native {
+                        step: "convert to sRGB",
+                    })
                     .and_then(|color| {
                         from_rgb((
                             color.redComponent().clamp(0.0, 1.0),
@@ -369,7 +403,9 @@ mod windows {
                 0,
             );
             if cursor.is_null() {
-                return Err("Unable to create screen eyedropper cursor.".into());
+                return Err(ScreenPickError::Native {
+                    step: "create cursor",
+                });
             }
             let class = WNDCLASSW {
                 lpfnWndProc: Some(window_proc),
@@ -381,7 +417,9 @@ mod windows {
             };
             if RegisterClassW(&class) == 0 {
                 DestroyCursor(cursor);
-                return Err("Unable to register Color Picker window.".into());
+                return Err(ScreenPickError::Native {
+                    step: "register window class",
+                });
             }
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
@@ -400,7 +438,9 @@ mod windows {
             if hwnd.is_null() {
                 UnregisterClassW(name.as_ptr(), instance);
                 DestroyCursor(cursor);
-                return Err("Unable to open Color Picker overlay.".into());
+                return Err(ScreenPickError::Native {
+                    step: "open overlay window",
+                });
             }
             // Nonzero alpha keeps the overlay hit-testable. It is destroyed
             // before reading the desktop pixel, so its tint is never sampled.
@@ -441,12 +481,16 @@ mod windows {
             DwmFlush();
             let dc = GetDC(null_mut());
             if dc.is_null() {
-                return Err("Unable to read desktop pixels.".into());
+                return Err(ScreenPickError::Native {
+                    step: "read desktop pixels",
+                });
             }
             let pixel = GetPixel(dc, point.x, point.y);
             ReleaseDC(null_mut(), dc);
             if pixel == u32::MAX {
-                return Err("The selected screen pixel is unavailable.".into());
+                return Err(ScreenPickError::Native {
+                    step: "read selected pixel",
+                });
             }
             Ok(Some(Color::rgba(
                 pixel as u8,

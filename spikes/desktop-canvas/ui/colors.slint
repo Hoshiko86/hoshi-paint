@@ -48,7 +48,8 @@ export component ColorSwatch inherits Rectangle {
         background: root.value; border-width: 1px; border-color: #526079;
     }
     Rectangle { border-width: root.selected ? 2px : 0px; border-color: #315cae; background: transparent; }
-    Tooltip { SwatchDetails { text: root.description; } }
+    // The label heads the tooltip; the description carries only color data.
+    Tooltip { SwatchDetails { text: root.label + "\n" + root.description; } }
 }
 export component WorkspaceColors inherits HorizontalLayout {
     in property <color> primary;
@@ -86,7 +87,8 @@ component ColorPreview inherits Rectangle {
     Rectangle { y: 16px; width: 16px; height: 16px; background: #c0c0c0; }
     Rectangle { background: root.value; }
     Rectangle { border-width: 1px; border-color: #526079; background: transparent; }
-    Tooltip { SwatchDetails { text: root.description; } }
+    // The label heads the tooltip; the description carries only color data.
+    Tooltip { SwatchDetails { text: root.label + "\n" + root.description; } }
 }
 export component ToolPanelFrame inherits Rectangle {
     in property <string> title;

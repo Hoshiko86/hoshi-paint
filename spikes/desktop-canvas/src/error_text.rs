@@ -6,6 +6,7 @@
 use crate::files::FileError;
 use crate::localization::Localizer;
 use crate::palette_store::PaletteStoreError;
+use crate::screen_pick::ScreenPickError;
 use crate::workspace::WorkspaceError;
 use hoshi_controller::ControllerError;
 use hoshi_core::{Error as CoreError, MAX_DIMENSION, ProjectError};
@@ -75,6 +76,12 @@ pub(crate) const KEYS: &[&str] = &[
     "palette_error_unicode_path",
     "palette_error_unknown_color_name",
     "palette_error_write",
+    "screen_pick_error_closed",
+    "screen_pick_error_denied",
+    "screen_pick_error_invalid_color",
+    "screen_pick_error_native",
+    "screen_pick_error_portal",
+    "screen_pick_error_unsupported",
 ];
 
 pub(crate) fn palette(text: &Localizer, error: &PaletteStoreError) -> String {
@@ -129,6 +136,21 @@ pub(crate) fn palette(text: &Localizer, error: &PaletteStoreError) -> String {
         PaletteStoreError::SettingsDestination => "palette_error_settings_destination",
         PaletteStoreError::IsFolder => "palette_error_is_folder",
         PaletteStoreError::ReadOnly => "palette_error_read_only",
+    };
+    text.text(key).into()
+}
+
+pub(crate) fn screen_pick(text: &Localizer, error: &ScreenPickError) -> String {
+    let key = match error {
+        ScreenPickError::Portal { detail } => {
+            return text.format("screen_pick_error_portal", &[("detail", detail)]);
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        ScreenPickError::Unsupported => "screen_pick_error_unsupported",
+        ScreenPickError::InvalidColor => "screen_pick_error_invalid_color",
+        ScreenPickError::Denied => "screen_pick_error_denied",
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        ScreenPickError::Native { .. } => "screen_pick_error_native",
     };
     text.text(key).into()
 }
@@ -263,6 +285,26 @@ mod tests {
         assert_eq!(
             super::palette(&spanish, &rollback),
             "El destino de la paleta es de solo lectura. Tampoco se pudo restaurar el archivo de paleta: Elige un archivo, no una carpeta."
+        );
+    }
+
+    #[test]
+    fn screen_pick_errors_follow_the_selected_locale() {
+        use crate::localization::{Localizer, select_preferred};
+        use crate::screen_pick::ScreenPickError;
+        let spanish = Localizer::new(&select_preferred(["es-ES"]));
+        assert_eq!(
+            super::screen_pick(&spanish, &ScreenPickError::Denied),
+            "El escritorio denegó o no pudo completar el muestreo de pantalla."
+        );
+        let portal = ScreenPickError::Portal {
+            detail: "org.freedesktop.DBus.Error.ServiceUnknown".into(),
+        };
+        let text = super::screen_pick(&spanish, &portal);
+        assert!(text.starts_with("El selector de color necesita"), "{text}");
+        assert!(
+            text.ends_with("org.freedesktop.DBus.Error.ServiceUnknown"),
+            "{text}"
         );
     }
 }

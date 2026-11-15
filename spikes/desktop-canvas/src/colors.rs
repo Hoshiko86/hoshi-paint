@@ -1,4 +1,7 @@
-use crate::{AppWindow, ColorPickerWindow, SharedController, refresh, update};
+use crate::{
+    AppWindow, ColorPickerWindow, SharedController, localization::Localizer, refresh,
+    screen_pick::PickResult, update,
+};
 use hoshi_controller::{
     Color,
     color::{self, Hsv},
@@ -47,8 +50,7 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
     picker.set_saturation(hsv.saturation as f32);
     picker.set_brightness(hsv.value as f32);
     picker.set_hex_value(color::format_hex(value).into());
-    picker
-        .set_current_description(format!("Current color\n{}", describe_swatch(value, None)).into());
+    picker.set_current_description(describe_swatch(value, None).into());
     picker.set_current_color(slint::Color::from_argb_u8(
         value.a, value.r, value.g, value.b,
     ));
@@ -58,7 +60,7 @@ pub(super) fn bind_picker(
     ui: &AppWindow,
     controller: SharedController,
     palette_root: Option<std::path::PathBuf>,
-    text: &crate::localization::Localizer,
+    text: &Localizer,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
     let original = Rc::new(Cell::new(controller.borrow().selected_color()));
@@ -212,9 +214,11 @@ pub(super) fn bind_picker(
                 return;
             }
             {
+                // A drag that cannot finish keeps the panel where it is.
                 let mut c = state.borrow_mut();
-                c.pointer_up().expect("finish gesture before docking");
-                c.set_aspect_lock(false).expect("gesture ended");
+                if c.pointer_up().is_err() || c.set_aspect_lock(false).is_err() {
+                    return;
+                }
             }
             ui.invoke_refresh_palette_library();
             if !ui.get_colors_visible() {
@@ -319,13 +323,11 @@ pub(super) fn bind_picker(
             // Switching to our color window must preserve the editable preview,
             // even if native pointer release/capture has not settled yet.
             {
+                // A drag that cannot finish keeps the color window closed.
                 let mut controller = state.borrow_mut();
-                controller
-                    .pointer_up()
-                    .expect("end gesture before color editing");
-                controller
-                    .set_aspect_lock(false)
-                    .expect("gesture has ended");
+                if controller.pointer_up().is_err() || controller.set_aspect_lock(false).is_err() {
+                    return;
+                }
             }
             refresh(&ui, &state.borrow());
             ui.set_colors_visible(true);
@@ -392,6 +394,7 @@ pub(super) fn bind_picker(
     });
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
     let (pending, polling) = (request.clone(), timer.clone());
+    let words = text.clone();
     picker.on_set_hex(move |text| {
         pending.borrow_mut().take();
         polling.stop();
@@ -413,7 +416,7 @@ pub(super) fn bind_picker(
             }
             Err(_) => {
                 if let Some(p) = colors.upgrade() {
-                    p.set_error("Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.".into());
+                    p.set_error(words.text("color_error_hex").into());
                     if let Some(ui) = main.upgrade() {
                         sync_docked(&ui, &p);
                     }
@@ -424,6 +427,7 @@ pub(super) fn bind_picker(
     // Retain the request and polling timer with the picker callbacks.
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
     let (pending, polling) = (request.clone(), timer.clone());
+    let words = text.clone();
     picker.on_pick_screen(move || {
         if pending.borrow().is_some() {
             return;
@@ -438,13 +442,18 @@ pub(super) fn bind_picker(
         // Finish the pointer gesture before the system picker takes activation.
         update(&main, &state, |c| c.pointer_up());
         if let Some(picker) = colors.upgrade() {
-            picker.set_error("Choose a screen pixel. Escape cancels.".into());
+            picker.set_error(words.text("screen_pick_prompt").into());
             picker.set_screen_picking(true);
             sync_docked(&ui, &picker);
         }
         *pending.borrow_mut() = Some(crate::screen_pick::start());
-        let (pending, main, colors, state) =
-            (pending.clone(), main.clone(), colors.clone(), state.clone());
+        let (pending, main, colors, state, words) = (
+            pending.clone(),
+            main.clone(),
+            colors.clone(),
+            state.clone(),
+            words.clone(),
+        );
         let timer = Rc::downgrade(&polling);
         polling.start(
             slint::TimerMode::Repeated,
@@ -456,18 +465,16 @@ pub(super) fn bind_picker(
                         return;
                     };
                     match request.receiver.try_recv() {
-                        Ok(value) => value,
+                        Ok(value) => ScreenPickOutcome::Sampled(value),
                         Err(TryRecvError::Empty) => return,
-                        Err(TryRecvError::Disconnected) => {
-                            Err("Color Picker closed unexpectedly.".into())
-                        }
+                        Err(TryRecvError::Disconnected) => ScreenPickOutcome::Closed,
                     }
                 };
                 pending.borrow_mut().take();
                 if let Some(timer) = timer.upgrade() {
                     timer.stop();
                 }
-                finish_screen_pick(&main, &state, &colors, result);
+                finish_screen_pick(&main, &state, &colors, result, &words);
             },
         );
     });
@@ -497,21 +504,40 @@ pub(super) fn bind_picker(
     Ok(picker)
 }
 
+/// What ends a screen pick: the sampler's result, or its worker vanished.
+enum ScreenPickOutcome {
+    Sampled(PickResult),
+    Closed,
+}
+
 fn finish_screen_pick(
     main: &slint::Weak<AppWindow>,
     state: &SharedController,
     colors: &slint::Weak<ColorPickerWindow>,
-    result: crate::screen_pick::PickResult,
+    outcome: ScreenPickOutcome,
+    text: &Localizer,
 ) {
     if let Some(picker) = colors.upgrade() {
         picker.set_screen_picking(false);
+        let result = match outcome {
+            ScreenPickOutcome::Sampled(result) => result,
+            ScreenPickOutcome::Closed => {
+                picker.set_error(text.text("screen_pick_error_closed").into());
+                if let Some(ui) = main.upgrade() {
+                    sync_docked(&ui, &picker);
+                }
+                return;
+            }
+        };
         match result {
             Ok(Some(value)) => {
                 update(main, state, |c| c.set_selected_color(value));
                 picker.set_error("".into());
             }
             Ok(None) => picker.set_error("".into()),
-            Err(error) => picker.set_error(error.into()),
+            Err(error) => {
+                picker.set_error(crate::error_text::screen_pick(text, &error).into());
+            }
         }
         if let Some(ui) = main.upgrade() {
             sync_docked(&ui, &picker);
@@ -558,9 +584,7 @@ fn begin_comparison(
     picker.set_original_color(slint::Color::from_argb_u8(
         value.a, value.r, value.g, value.b,
     ));
-    picker.set_original_description(
-        format!("Original color\n{}", describe_swatch(value, None)).into(),
-    );
+    picker.set_original_description(describe_swatch(value, None).into());
     sync_docked(ui, picker);
 }
 
@@ -581,9 +605,9 @@ fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
     ui.set_screen_picking(picker.get_screen_picking());
 }
 
-pub(super) fn describe_workspace_color(value: Color, slot: &str) -> String {
-    let name = hoshi_controller::named_colors::name_for(value);
-    format!("{slot} color\n{}", describe_swatch(value, name))
+/// Tooltip data for a workspace color swatch; the swatch's label heads it.
+pub(super) fn describe_workspace_color(value: Color) -> String {
+    describe_swatch(value, hoshi_controller::named_colors::name_for(value))
 }
 
 #[cfg(test)]
@@ -604,13 +628,20 @@ mod tests {
     fn screen_result_recolors_preview_and_cancel_or_failure_preserves_it() {
         i_slint_backend_testing::init_no_event_loop();
         let (ui, state, picker) = crate::create_app_with_colors().unwrap();
+        let english = Localizer::new(&crate::localization::select_preferred(["en-US"]));
         ui.invoke_pointer_down(40.0, 40.0);
         ui.invoke_pointer_move(100.0, 100.0);
         ui.invoke_pointer_up(100.0, 100.0);
         let original = state.borrow().document().active_shape().unwrap();
         let selected = Color::rgba(11, 123, 234, 255);
         picker.set_screen_picking(true);
-        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(Some(selected)));
+        finish_screen_pick(
+            &ui.as_weak(),
+            &state,
+            &picker.as_weak(),
+            ScreenPickOutcome::Sampled(Ok(Some(selected))),
+            &english,
+        );
         assert_eq!(state.borrow().selected_color(), selected);
         assert_eq!(state.borrow().composite()[50 * 512 + 50], selected);
         let shape = state.borrow().document().active_shape().unwrap();
@@ -620,17 +651,24 @@ mod tests {
         );
         assert_eq!(state.borrow().document().undo_len(), 0);
         assert!(!picker.get_screen_picking());
-        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(None));
+        finish_screen_pick(
+            &ui.as_weak(),
+            &state,
+            &picker.as_weak(),
+            ScreenPickOutcome::Sampled(Ok(None)),
+            &english,
+        );
         assert_eq!(state.borrow().document().active_shape(), Some(shape));
         finish_screen_pick(
             &ui.as_weak(),
             &state,
             &picker.as_weak(),
-            Err("Permission denied".into()),
+            ScreenPickOutcome::Sampled(Err(crate::screen_pick::ScreenPickError::Denied)),
+            &english,
         );
         assert_eq!(state.borrow().document().active_shape(), Some(shape));
         assert_eq!(state.borrow().selected_color(), selected);
-        assert_eq!(picker.get_error(), "Permission denied");
+        assert_eq!(picker.get_error(), english.text("screen_pick_error_denied"));
         assert_eq!(state.borrow().document().undo_len(), 0);
         picker.invoke_set_rgba(100, 80, 60, 255);
         assert_eq!(
@@ -638,7 +676,13 @@ mod tests {
             Color::rgba(100, 80, 60, 255)
         );
         picker.invoke_toggle_dock();
-        finish_screen_pick(&ui.as_weak(), &state, &picker.as_weak(), Ok(Some(selected)));
+        finish_screen_pick(
+            &ui.as_weak(),
+            &state,
+            &picker.as_weak(),
+            ScreenPickOutcome::Sampled(Ok(Some(selected))),
+            &english,
+        );
         ui.invoke_edit_rgba(20, 40, 60, 255);
         assert_eq!(
             state.borrow().composite()[50 * 512 + 50],

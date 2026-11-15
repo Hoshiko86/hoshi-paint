@@ -158,5 +158,13 @@
   "palette_error_too_large": "El texto de la paleta supera el tamaño admitido de 1 MiB.",
   "palette_error_unicode_path": "Los nombres de archivo de paleta deben usar texto Unicode.",
   "palette_error_unknown_color_name": "Elige un nombre de color reconocido.",
-  "palette_error_write": "No se puede guardar {path}: {error}"
+  "palette_error_write": "No se puede guardar {path}: {error}",
+  "color_error_hex": "Usa #RGB, #RGBA, #RRGGBB o #RRGGBBAA.",
+  "screen_pick_error_closed": "El selector de color se cerró inesperadamente.",
+  "screen_pick_error_denied": "El escritorio denegó o no pudo completar el muestreo de pantalla.",
+  "screen_pick_error_invalid_color": "El selector de color devolvió un color no válido.",
+  "screen_pick_error_native": "El selector de color no pudo muestrear la pantalla.",
+  "screen_pick_error_portal": "El selector de color necesita un portal de escritorio compatible con PickColor (GNOME o KDE). Detalles: {detail}",
+  "screen_pick_error_unsupported": "El muestreo de pantalla no está disponible en esta plataforma.",
+  "screen_pick_prompt": "Elige un píxel de la pantalla. Escape cancela."
 }

@@ -16,7 +16,8 @@ pub mod palette_store;
 mod panel_hosts;
 mod panel_layout;
 mod resources;
-mod screen_pick;
+/// Native screen sampling (public so every platform build sees its full error type).
+pub mod screen_pick;
 mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
@@ -877,15 +878,11 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         slint::Color::from_argb_u8(secondary.a, secondary.r, secondary.g, secondary.b);
     if ui.get_workspace_primary() != primary_ui {
         ui.set_workspace_primary(primary_ui);
-        ui.set_workspace_primary_description(
-            colors::describe_workspace_color(primary, "Primary").into(),
-        );
+        ui.set_workspace_primary_description(colors::describe_workspace_color(primary).into());
     }
     if ui.get_workspace_secondary() != secondary_ui {
         ui.set_workspace_secondary(secondary_ui);
-        ui.set_workspace_secondary_description(
-            colors::describe_workspace_color(secondary, "Secondary").into(),
-        );
+        ui.set_workspace_secondary_description(colors::describe_workspace_color(secondary).into());
     }
     let color = controller.selected_color();
     ui.set_selected_color(slint::Color::from_argb_u8(
