@@ -155,6 +155,8 @@ pub struct Document {
 }
 
 impl Document {
+    /// A transparent 96 PPI document with one layer. Its name is a developer
+    /// default; applications name it with [`Document::with_layer_name`].
     pub fn new(width: u32, height: u32) -> Result<Self, Error> {
         Self::validate_image_size(width, height)?;
         let pixels = PixelStore::new(width, height, Color::TRANSPARENT);
@@ -175,6 +177,22 @@ impl Document {
             stroke: None,
             history: History::default(),
         })
+    }
+
+    /// Names the bottom layer of a document that is still being created.
+    ///
+    /// Layer names are document data, not UI text: the application passes
+    /// the default in the user's language when it creates the document, as
+    /// Paint.NET does, and the name then stays as created. Once the document
+    /// has history this does nothing, so undo never sees an unrecorded rename.
+    pub fn with_layer_name(mut self, name: impl Into<String>) -> Self {
+        if self.undo_len() == 0
+            && self.redo_len() == 0
+            && let Some(layer) = self.state.layers.first_mut()
+        {
+            layer.name = name.into();
+        }
+        self
     }
 
     pub fn width(&self) -> u32 {

@@ -10,7 +10,7 @@ fn full_width_png_streams_rows_and_round_trips_alpha_and_density() {
         .unwrap();
     let d = Document::from_pixels(MAX_DIMENSION, 9, 300.125, pixels).unwrap();
     files::save_atomic(&path, &d, FileFormat::Png, 95).unwrap();
-    let loaded = files::load(&path).unwrap();
+    let loaded = files::load(&path, "Background").unwrap();
     assert_eq!(loaded.snapshot(), d.snapshot());
     assert_eq!(loaded.resolution(), 300.125);
 }
@@ -27,7 +27,10 @@ fn giant_native_project_is_compact_and_jpeg_rejects_its_format_dimension_limit_s
     .unwrap();
     files::save_atomic(&path, &d, FileFormat::Project, 95).unwrap();
     assert!(std::fs::metadata(&path).unwrap().len() < 128);
-    assert_eq!(files::load(&path).unwrap().snapshot(), d.snapshot());
+    assert_eq!(
+        files::load(&path, "Background").unwrap().snapshot(),
+        d.snapshot()
+    );
     let jpg = dir.path().join("existing.jpg");
     std::fs::write(&jpg, b"original").unwrap();
     assert!(matches!(
@@ -49,7 +52,7 @@ fn adam7_png_rows_match_the_standard_full_frame_decoder() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("interlaced.png");
     std::fs::write(&path, fixture).unwrap();
-    let loaded = files::load(&path).unwrap();
+    let loaded = files::load(&path, "Background").unwrap();
     for y in 0..frame.height {
         for x in 0..frame.width {
             let i = (y as usize * frame.width as usize + x as usize) * 4;
@@ -75,7 +78,7 @@ fn encoded_files_above_the_old_128_mib_cap_use_a_working_memory_budget() {
         .unwrap()
         .set_len(129 * 1024 * 1024)
         .unwrap();
-    let loaded = files::load(&path).unwrap();
+    let loaded = files::load(&path, "Background").unwrap();
     assert_eq!((loaded.width(), loaded.height()), (8, 8));
     let c = loaded.layers()[0].pixels().get(0, 0);
     assert!(c.r.abs_diff(80) < 5 && c.g.abs_diff(120) < 5 && c.b.abs_diff(160) < 5);
@@ -92,7 +95,7 @@ fn png_background_sampling_keeps_a_corner_dot_and_first_row_stripe_sparse() {
         let document = Document::from_pixels(1024, 1024, 96., pixels).unwrap();
         let path = dir.path().join(format!("sparse-{stripe}.png"));
         files::save_atomic(&path, &document, FileFormat::Png, 95).unwrap();
-        let loaded = files::load(&path).unwrap();
+        let loaded = files::load(&path, "Background").unwrap();
         assert_eq!(loaded.snapshot(), document.snapshot());
         assert_eq!(
             loaded.layers()[0].pixels().background(),
@@ -126,7 +129,7 @@ fn ordinary_4k_nonuniform_rgba_png_round_trips_every_pixel() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("4k-rgba.png");
     files::save_atomic(&path, &document, FileFormat::Png, 95).unwrap();
-    let loaded = files::load(&path).unwrap();
+    let loaded = files::load(&path, "Background").unwrap();
     assert_eq!(loaded.snapshot(), document.snapshot());
     assert_eq!(loaded.resolution(), 180.125);
 }

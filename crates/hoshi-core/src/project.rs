@@ -116,8 +116,10 @@ impl Document {
             return Ok(());
         }
         let before = self.state.clone();
+        // The result keeps the bottom layer's name.
+        let name = std::mem::take(&mut self.state.layers[0].name);
         self.state.layers = vec![Layer {
-            name: "Background".into(),
+            name,
             visible: true,
             opacity: 255,
             pixels: Arc::new(pixels),

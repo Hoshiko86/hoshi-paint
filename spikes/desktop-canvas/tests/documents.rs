@@ -69,7 +69,7 @@ fn codecs_tabs_savepoints_and_failed_writes_preserve_documents() {
     for (ext, format) in [("hoshi", FileFormat::Project), ("png", FileFormat::Png)] {
         let path = dir.path().join(format!("星 image.{ext}"));
         files::save_atomic(&path, &d, format, 95).unwrap();
-        let loaded = files::load(&path).unwrap();
+        let loaded = files::load(&path, "Background").unwrap();
         assert_eq!(loaded.layers()[0].pixels(), pixels);
         assert_eq!(loaded.resolution(), 144.125);
         assert_eq!(loaded.undo_len(), 0);
@@ -264,7 +264,7 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     let d = Document::from_rgba(8, 8, 300.4, pixels).unwrap();
     let jpg = dir.path().join("photo.jpg");
     files::save_atomic(&jpg, &d, FileFormat::Jpeg, 95).unwrap();
-    let loaded = files::load(&jpg).unwrap();
+    let loaded = files::load(&jpg, "Background").unwrap();
     assert_eq!(loaded.resolution(), 300.);
     assert_eq!((loaded.width(), loaded.height()), (8, 8));
     assert!(
@@ -291,7 +291,7 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     ] {
         let path = dir.path().join(format!("image.{ext}"));
         image::save_buffer_with_format(&path, &raw, 8, 8, image::ColorType::Rgba8, format).unwrap();
-        let loaded = files::load(&path).unwrap_or_else(|e| panic!("{ext}: {e}"));
+        let loaded = files::load(&path, "Background").unwrap_or_else(|e| panic!("{ext}: {e}"));
         assert_eq!((loaded.width(), loaded.height()), (8, 8), "{ext}");
     }
     let high = dir.path().join("high-depth.png");
@@ -302,7 +302,7 @@ fn supported_raster_imports_jpeg_density_and_high_depth_guard() {
     writer.write_image_data(&[0; 8]).unwrap();
     writer.finish().unwrap();
     assert!(matches!(
-        files::load(&high),
+        files::load(&high, "Background"),
         Err(files::FileError::Unsupported16Bit)
     ));
 }

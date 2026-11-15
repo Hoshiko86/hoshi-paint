@@ -11,6 +11,8 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
+/// Catalog key for the default name of a new document's layer.
+const BACKGROUND_LAYER: &str = "layer_background";
 /// Workspace (tab and save-flow) failures, keeping the kind and source.
 /// `Display` is developer text; user copy comes from `crate::error_text`.
 #[derive(Debug, thiserror::Error)]
@@ -137,7 +139,12 @@ pub struct Workspace {
 }
 impl Default for Workspace {
     fn default() -> Self {
-        let c = Controller::default();
+        let text = Localizer::new(&localization::system_selection());
+        let mut c = Controller::default();
+        // The first tab's layer is named in the user's language, like New.
+        if let Ok(document) = Document::new(512, 512) {
+            c.replace_document(document.with_layer_name(text.text(BACKGROUND_LAYER)));
+        }
         Self {
             tabs: vec![DocumentTab::new(1, c, None, TabName::Untitled(1))],
             active: 0,
@@ -146,7 +153,7 @@ impl Default for Workspace {
             empty: Controller::default(),
             recent: VecDeque::new(),
             recent_store: None,
-            text: Localizer::new(&localization::system_selection()),
+            text,
         }
     }
 }
@@ -317,7 +324,8 @@ impl Workspace {
             return Err(ControllerError::InvalidInput);
         }
         let document = Document::new_with_background(width, height, resolution, background)
-            .map_err(ControllerError::from)?;
+            .map_err(ControllerError::from)?
+            .with_layer_name(self.text.text(BACKGROUND_LAYER));
         self.add(document, None)
             .map_err(|_| ControllerError::InvalidInput)?;
         Ok(())
@@ -361,7 +369,7 @@ impl Workspace {
         if self.tabs.len() >= MAX_DOCUMENTS {
             return Err(WorkspaceError::OpenLimit);
         }
-        let document = files::load(&path)?;
+        let document = files::load(&path, self.text.text(BACKGROUND_LAYER))?;
         let id = self.add(document, Some(path.clone()))?;
         self.remember(path);
         Ok(id)
@@ -475,5 +483,27 @@ mod locale_tests {
         assert_eq!(workspace.tab_name(&TabName::File("a.png".into())), "a.png");
         workspace.set_text(Localizer::new(&select_preferred(["en-US"])));
         assert_eq!(workspace.tab_name(&TabName::Untitled(2)), "Untitled 2");
+    }
+
+    #[test]
+    fn new_and_opened_images_name_their_layer_in_the_selected_locale() {
+        let mut workspace = Workspace::default();
+        workspace.set_text(Localizer::new(&select_preferred(["es-ES"])));
+        workspace
+            .new_image(4, 4, 96., hoshi_core::Color::TRANSPARENT)
+            .unwrap();
+        assert_eq!(workspace.document().layers()[0].name(), "Fondo");
+        let dir = std::env::temp_dir().join(format!("hoshi-layer-name-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let png = dir.join("flat.png");
+        image::RgbaImage::new(2, 2).save(&png).unwrap();
+        workspace.open_path(&png).unwrap();
+        assert_eq!(workspace.document().layers()[0].name(), "Fondo");
+        workspace.set_text(Localizer::new(&select_preferred(["en-US"])));
+        workspace
+            .new_image(4, 4, 96., hoshi_core::Color::TRANSPARENT)
+            .unwrap();
+        assert_eq!(workspace.document().layers()[0].name(), "Background");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
