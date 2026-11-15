@@ -1,13 +1,13 @@
 //! Locale selection and catalog fallback for the desktop adapter.
 
 use crate::{AppWindow, ColorPickerWindow, HistoryWindow, ShapePropertiesWindow, Translations};
-use serde_json::Value;
 use slint::ComponentHandle;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 const EN_US: &str = include_str!("../i18n/en-US.json");
 const ES_ES: &str = include_str!("../i18n/es-ES.json");
+#[cfg(test)]
 pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
     "add_to_palette",
@@ -475,24 +475,32 @@ fn format_template(template: &str, arguments: &[(&str, &str)]) -> String {
     value
 }
 
-fn placeholder_names(template: &str) -> Result<BTreeSet<String>, String> {
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+enum PlaceholderError {
+    #[error("closing brace has no opening brace")]
+    Unopened,
+    #[error("placeholder has no closing brace")]
+    Unclosed,
+    #[error("invalid placeholder name {{{0}}}")]
+    InvalidName(String),
+}
+
+fn placeholder_names(template: &str) -> Result<BTreeSet<String>, PlaceholderError> {
     let mut names = BTreeSet::new();
     let mut rest = template;
     while let Some(open) = rest.find(['{', '}']) {
         if rest.as_bytes()[open] == b'}' {
-            return Err("closing brace has no opening brace".into());
+            return Err(PlaceholderError::Unopened);
         }
         let placeholder = &rest[open + 1..];
-        let close = placeholder
-            .find('}')
-            .ok_or_else(|| "placeholder has no closing brace".to_owned())?;
+        let close = placeholder.find('}').ok_or(PlaceholderError::Unclosed)?;
         let name = &placeholder[..close];
         if name.is_empty()
             || !name
                 .chars()
                 .all(|character| character.is_ascii_lowercase() || character == '_')
         {
-            return Err(format!("invalid placeholder name {{{name}}}"));
+            return Err(PlaceholderError::InvalidName(name.to_owned()));
         }
         names.insert(name.to_owned());
         rest = &placeholder[close + 1..];
@@ -544,49 +552,19 @@ fn catalog(locale: SupportedLocale) -> BTreeMap<String, String> {
         SupportedLocale::EnglishUnitedStates => EN_US,
         SupportedLocale::SpanishSpain => ES_ES,
     };
-    let Value::Object(entries) = serde_json::from_str(source).expect("embedded locale catalog")
-    else {
-        unreachable!("catalog root is an object")
-    };
-    let values: BTreeMap<String, String> = entries
-        .into_iter()
-        .map(|(key, value)| {
-            (
-                key,
-                value
-                    .as_str()
-                    .expect("catalog values are strings")
-                    .to_owned(),
-            )
-        })
-        .collect();
-    assert_eq!(
-        values.keys().map(String::as_str).collect::<Vec<_>>(),
-        REQUIRED_KEYS,
-        "embedded {} catalog does not match the required schema",
+    let values = parse_catalog(source);
+    debug_assert!(
+        values.is_ok(),
+        "invalid embedded {} catalog: {values:?}",
         locale.tag()
     );
-    let Value::Object(english_entries) =
-        serde_json::from_str(EN_US).expect("embedded en-US catalog")
-    else {
-        unreachable!("catalog root is an object")
-    };
-    for (key, value) in &values {
-        let actual = placeholder_names(value)
-            .unwrap_or_else(|error| panic!("invalid {} catalog key {key}: {error}", locale.tag()));
-        let reference = english_entries[key]
-            .as_str()
-            .expect("catalog values are strings");
-        let expected = placeholder_names(reference)
-            .unwrap_or_else(|error| panic!("invalid en-US catalog key {key}: {error}"));
-        assert_eq!(
-            actual,
-            expected,
-            "placeholder schema differs for {} catalog key {key}",
-            locale.tag()
-        );
-    }
-    values
+    values.unwrap_or_default()
+}
+
+// Deserializing string values rejects malformed catalogs atomically. Callers
+// retain the existing locale/key fallback when this returns an error.
+fn parse_catalog(source: &str) -> Result<BTreeMap<String, String>, serde_json::Error> {
+    serde_json::from_str(source)
 }
 
 pub fn apply(ui: &AppWindow, localizer: &Localizer) {
@@ -845,6 +823,87 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn validate_catalog(locale: SupportedLocale, values: &BTreeMap<String, String>) {
+        assert_eq!(
+            values.keys().map(String::as_str).collect::<Vec<_>>(),
+            REQUIRED_KEYS,
+            "embedded {} catalog does not match the required schema",
+            locale.tag()
+        );
+        let english_entries = parse_catalog(EN_US).expect("embedded en-US catalog");
+        for (key, value) in values {
+            let actual = placeholder_names(value).unwrap_or_else(|error| {
+                panic!("invalid {} catalog key {key}: {error}", locale.tag())
+            });
+            let reference = &english_entries[key];
+            let expected = placeholder_names(reference)
+                .unwrap_or_else(|error| panic!("invalid en-US catalog key {key}: {error}"));
+            assert_eq!(
+                actual,
+                expected,
+                "placeholder schema differs for {} catalog key {key}",
+                locale.tag()
+            );
+        }
+    }
+
+    #[test]
+    fn every_catalog_matches_the_required_keys_and_placeholder_schema() {
+        for locale in [
+            SupportedLocale::EnglishUnitedStates,
+            SupportedLocale::SpanishSpain,
+        ] {
+            validate_catalog(locale, &catalog(locale));
+        }
+    }
+
+    #[test]
+    fn malformed_catalogs_use_an_empty_release_fallback_without_panicking() {
+        for source in ["{", "[]", "null", r#"{"valid":"text","invalid":1}"#] {
+            // This is the same release fallback used after catalog's debug assertion.
+            let values = parse_catalog(source).unwrap_or_default();
+            assert!(values.is_empty(), "{source}");
+        }
+        assert_eq!(
+            parse_catalog(r#"{"valid":"text"}"#).unwrap()["valid"],
+            "text"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "embedded es-ES catalog does not match the required schema")]
+    fn catalog_validator_rejects_a_key_mismatch() {
+        let mut values = catalog(SupportedLocale::SpanishSpain);
+        values.remove("activate_document");
+        validate_catalog(SupportedLocale::SpanishSpain, &values);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "placeholder schema differs for es-ES catalog key save_failed_preserved"
+    )]
+    fn catalog_validator_rejects_a_placeholder_mismatch() {
+        let mut values = catalog(SupportedLocale::SpanishSpain);
+        values.insert("save_failed_preserved".to_owned(), "{path}".to_owned());
+        validate_catalog(SupportedLocale::SpanishSpain, &values);
+    }
+
+    #[test]
+    fn placeholder_errors_preserve_the_failure_kind_and_invalid_name() {
+        assert_eq!(
+            placeholder_names("missing {close"),
+            Err(PlaceholderError::Unclosed)
+        );
+        assert_eq!(
+            placeholder_names("stray close}"),
+            Err(PlaceholderError::Unopened)
+        );
+        assert_eq!(
+            placeholder_names("bad {Error}"),
+            Err(PlaceholderError::InvalidName("Error".into()))
+        );
+    }
 
     #[test]
     fn locale_selection_normalizes_tags_and_falls_back_deterministically() {
