@@ -763,7 +763,6 @@ mod tests {
 
     #[test]
     fn color_window_labels_follow_the_selected_locale() {
-        use slint::ComponentHandle;
         i_slint_backend_testing::init_no_event_loop();
         let window = ColorPickerWindow::new().unwrap();
         apply_colors(&window, &Localizer::new(&select_preferred(["es-ES"])));
