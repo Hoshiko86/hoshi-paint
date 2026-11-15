@@ -1,10 +1,10 @@
-# Third-party notices for the canvas spike
+# Third-party notices
 
 Hoshi Paint's own source is licensed under **GNU GPL version 3 only**
 (`GPL-3.0-only`), copyright 2026 Hoshi Paint contributors. See [LICENSE](LICENSE).
 Dependency and asset licenses apply to their respective code and resources.
 
-The experimental desktop shell selects the **GPL-3.0-only** option offered by
+The desktop app selects the **GPL-3.0-only** option offered by
 **Slint 1.18.1**. The Help → About Hoshi Paint screen retains `AboutSlint` for
 attribution. Slint's alternative royalty-free and commercial terms are not the
 selected basis for current distributions.
@@ -14,7 +14,7 @@ remain valid; the original notice is preserved in
 [licenses/Hoshi-Paint-legacy-MIT.txt](licenses/Hoshi-Paint-legacy-MIT.txt).
 
 Cargo.lock records transitive dependencies and versions. A complete distributable
-license inventory remains a release gate; this spike is not a packaged release.
+license inventory remains a release gate; there is no packaged release yet.
 Fonts use the operating system's installed fonts; no font files are copied into
 the repository. The framework's bundled resources retain their original notices.
 

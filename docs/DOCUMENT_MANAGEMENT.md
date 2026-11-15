@@ -1,6 +1,6 @@
 # Document management
 
-The desktop spike follows Paint.NET's File workflow: New and Open add document tabs,
+The desktop app follows Paint.NET's File workflow: New and Open add document tabs,
 Save updates the current file, Save As changes its name/type, Save All saves modified
 tabs, and Close/Close All/Exit offer Save, Don't Save, and Cancel for unsaved work.
 The reference is the [current Paint.NET File menu documentation](https://www.getpaint.net/doc/latest/FileMenu.html).

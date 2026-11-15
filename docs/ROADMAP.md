@@ -41,7 +41,7 @@ target; later scopes can change after usability and technical validation.
 
 ## Already delivered ahead of plan
 
-Implemented in the core or desktop spike before their planned version:
+Implemented in the core or desktop app before their planned version:
 
 - JPEG load and save, with quality setting and density metadata (0.1.0).
 - Image Resize, Canvas Size, rotate 90°/180°, flip, and Flatten (0.1.0); see

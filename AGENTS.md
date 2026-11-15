@@ -35,7 +35,7 @@ Dependencies point inward only: `apps/desktop` → `hoshi-controller` → `hoshi
 - Library crates (`hoshi-core`, `hoshi-controller`): typed error enums with
   `thiserror`. Variants carry data (paths, sizes, source errors via `#[source]`/
   `#[from]`), not pre-formatted `String`s.
-- The spike crate may use `anyhow` only in `main.rs` and `examples/`.
+- The desktop app (`apps/desktop`) may use `anyhow` only in `main.rs` and `examples/`.
 - **No new `Result<_, String>`** and no `.map_err(|e| e.to_string())`. Convert
   to text only at the UI boundary (status bar / dialog).
 - **No user-facing text in Rust source, in any crate** (core, controller *or*

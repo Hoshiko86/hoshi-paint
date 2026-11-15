@@ -18,7 +18,7 @@ cargo xtask list           # the smoke table
 | `lint` | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings` | PRs touching Rust, all OSes |
 | `unit [PKG..]` | every crate's unit, integration and doc tests, or the named packages'; cargo-nextest when installed (one process per test, JUnit under CI), else `cargo test` | affected packages, all OSes |
 | `scripts` | `python3 -m unittest discover -s scripts` | PRs touching `scripts/` |
-| `smoke [NAME..]` | builds the desktop binary and examples, then runs every native smoke in [`xtask/src/smoke.rs`](../xtask/src/smoke.rs), or only the named ones | PRs touching the spike, all OSes |
+| `smoke [NAME..]` | builds the desktop binary and examples, then runs every native smoke in [`xtask/src/smoke.rs`](../xtask/src/smoke.rs), or only the named ones | PRs touching the desktop app, all OSes |
 | `full` | `lint` + `unit` + `scripts` + `smoke` | before pushing |
 | `changed [BASE]` | `lint`, then only what the diff since `BASE` (default `origin/main`) needs | while iterating |
 | `ci-plan [BASE\|all]` | prints that selection as GitHub step outputs | CI `plan` job |
@@ -31,10 +31,10 @@ cargo xtask list           # the smoke table
 
 | Changed | Runs |
 | --- | --- |
-| `crates/hoshi-core/` | core, controller and spike tests, plus smoke |
-| `crates/hoshi-controller/` | controller and spike tests, plus smoke |
-| `apps/desktop/` | spike tests, plus smoke |
-| `scripts/` | `scripts` (`check_x11_cursor.py` also runs spike tests and smoke) |
+| `crates/hoshi-core/` | core, controller and desktop tests, plus smoke |
+| `crates/hoshi-controller/` | controller and desktop tests, plus smoke |
+| `apps/desktop/` | desktop tests, plus smoke |
+| `scripts/` | `scripts` (`check_x11_cursor.py` also runs desktop tests and smoke) |
 | `docs/`, top-level `*.md`, licences | nothing beyond `lint` |
 | manifests, `Cargo.lock`, toolchain, `.cargo/`, `.config/`, `.github/workflows/`, `xtask/`, anything unknown | everything |
 
@@ -43,7 +43,7 @@ test, so a new path dependency cannot be skipped silently.
 
 CI uses the same selection. Its `plan` job runs `cargo xtask ci-plan
 origin/<base>` and the other jobs run only what it lists: a docs-only pull
-request builds nothing, a spike change skips coverage, and a core change runs
+request builds nothing, a desktop change skips coverage, and a core change runs
 everything downstream of core. Pushes to `main` and manual runs use `ci-plan
 all`, so `main` always gets the full suites on all three OSes. Skipped steps
 still leave each required check green.

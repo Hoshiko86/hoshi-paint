@@ -1,7 +1,7 @@
 # Paint.NET parity inventory
 
 As of **2026-11-12**. Compares Paint.NET **5.2** (released 2026-11-10) with Hoshi
-Paint at current `main` (desktop spike + `hoshi-core` + `hoshi-controller`).
+Paint at current `main` (desktop app + `hoshi-core` + `hoshi-controller`).
 
 Hoshi Paint is *inspired by* Paint.NET's workflow. It is an original
 implementation with original assets (Lucide icons, own palettes, own algorithms)
@@ -14,7 +14,7 @@ planned instead ([ROADMAP.md](ROADMAP.md)). iPad/iOS work starts after desktop p
 
 | Mark | Meaning |
 | --- | --- |
-| ✅ | Done in Hoshi (shipped in the desktop spike or core) |
+| ✅ | Done in Hoshi (shipped in the desktop app or core) |
 | 🟡 | Partial: what is missing is stated |
 | 📋 | Planned with an open GitHub issue |
 | ❌ | Missing; a roadmap version is given when [ROADMAP.md](ROADMAP.md) names one |
