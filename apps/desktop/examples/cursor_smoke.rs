@@ -40,7 +40,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ui = weak.upgrade().unwrap();
         // Match the real picker: synchronize the current tool before entering
         // the shared pending-selection state and moving the native pointer.
-        ui.invoke_choose_tool(0);
+        ui.invoke_choose_tool("shapes".into());
         picker.set_screen_picking(true);
         ui.set_screen_picking(true);
         let scale = ui.window().scale_factor();

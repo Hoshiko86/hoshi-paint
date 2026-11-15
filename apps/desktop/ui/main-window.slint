@@ -43,7 +43,7 @@ export component AppWindow inherits Window {
     in property <bool> has-shape;
     in property <bool> can-undo;
     in property <bool> can-redo;
-    in property <int> selected-tool;
+    in property <string> selected-tool;
     callback edit-brush-width(float);
     in property <string> shape-x-text;
     in property <string> shape-y-text;
@@ -171,7 +171,7 @@ export component AppWindow inherits Window {
         root.navigation-space-pan = false;
     }
     callback action(int);
-    callback choose-tool(int);
+    callback choose-tool(string);
     callback shift-modifier(bool);
     out property <float> docked-red-left: docked-colors.red-slider-left;
     out property <float> docked-red-top: docked-colors.red-slider-top;
@@ -371,7 +371,7 @@ export component AppWindow inherits Window {
             modal-visible: root.modal-visible; shape-mode: root.shape-mode;
             stroke-width-pixels: root.stroke-width-pixels;
             action(value) => { root.action(value); }
-            select-shapes => { root.choose-tool(0); root.show-shape-properties(); }
+            select-shapes => { root.choose-tool("shapes"); root.show-shape-properties(); }
             show-history => { root.show-history(); }
             show-shape-properties => { root.show-shape-properties(); }
             zoom(delta) => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, delta); }
@@ -389,11 +389,11 @@ export component AppWindow inherits Window {
                 x: 0px; y: 0px; width: DesktopTheme.tool-rail-width; height: parent.height;
                 spacing: 8px; alignment: start;
                 Text { text: Translations.tools-heading; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; overflow: elide; }
-                Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: DesktopTheme.selected-tool; border-radius: 4px; background: transparent;
+                Rectangle { height: 44px; border-width: root.selected-tool == "shapes" ? 2px : 0px; border-color: DesktopTheme.selected-tool; border-radius: 4px; background: transparent;
                     rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
                         icon: @image-url("../icons/shapes.svg"); accessible-label: Translations.shapes; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
                         Tooltip { text: Translations.styled(Translations.shapes + " · " + Translations.rectangle); }
-                        clicked => { root.choose-tool(0); root.show-shape-properties(); }
+                        clicked => { root.choose-tool("shapes"); root.show-shape-properties(); }
                     }
                 }
                 DrawingTools {
@@ -502,7 +502,7 @@ export component AppWindow inherits Window {
                                     canvas-focus.focus();
                                     root.navigation-owner = event.button;
                                     root.navigation-space-pan = event.button == PointerEventButton.left && root.navigation-space;
-                                    root.navigation-panning = event.button == PointerEventButton.middle || (event.button == PointerEventButton.left && root.navigation-space) || root.selected-tool == 2;
+                                    root.navigation-panning = event.button == PointerEventButton.middle || (event.button == PointerEventButton.left && root.navigation-space) || root.selected-tool == "pan";
                                     if root.navigation-panning {
                                         root.begin-pan(self.mouse-x / 1px, self.mouse-y / 1px);
                                     } else {

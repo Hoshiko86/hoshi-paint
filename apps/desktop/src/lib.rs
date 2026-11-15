@@ -1,6 +1,6 @@
 //! Slint desktop adapter around the UI-independent controller (ADR 0006).
 
-use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool};
+use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool, ToolId};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod color_library;
@@ -122,6 +122,28 @@ fn bind_rendering(ui: &AppWindow, state: SharedController) {
     });
 }
 
+fn tool_for(id: ToolId) -> Option<Tool> {
+    match id {
+        ToolId::Shapes => Some(Tool::Rectangle),
+        ToolId::Pan => Some(Tool::Pan),
+        ToolId::ColorPicker => Some(Tool::Eyedropper),
+        ToolId::Paintbrush => Some(Tool::Brush),
+        ToolId::Eraser => Some(Tool::Eraser),
+        _ => None,
+    }
+}
+
+fn tool_key(tool: Tool) -> &'static str {
+    match tool {
+        Tool::Rectangle | Tool::MoveShape => ToolId::Shapes,
+        Tool::Pan => ToolId::Pan,
+        Tool::Eyedropper => ToolId::ColorPicker,
+        Tool::Brush => ToolId::Paintbrush,
+        Tool::Eraser => ToolId::Eraser,
+    }
+    .key()
+}
+
 fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
     ui.set_has_document(controller.has_document());
     let document = controller.document();
@@ -150,14 +172,7 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
     ui.set_has_shape(controller.has_document() && document.active_shape().is_some());
     ui.set_can_undo(controller.has_document() && document.undo_len() > 0);
     ui.set_can_redo(controller.has_document() && document.redo_len() > 0);
-    ui.set_selected_tool(match controller.tool() {
-        Tool::Rectangle => 0,
-        Tool::MoveShape => 1,
-        Tool::Pan => 2,
-        Tool::Eyedropper => 3,
-        Tool::Brush => 4,
-        Tool::Eraser => 5,
-    });
+    ui.set_selected_tool(tool_key(controller.tool()).into());
     history::refresh(ui, controller);
     ui.set_shape_mode(match controller.shape_mode() {
         ShapeMode::Fill => 0,
@@ -352,16 +367,9 @@ fn create_panels(
     shape_bounds::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
-        update(&weak, &state, |c| {
-            c.set_tool(match tool {
-                1 => Tool::MoveShape,
-                2 => Tool::Pan,
-                3 => Tool::Eyedropper,
-                4 => Tool::Brush,
-                5 => Tool::Eraser,
-                _ => Tool::Rectangle,
-            })
-        })
+        if let Some(tool) = ToolId::from_key(tool.as_str()).and_then(tool_for) {
+            update(&weak, &state, |c| c.set_tool(tool));
+        }
     });
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_edit_brush_width(move |width| {
@@ -477,4 +485,93 @@ fn create_panels(
         history,
         shapes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_rail_tool_id_parses_and_maps_to_an_implemented_tool() {
+        let rail = include_str!("../ui/drawing-tools.slint");
+        let mut tools = Vec::new();
+        for line in rail.lines() {
+            if let Some(entry) = line.trim().strip_prefix("{ id: \"") {
+                let key = entry.split('"').next().unwrap();
+                if key.is_empty() {
+                    assert!(line.contains("action: \"screen-picker\""));
+                    continue;
+                }
+                let id = ToolId::from_key(key).expect("rail tool has a stable tool id");
+                assert!(tool_for(id).is_some());
+                tools.push(id);
+            }
+        }
+        assert_eq!(
+            tools,
+            [ToolId::Paintbrush, ToolId::Eraser, ToolId::ColorPicker]
+        );
+        let main = include_str!("../ui/main-window.slint");
+        assert!(main.contains("root.choose-tool(\"shapes\")"));
+        assert_eq!(tool_for(ToolId::Shapes), Some(Tool::Rectangle));
+    }
+
+    #[test]
+    fn supported_tools_round_trip_and_move_shape_uses_the_shapes_key() {
+        for tool in [
+            Tool::Rectangle,
+            Tool::Pan,
+            Tool::Eyedropper,
+            Tool::Brush,
+            Tool::Eraser,
+        ] {
+            assert_eq!(
+                ToolId::from_key(tool_key(tool)).and_then(tool_for),
+                Some(tool)
+            );
+        }
+        assert_eq!(tool_key(Tool::MoveShape), ToolId::Shapes.key());
+        for id in ToolId::ALL {
+            if !matches!(
+                id,
+                ToolId::Shapes
+                    | ToolId::Pan
+                    | ToolId::ColorPicker
+                    | ToolId::Paintbrush
+                    | ToolId::Eraser
+            ) {
+                assert_eq!(tool_for(id), None);
+            }
+        }
+    }
+
+    #[test]
+    fn unknown_and_unmapped_tool_keys_preserve_the_current_tool_and_drag() {
+        slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+            i_slint_backend_testing::TestingBackendOptions {
+                mock_time: true,
+                threading: false,
+                renderer_name: Some("software".into()),
+            },
+        )))
+        .unwrap();
+        let app = create_app_with_palette_root(None).unwrap();
+        app.ui.invoke_choose_tool(ToolId::Paintbrush.key().into());
+        assert_eq!(app.controller.borrow().tool(), Tool::Brush);
+        app.ui.invoke_pointer_down(40., 50.);
+        assert!(app.controller.borrow().is_dragging());
+        for key in ["unknown-tool", "", ToolId::Zoom.key(), "screen-picker"] {
+            app.ui.invoke_choose_tool(key.into());
+            assert_eq!(app.controller.borrow().tool(), Tool::Brush);
+            assert_eq!(app.ui.get_selected_tool(), ToolId::Paintbrush.key());
+            assert!(app.controller.borrow().is_dragging());
+        }
+        app.ui.invoke_pointer_up(40., 50.);
+        app.controller
+            .borrow_mut()
+            .set_tool(Tool::MoveShape)
+            .unwrap();
+        refresh_workspace(&app.ui, &app.controller);
+        assert_eq!(app.ui.get_selected_tool(), ToolId::Shapes.key());
+    }
 }

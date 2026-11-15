@@ -13,6 +13,9 @@
 //! A second test applies a stricter rule to the Slint layouts in
 //! `SLINT_UI`: any literal with two consecutive ASCII letters is copy, unless
 //! it is an import path, an `@image-url(..)` or listed in `SLINT_ALLOWED`.
+//! Lowercase kebab-case internal keys are also exempt, only as `id:`/`action:`
+//! model values, `choose-tool(` arguments, or right-hand literals in
+//! `selected-tool ==`/`!=` comparisons. Lowercase text elsewhere remains copy.
 //! Layouts read text from the `Translations` global instead.
 
 /// Crates whose source the guard scans.
@@ -56,7 +59,7 @@ const SLINT_ALLOWED: &[(&str, &str)] = &[
 ];
 
 /// Literals on a `.slint` line that read as copy: two consecutive ASCII
-/// letters once `\{..}` interpolations, imports and image paths are removed.
+/// letters after removing interpolations, imports, image paths and internal keys.
 #[cfg(test)]
 fn slint_copy(line: &str) -> Vec<String> {
     let trimmed = line.trim_start();
@@ -77,7 +80,17 @@ fn slint_copy(line: &str) -> Vec<String> {
     code.push_str(rest);
     literals(&code)
         .into_iter()
-        .filter(|text| {
+        .scan(0, |offset, text| {
+            // `literals` retains escape bytes, so its lengths locate each
+            // occurrence independently, including repeated text on one line.
+            let start = code.get(*offset..)?.find('"')? + *offset;
+            *offset = start + text.len() + 2;
+            Some((start, text))
+        })
+        .filter(|(start, text)| {
+            if slint_internal_key(&code[..*start], text) {
+                return false;
+            }
             let mut plain = String::with_capacity(text.len());
             let mut depth = 0usize;
             let mut chars = text.chars().peekable();
@@ -98,7 +111,52 @@ fn slint_copy(line: &str) -> Vec<String> {
                 .windows(2)
                 .any(|pair| pair[0].is_ascii_alphabetic() && pair[1].is_ascii_alphabetic())
         })
+        .map(|(_, text)| text)
         .collect()
+}
+
+/// Only lowercase kebab-case literals in tool/model key positions are internal.
+#[cfg(test)]
+fn slint_internal_key(prefix: &str, text: &str) -> bool {
+    if !text.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+        || !text.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        })
+        || prefix.contains("//")
+    {
+        return false;
+    }
+    let prefix = prefix.trim_end();
+    if let Some(field) = prefix.strip_suffix(':') {
+        let field = field.trim_end();
+        return ["id", "action"].iter().any(|name| {
+            field.strip_suffix(name).is_some_and(|before| {
+                let before = before.trim_end();
+                before.is_empty() || before.ends_with(['{', ','])
+            })
+        });
+    }
+    if let Some(call) = prefix.strip_suffix('(') {
+        return slint_last_name(call.trim_end()).rsplit('.').next() == Some("choose-tool");
+    }
+    if let Some(left) = prefix
+        .strip_suffix("==")
+        .or_else(|| prefix.strip_suffix("!="))
+    {
+        return slint_last_name(left.trim_end()).rsplit('.').next() == Some("selected-tool");
+    }
+    false
+}
+
+#[cfg(test)]
+fn slint_last_name(prefix: &str) -> &str {
+    prefix
+        .rsplit(|c: char| !c.is_ascii_alphanumeric() && !matches!(c, '-' | '_' | '.'))
+        .next()
+        .unwrap_or_default()
 }
 
 /// Whether a line's literals are exempt: comments and developer-only text.
@@ -266,6 +324,75 @@ mod tests {
         assert!(slint_copy(r#"  icon: @image-url("../icons/x.svg"); t: "R";"#).is_empty());
         assert!(slint_copy(r#"  text: @markdown("\{name}"); sep: " · ";"#).is_empty());
         assert!(slint_copy(r#"  // "Old copy""#).is_empty());
+    }
+
+    #[test]
+    fn slint_model_id_is_an_internal_key() {
+        assert!(slint_copy(r#"id: "paintbrush""#).is_empty());
+    }
+
+    #[test]
+    fn slint_selected_tool_comparison_is_an_internal_key() {
+        assert!(slint_copy(r#"root.selected-tool == "color-picker""#).is_empty());
+    }
+
+    #[test]
+    fn slint_lowercase_text_is_still_copy() {
+        assert_eq!(slint_copy(r#"text: "brush""#), ["brush"]);
+    }
+
+    #[test]
+    fn slint_model_id_with_prose_is_still_copy() {
+        assert_eq!(slint_copy(r#"id: "Paint brush""#), ["Paint brush"]);
+    }
+
+    #[test]
+    fn slint_key_exemption_accepts_only_the_named_positions_and_spelling() {
+        for line in [
+            r#"{ action: "screen-picker", id: "brush2-tip3" }"#,
+            r#"clicked => { root.choose-tool("shapes"); }"#,
+            r#"root.selected-tool != "eraser""#,
+            r#"selected-tool == "pan""#,
+            r#"{ id : "paintbrush", action : "" }"#,
+        ] {
+            assert!(slint_copy(line).is_empty(), "{line}");
+        }
+        for (line, copy) in [
+            (r#"label: "brush""#, "brush"),
+            (r#"tool.action == "screen-picker""#, "screen-picker"),
+            (r#"other-id: "paintbrush""#, "paintbrush"),
+            (r#"root.id: "paintbrush""#, "paintbrush"),
+            (r#"text: condition ? id : "paintbrush""#, "paintbrush"),
+            (
+                r#"text: condition ? action : "screen-picker""#,
+                "screen-picker",
+            ),
+            (r#"root.other-choose-tool("shapes")"#, "shapes"),
+            (r#"root.other-selected-tool == "pan""#, "pan"),
+            (r#"text: ""; // id: "brush""#, "brush"),
+            (r#"id: "Paintbrush""#, "Paintbrush"),
+            (r#"id: "2brush""#, "2brush"),
+            (r#"id: "-brush""#, "-brush"),
+            (r#"id: "brush-""#, "brush-"),
+            (r#"id: "brush--tip""#, "brush--tip"),
+            (r#"id: "brush_tip""#, "brush_tip"),
+            (r#"id: "brüsh""#, "brüsh"),
+            (r#"id: "brush\n""#, r"brush\n"),
+        ] {
+            assert_eq!(slint_copy(line), [copy], "{line}");
+        }
+    }
+
+    #[test]
+    fn slint_key_exemption_is_specific_to_each_literal_occurrence() {
+        for line in [
+            r#"{ id: "brush", text: "brush" }"#,
+            r#"{ text: "brush", id: "brush" }"#,
+            r#"root.choose-tool("brush"); text: "brush";"#,
+            r#"root.selected-tool == "brush" ? "brush" : """#,
+        ] {
+            assert_eq!(slint_copy(line), ["brush"], "{line}");
+        }
     }
 
     #[test]

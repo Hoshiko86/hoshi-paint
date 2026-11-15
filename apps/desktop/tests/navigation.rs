@@ -144,7 +144,7 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
 
     // The explicit Pan tool uses the same safe navigation path, but keeps its
     // selected-tool state when the gesture ends.
-    ui.invoke_choose_tool(2);
+    ui.invoke_choose_tool("pan".into());
     down(&ui, 200.0, 220.0, Button::Left);
     moved(&ui, 210.0, 230.0);
     ui.window()
@@ -154,7 +154,7 @@ fn temporary_pan_wheel_navigation_and_text_focus_preserve_editing() {
     ui.window()
         .dispatch_event(WindowEvent::WindowActiveChanged(true));
     up(&ui, 210.0, 230.0, Button::Left);
-    ui.invoke_choose_tool(0);
+    ui.invoke_choose_tool("shapes".into());
     ui.invoke_action(2);
     let position = LogicalPosition::new(
         ui.get_layer_input_left() + 20.0,
