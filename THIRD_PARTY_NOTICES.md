@@ -58,3 +58,8 @@ Disk-backed undo uses **lz4_flex 0.11.6** (MIT) to compress private history reco
 The core also uses the existing **tempfile 3.27.0** dependency (selecting MIT) for
 session scratch files. Their sources and license texts are included in the matching
 vendored source archive.
+
+Selection geometry uses **i_overlay 9.1.0** (MIT OR Apache-2.0; selecting MIT)
+with its MIT dependencies **i_float 5.0.0**, **i_shape 5.0.0**, **i_tree 0.20.0**,
+**i_key_sort 0.12.0** and **libm 0.2.16**. Their sources and license texts are
+included in the matching vendored source archive.
