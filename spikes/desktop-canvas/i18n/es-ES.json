@@ -356,5 +356,6 @@
   "new_image_note": "Crear abre una pestaña de documento nueva; la imagen actual sigue abierta.",
   "image_edit_note": "Los cambios se aplican a todas las capas. Esta edición se puede deshacer.",
   "create": "Crear",
-  "apply_image_settings": "Aplicar la configuración de imagen"
+  "apply_image_settings": "Aplicar la configuración de imagen",
+  "layer_background": "Fondo"
 }

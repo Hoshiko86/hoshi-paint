@@ -75,7 +75,7 @@ fn pending_properties_are_saved_and_auxiliary_windows_close_for_modals_and_exit(
         !ui.get_modal_visible(),
         "save should complete without a prompt"
     );
-    let saved = files::load(&path).unwrap();
+    let saved = files::load(&path, "Background").unwrap();
     assert_eq!(
         saved.composite_pixel(339, 70, false).a,
         255,

@@ -187,7 +187,9 @@ impl Seek for InputFile {
         Ok(self.position)
     }
 }
-pub fn load(path: &Path) -> Result<Document, FileError> {
+/// Opens a project or a flat image. A flat image becomes one layer named
+/// `layer_name`, the default background name in the user's language.
+pub fn load(path: &Path, layer_name: &str) -> Result<Document, FileError> {
     let file = File::open(path)?;
     let metadata = file.metadata()?;
     if !metadata.is_file() {
@@ -217,7 +219,7 @@ pub fn load(path: &Path) -> Result<Document, FileError> {
     }
     let format = image::guess_format(prefix).or_else(|_| image::ImageFormat::from_path(path))?;
     if format == image::ImageFormat::Png {
-        return decode_png(BufReader::new(file));
+        return decode_png(BufReader::new(file), layer_name);
     }
     let resolution = jpeg_density(prefix).unwrap_or(96.);
     // image's JPEG decoder and ICO's embedded-image path retain encoded input.
@@ -281,9 +283,11 @@ pub fn load(path: &Path) -> Result<Document, FileError> {
             .set(x, y, Color::rgba(p[0], p[1], p[2], p[3]))
             .map_err(|_| FileError::MemoryLimit)?;
     }
-    Document::from_pixels(width, height, resolution, pixels).map_err(FileError::InvalidImage)
+    Document::from_pixels(width, height, resolution, pixels)
+        .map(|document| document.with_layer_name(layer_name))
+        .map_err(FileError::InvalidImage)
 }
-fn decode_png(input: BufReader<InputFile>) -> Result<Document, FileError> {
+fn decode_png(input: BufReader<InputFile>, layer_name: &str) -> Result<Document, FileError> {
     // png's metadata and decoder workspace are bounded independently of the
     // encoded file's length. Pixel rows are moved directly into sparse storage.
     let decoder_bytes = (memory_budget().saturating_sub(memory_usage()) / 2).min(32 * MIB);
@@ -392,6 +396,7 @@ fn decode_png(input: BufReader<InputFile>) -> Result<Document, FileError> {
         resolution,
         pixels.ok_or(FileError::MissingPngPixels)?,
     )
+    .map(|document| document.with_layer_name(layer_name))
     .map_err(FileError::InvalidPng)
 }
 fn background_vote(candidate: &mut Color, balance: &mut usize, color: Color) {

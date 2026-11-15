@@ -356,5 +356,6 @@
   "new_image_note": "Create opens a new document tab; the current image stays open.",
   "image_edit_note": "Changes apply to every layer. This edit can be undone.",
   "create": "Create",
-  "apply_image_settings": "Apply image settings"
+  "apply_image_settings": "Apply image settings",
+  "layer_background": "Background"
 }

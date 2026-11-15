@@ -255,11 +255,14 @@ impl Document {
             return Ok(());
         }
         let before = self.state.clone();
+        let pixels = Arc::new(self.flattened_pixels(None)?);
+        // The result keeps the bottom layer's name.
+        let name = std::mem::take(&mut self.state.layers[0].name);
         self.state.layers = vec![Layer {
-            name: "Background".into(),
+            name,
             visible: true,
             opacity: 255,
-            pixels: Arc::new(self.flattened_pixels(None)?),
+            pixels,
         }];
         self.state.selected = 0;
         self.checkpoint(before, HistoryLabel::Flatten)?;

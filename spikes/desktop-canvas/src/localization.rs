@@ -190,6 +190,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "key_cancel",
     "key_commit",
     "layer",
+    "layer_background",
     "layer_name",
     "line_dash",
     "line_dash_dot",

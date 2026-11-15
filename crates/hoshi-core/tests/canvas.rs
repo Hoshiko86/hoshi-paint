@@ -186,3 +186,23 @@ fn invalid_dimensions_and_resolution_leave_pixels_and_history_unchanged() {
     assert_eq!(d.undo_len(), history);
     assert_eq!((d.width(), d.height(), d.resolution()), (2, 3, 96.));
 }
+#[test]
+fn applications_name_new_layers_and_flatten_keeps_the_bottom_name() {
+    let d = Document::new(4, 4).unwrap().with_layer_name("Fondo");
+    assert_eq!(d.layers()[0].name(), "Fondo");
+    assert_eq!(d.undo_len(), 0);
+    let mut d = d;
+    d.add_layer("Ink").unwrap();
+    pixel(&mut d, 1, 1, Color::rgba(20, 220, 70, 255));
+    d.flatten().unwrap();
+    assert_eq!(d.layers().len(), 1);
+    assert_eq!(d.layers()[0].name(), "Fondo");
+    // Naming after history would bypass undo, so it is ignored.
+    let d = d.with_layer_name("Other");
+    assert_eq!(d.layers()[0].name(), "Fondo");
+    let mut d = Document::new(4, 4).unwrap().with_layer_name("Paper");
+    d.add_layer("Ink").unwrap();
+    d.flatten_for_save(Some(Color::rgba(255, 255, 255, 255)))
+        .unwrap();
+    assert_eq!(d.layers()[0].name(), "Paper");
+}
