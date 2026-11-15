@@ -43,7 +43,7 @@ slint::slint! {
     export { DocumentTabRow } from "../ui/app-chrome.slint";
     export { Translations } from "../ui/localization.slint";
     export component AppWindow inherits Window {
-        in property <string> document-title: "Untitled · Hoshi Paint";
+        in property <string> document-title: "Hoshi Paint";
         title: root.document-title;
         preferred-width: 1120px;
         preferred-height: 760px;
@@ -343,41 +343,41 @@ slint::slint! {
         show-about => { if !root.modal-visible { root.close-shape-properties(); root.hide-colors(); root.close-history(); root.pointer-cancel(); root.about-open = true; about-focus.focus(); } }
         function close-about() { root.about-open = false; canvas-focus.focus(); }
         MenuBar {
-            Menu { title: "File";
-                MenuItem { title: "New…"; enabled: !root.modal-visible; activated => { root.file-action(7); } }
-                MenuItem { title: "Open…"; enabled: !root.modal-visible; activated => { root.file-action(0); } }
-                Menu { title: "Open Recent";
+            Menu { title: Translations.menu-file;
+                MenuItem { title: Translations.menu-new; enabled: !root.modal-visible; activated => { root.file-action(7); } }
+                MenuItem { title: Translations.menu-open; enabled: !root.modal-visible; activated => { root.file-action(0); } }
+                Menu { title: Translations.menu-open-recent;
                     for path[index] in root.recent-files: MenuItem { title: path; enabled: !root.modal-visible; activated => { root.open-recent(index); } }
                     MenuSeparator { }
-                    MenuItem { title: "Clear this list"; enabled: !root.modal-visible; activated => { root.clear-recent(); } }
+                    MenuItem { title: Translations.clear-recent; enabled: !root.modal-visible; activated => { root.clear-recent(); } }
                 }
                 MenuSeparator { }
-                MenuItem { title: "Save"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(1); } }
-                MenuItem { title: "Save As…"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(2); } }
-                MenuItem { title: "Save All"; enabled: root.any-dirty && !root.modal-visible; activated => { root.file-action(3); } }
+                MenuItem { title: Translations.save; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(1); } }
+                MenuItem { title: Translations.menu-save-as; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(2); } }
+                MenuItem { title: Translations.menu-save-all; enabled: root.any-dirty && !root.modal-visible; activated => { root.file-action(3); } }
                 MenuSeparator { }
-                MenuItem { title: "Close"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(4); } }
-                MenuItem { title: "Close All"; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(5); } }
-                MenuItem { title: "Exit"; enabled: !root.modal-visible; activated => { root.file-action(6); } }
+                MenuItem { title: Translations.menu-close; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(4); } }
+                MenuItem { title: Translations.menu-close-all; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(5); } }
+                MenuItem { title: Translations.menu-exit; enabled: !root.modal-visible; activated => { root.file-action(6); } }
             }
-            Menu { title: "Image";
-                MenuItem { title: "Crop to Selection"; enabled: false; }
+            Menu { title: Translations.menu-image;
+                MenuItem { title: Translations.crop-to-selection; enabled: false; }
                 MenuSeparator { }
-                MenuItem { title: "Resize…"; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(1); } }
-                MenuItem { title: "Canvas Size…"; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(2); } }
+                MenuItem { title: Translations.menu-resize; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(1); } }
+                MenuItem { title: Translations.menu-canvas-size; enabled: root.has-document && !root.modal-visible; activated => { root.show-image-settings(2); } }
                 MenuSeparator { }
-                MenuItem { title: "Flip Horizontal"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(0); } }
-                MenuItem { title: "Flip Vertical"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(1); } }
-                MenuItem { title: "Rotate 90° Clockwise"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(2); } }
-                MenuItem { title: "Rotate 90° Counter-Clockwise"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(3); } }
-                MenuItem { title: "Rotate 180°"; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(4); } }
+                MenuItem { title: Translations.menu-flip-horizontal; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(0); } }
+                MenuItem { title: Translations.menu-flip-vertical; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(1); } }
+                MenuItem { title: Translations.menu-rotate-clockwise; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(2); } }
+                MenuItem { title: Translations.menu-rotate-counter-clockwise; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(3); } }
+                MenuItem { title: Translations.menu-rotate-180; enabled: root.has-document && !root.modal-visible; activated => { root.image-command(4); } }
                 MenuSeparator { }
-                MenuItem { title: "Flatten"; enabled: root.has-document && !root.modal-visible && root.can-flatten; activated => { root.image-command(5); } }
+                MenuItem { title: Translations.menu-flatten; enabled: root.has-document && !root.modal-visible && root.can-flatten; activated => { root.image-command(5); } }
             }
             Menu {
-                title: "Help";
+                title: Translations.menu-help;
                 MenuItem {
-                    title: "About Hoshi Paint";
+                    title: Translations.menu-about;
                     activated => { root.show-about(); }
                 }
             }
@@ -412,11 +412,11 @@ slint::slint! {
                 VerticalLayout {
                     x: 0px; y: 0px; width: DesktopTheme.tool-rail-width; height: parent.height;
                     spacing: 8px; alignment: start;
-                    Text { text: "TOOLS"; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
+                    Text { text: Translations.tools-heading; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; overflow: elide; }
                     Rectangle { height: 44px; border-width: root.selected-tool == 0 ? 2px : 0px; border-color: DesktopTheme.selected-tool; border-radius: 4px; background: transparent;
                         rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
-                            icon: @image-url("../icons/shapes.svg"); accessible-label: "Shapes"; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
-                            Tooltip { text: @markdown("Shapes · Rectangle"); }
+                            icon: @image-url("../icons/shapes.svg"); accessible-label: Translations.shapes; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+                            Tooltip { text: Translations.styled(Translations.shapes + " · " + Translations.rectangle); }
                             clicked => { root.choose-tool(0); root.show-shape-properties(); }
                         }
                     }
@@ -428,14 +428,14 @@ slint::slint! {
                         edit-brush-width(width) => { root.edit-brush-width(width); }
                         pick-screen => { root.pick-screen(); }
                     }
-                    Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: "Colors";
-                        Tooltip { text: @markdown("Colors · Primary, Secondary and Color Picker"); } clicked => { root.show-colors(); } }
-                    Text { text: "COLORS"; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
-                    ColorSwatch { value: root.workspace-primary; label: "Primary color"; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
-                    ColorSwatch { value: root.workspace-secondary; label: "Secondary color"; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
+                    Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: Translations.colors;
+                        Tooltip { text: Translations.styled(Translations.colors-tooltip); } clicked => { root.show-colors(); } }
+                    Text { text: Translations.colors-heading; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
+                    ColorSwatch { value: root.workspace-primary; label: Translations.primary-color; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
+                    ColorSwatch { value: root.workspace-secondary; label: Translations.secondary-color; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
                     HorizontalLayout { spacing: 4px;
-                        Button { icon: @image-url("../icons/swap-colors.svg"); width: 28px; accessible-label: "Swap colors"; Tooltip { text: @markdown("Swap colors · X"); } clicked => { root.swap-colors(); } }
-                        Button { icon: @image-url("../icons/reset-colors.svg"); width: 28px; accessible-label: "Reset colors"; Tooltip { text: @markdown("Reset colors · D"); } clicked => { root.reset-colors(); } }
+                        Button { icon: @image-url("../icons/swap-colors.svg"); width: 28px; accessible-label: Translations.swap-colors; Tooltip { text: Translations.styled(Translations.swap-colors + " · X"); } clicked => { root.swap-colors(); } }
+                        Button { icon: @image-url("../icons/reset-colors.svg"); width: 28px; accessible-label: Translations.reset-colors; Tooltip { text: Translations.styled(Translations.reset-colors + " · D"); } clicked => { root.reset-colors(); } }
                     }
                     Rectangle { vertical-stretch: 1; }
                 }
@@ -447,7 +447,7 @@ slint::slint! {
                     border-width: 1px;
                     border-color: DesktopTheme.strong-border;
                     accessible-role: image;
-                    accessible-label: "Drawing canvas. Drag to draw; Enter or Escape commits.";
+                    accessible-label: Translations.canvas-label;
                     Image {
                         visible: root.has-document;
                         source: root.canvas-image;
@@ -723,7 +723,7 @@ slint::slint! {
                         Text { text: "Copyright 2026 Hoshi Paint contributors\nGNU GPL version 3 only · GPL-3.0-only"; wrap: word-wrap; color: #b8c2d1; }
                         Text { text: "Icons: Lucide 1.71.0 · lucide.dev\nISC / MIT · Lucide and Feather contributors\nCursor adapted with contrast outline. See THIRD_PARTY_NOTICES.md."; wrap: word-wrap; color: #b8c2d1; font-size: 11px; }
                         AboutSlint { }
-                        Button { text: "Close"; clicked => { root.close-about(); } }
+                        Button { text: Translations.menu-close; clicked => { root.close-about(); } }
                     }
                 }
             }
@@ -746,6 +746,13 @@ pub fn describe_error_in(error: &workspace::WorkspaceError, preferred: &[&str]) 
     let text =
         localization::Localizer::new(&localization::select_preferred(preferred.iter().copied()));
     error_text::workspace(&text, error)
+}
+
+/// Command-line help in the system locale.
+pub fn usage_text() -> String {
+    localization::Localizer::new(&localization::system_selection())
+        .text("cli_usage")
+        .to_owned()
 }
 
 pub fn refresh_workspace(ui: &AppWindow, state: &SharedController) {
@@ -808,7 +815,7 @@ fn bind_rendering(ui: &AppWindow, state: SharedController) {
             );
             refresh(&ui, &state);
             if let Err(error) = result {
-                ui.set_status(format!("Cannot fit image: {error:?}").into());
+                ui.set_status(error_text::controller(state.text(), &error).into());
             }
         }
     });
@@ -897,16 +904,19 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         document.active_shape().is_some(),
     );
     ui.set_layer_name(document.layers()[document.selected_layer()].name().into());
+    let text = controller.text();
     let shape = document
         .active_shape()
         .map(|s| {
-            format!(
-                " · Active shape: {} × {} at {}, {} · {}°",
-                s.width,
-                s.height,
-                s.x,
-                s.y,
-                s.rotation_degrees.rem_euclid(360)
+            text.format(
+                "status_shape",
+                &[
+                    ("width", &s.width.to_string()),
+                    ("height", &s.height.to_string()),
+                    ("x", &s.x.to_string()),
+                    ("y", &s.y.to_string()),
+                    ("angle", &s.rotation_degrees.rem_euclid(360).to_string()),
+                ],
             )
         })
         .unwrap_or_default();
@@ -917,13 +927,15 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         format!("{percent:.0}")
     };
     ui.set_status(
-        format!(
-            "{} × {} · {}% · Undo: {}{}",
-            document.width(),
-            document.height(),
-            zoom_label,
-            document.undo_len(),
-            shape
+        text.format(
+            "status_document",
+            &[
+                ("width", &document.width().to_string()),
+                ("height", &document.height().to_string()),
+                ("zoom", &zoom_label),
+                ("undo", &document.undo_len().to_string()),
+                ("shape", &shape),
+            ],
         )
         .into(),
     );
@@ -940,35 +952,28 @@ fn update(
         if ui.get_modal_visible() {
             return;
         }
-        let result = {
+        let (result, message) = {
             let mut controller = controller.borrow_mut();
             let result = action(&mut controller);
             refresh(&ui, &controller);
-            result
+            // Errors carry no user copy; the locale catalogs supply it (#86).
+            let message = result
+                .as_ref()
+                .err()
+                .map(|error| error_text::controller(controller.text(), error));
+            (result, message)
         };
-        if let Err(error) = result {
-            // Core errors carry no user copy; the locale catalogs supply it.
-            let text = ui.global::<Translations>();
-            let history = match error {
-                ControllerError::Core(hoshi_core::Error::HistoryIo) => {
-                    Some(text.get_error_history_io())
-                }
-                ControllerError::Core(hoshi_core::Error::HistoryCorrupt) => {
-                    Some(text.get_error_history_corrupt())
-                }
-                _ => None,
-            };
-            if let Some(message) = &history {
+        if let (Err(error), Some(message)) = (result, message) {
+            if matches!(
+                error,
+                ControllerError::Core(
+                    hoshi_core::Error::HistoryIo | hoshi_core::Error::HistoryCorrupt
+                )
+            ) {
                 panel_hosts::close_adjustment_panels(&ui);
-                ui.set_file_error(message.clone());
+                ui.set_file_error(message.as_str().into());
             }
-            ui.set_status(match (error, history) {
-                (_, Some(message)) => message,
-                (ControllerError::Core(hoshi_core::Error::MemoryLimit), None) => {
-                    text.get_error_memory_limit()
-                }
-                _ => format!("Action unavailable: {error}").into(),
-            });
+            ui.set_status(message.into());
         }
     }
 }
@@ -1044,6 +1049,7 @@ fn create_panels(
     let controller = Rc::new(RefCell::new(workspace::Workspace::with_recent_store(
         recent_store,
     )));
+    controller.borrow_mut().set_text(text.clone());
     image_settings::bind(&ui, controller.clone(), &text);
     bind_rendering(&ui, controller.clone());
     panel_hosts::bind(&ui);

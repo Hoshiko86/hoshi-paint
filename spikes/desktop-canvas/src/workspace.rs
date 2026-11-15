@@ -1,5 +1,6 @@
 //! Independent tab state, shared drawing settings, and save points.
 use crate::files::{self, FileError, FileFormat};
+use crate::localization::{self, Localizer};
 use hoshi_controller::{
     Color, ColorSlot, Controller, ControllerError, FillPattern, LineStyle, ShapeMode,
 };
@@ -70,18 +71,26 @@ impl Drawing {
     }
 }
 pub const MAX_DOCUMENTS: usize = 32;
+/// A tab's name. Untitled names are numbered here and worded by the adapter's
+/// catalogs (#119); saved documents show their file name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TabName {
+    Untitled(u32),
+    File(String),
+}
+
 pub struct DocumentTab {
     pub id: u32,
     pub controller: Controller,
     pub path: Option<PathBuf>,
-    pub name: String,
+    pub name: TabName,
     pub jpeg_quality: u8,
     saved: DocumentSnapshot,
     cache: RefCell<(DocumentSnapshot, bool)>,
     generation: Cell<u32>,
 }
 impl DocumentTab {
-    fn new(id: u32, controller: Controller, path: Option<PathBuf>, name: String) -> Self {
+    fn new(id: u32, controller: Controller, path: Option<PathBuf>, name: TabName) -> Self {
         let saved = controller.document().snapshot();
         Self {
             id,
@@ -123,18 +132,21 @@ pub struct Workspace {
     empty: Controller,
     recent: VecDeque<PathBuf>,
     recent_store: Option<PathBuf>,
+    /// The window's locale, so refreshes can word tab names and statuses.
+    text: Localizer,
 }
 impl Default for Workspace {
     fn default() -> Self {
         let c = Controller::default();
         Self {
-            tabs: vec![DocumentTab::new(1, c, None, "Untitled".into())],
+            tabs: vec![DocumentTab::new(1, c, None, TabName::Untitled(1))],
             active: 0,
             next_id: 2,
             untitled: 1,
             empty: Controller::default(),
             recent: VecDeque::new(),
             recent_store: None,
+            text: Localizer::new(&localization::system_selection()),
         }
     }
 }
@@ -156,6 +168,23 @@ impl DerefMut for Workspace {
     }
 }
 impl Workspace {
+    /// The locale used to word tab names, titles and statuses.
+    pub(crate) fn text(&self) -> &Localizer {
+        &self.text
+    }
+    pub(crate) fn set_text(&mut self, text: Localizer) {
+        self.text = text;
+    }
+    /// A tab's name in the window's locale.
+    pub fn tab_name(&self, name: &TabName) -> String {
+        match name {
+            TabName::File(name) => name.clone(),
+            TabName::Untitled(1) => self.text.text("untitled").into(),
+            TabName::Untitled(number) => self
+                .text
+                .format("untitled_numbered", &[("number", &number.to_string())]),
+        }
+    }
     pub fn with_recent_store(path: Option<PathBuf>) -> Self {
         use std::io::Read;
         let mut workspace = Self {
@@ -302,13 +331,15 @@ impl Workspace {
         self.settings_to(&mut c);
         c.replace_document(document);
         let name = if let Some(path) = &path {
-            path.file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned()
+            TabName::File(
+                path.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+            )
         } else {
             self.untitled += 1;
-            format!("Untitled {}", self.untitled)
+            TabName::Untitled(self.untitled)
         };
         let id = self.next_id;
         self.next_id += 1;
@@ -388,11 +419,12 @@ impl Workspace {
         files::save_atomic(&path, self.document(), format, quality)?;
         let tab = &mut self.tabs[self.active];
         tab.path = Some(path.clone());
-        tab.name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
+        tab.name = TabName::File(
+            path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+        );
         tab.jpeg_quality = quality.clamp(1, 100);
         tab.mark_saved();
         self.remember(path);
@@ -426,5 +458,22 @@ impl Workspace {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod locale_tests {
+    use super::{TabName, Workspace};
+    use crate::localization::{Localizer, select_preferred};
+
+    #[test]
+    fn untitled_tab_names_follow_the_selected_locale() {
+        let mut workspace = Workspace::default();
+        workspace.set_text(Localizer::new(&select_preferred(["es-ES"])));
+        assert_eq!(workspace.tab_name(&TabName::Untitled(1)), "Sin título");
+        assert_eq!(workspace.tab_name(&TabName::Untitled(3)), "Sin título 3");
+        assert_eq!(workspace.tab_name(&TabName::File("a.png".into())), "a.png");
+        workspace.set_text(Localizer::new(&select_preferred(["en-US"])));
+        assert_eq!(workspace.tab_name(&TabName::Untitled(2)), "Untitled 2");
     }
 }

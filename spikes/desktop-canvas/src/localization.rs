@@ -11,15 +11,24 @@ const ES_ES: &str = include_str!("../i18n/es-ES.json");
 pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
     "all_files",
+    "bounds_error_position",
+    "bounds_error_size",
     "brush",
     "brush_width",
     "cancel",
     "cancel_closing_document",
     "cancel_shape",
+    "canvas_label",
+    "clear_recent",
+    "cli_usage",
     "close_document",
     "color_error_hex",
+    "colors",
+    "colors_heading",
+    "colors_tooltip",
     "commit_shape",
     "confirm_format_and_save",
+    "crop_to_selection",
     "current_state",
     "discard_and_close",
     "dont_save",
@@ -112,6 +121,26 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "key_commit",
     "layer",
     "layer_name",
+    "menu_about",
+    "menu_canvas_size",
+    "menu_close",
+    "menu_close_all",
+    "menu_exit",
+    "menu_file",
+    "menu_flatten",
+    "menu_flip_horizontal",
+    "menu_flip_vertical",
+    "menu_help",
+    "menu_image",
+    "menu_new",
+    "menu_open",
+    "menu_open_recent",
+    "menu_resize",
+    "menu_rotate_180",
+    "menu_rotate_clockwise",
+    "menu_rotate_counter_clockwise",
+    "menu_save_all",
+    "menu_save_as",
     "ok",
     "open_image",
     "outline",
@@ -143,9 +172,11 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "palette_error_unknown_color_name",
     "palette_error_write",
     "png_image",
+    "primary_color",
     "rectangle",
     "redo",
     "redo_available",
+    "reset_colors",
     "reset_view",
     "save",
     "save_as",
@@ -167,14 +198,24 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "screen_pick_error_unsupported",
     "screen_pick_prompt",
     "screen_picker",
+    "secondary_color",
     "shape_properties",
     "shapes",
     "shortcut_redo",
     "shortcut_undo",
+    "status_document",
+    "status_no_image",
+    "status_shape",
+    "swap_colors",
+    "tab_unsaved",
     "tool",
+    "tools_heading",
     "undo",
     "unit_pixels",
     "unsaved_changes_warning",
+    "untitled",
+    "untitled_numbered",
+    "window_title",
     "zoom_in",
     "zoom_out",
 ];
@@ -465,6 +506,37 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_ok(text("ok"));
     translations.set_current_state(text("current_state"));
     translations.set_redo_available(text("redo_available"));
+    translations.set_canvas_label(text("canvas_label"));
+    translations.set_menu_file(text("menu_file"));
+    translations.set_menu_new(text("menu_new"));
+    translations.set_menu_open(text("menu_open"));
+    translations.set_menu_open_recent(text("menu_open_recent"));
+    translations.set_menu_save_as(text("menu_save_as"));
+    translations.set_menu_save_all(text("menu_save_all"));
+    translations.set_menu_close_all(text("menu_close_all"));
+    translations.set_menu_exit(text("menu_exit"));
+    translations.set_menu_image(text("menu_image"));
+    translations.set_menu_resize(text("menu_resize"));
+    translations.set_menu_canvas_size(text("menu_canvas_size"));
+    translations.set_menu_flip_horizontal(text("menu_flip_horizontal"));
+    translations.set_menu_flip_vertical(text("menu_flip_vertical"));
+    translations.set_menu_rotate_clockwise(text("menu_rotate_clockwise"));
+    translations.set_menu_rotate_counter_clockwise(text("menu_rotate_counter_clockwise"));
+    translations.set_menu_rotate_180(text("menu_rotate_180"));
+    translations.set_menu_flatten(text("menu_flatten"));
+    translations.set_menu_help(text("menu_help"));
+    translations.set_menu_about(text("menu_about"));
+    translations.set_tools_heading(text("tools_heading"));
+    translations.set_colors_heading(text("colors_heading"));
+    translations.set_colors(text("colors"));
+    translations.set_menu_close(text("menu_close"));
+    translations.set_clear_recent(text("clear_recent"));
+    translations.set_colors_tooltip(text("colors_tooltip"));
+    translations.set_crop_to_selection(text("crop_to_selection"));
+    translations.set_primary_color(text("primary_color"));
+    translations.set_reset_colors(text("reset_colors"));
+    translations.set_secondary_color(text("secondary_color"));
+    translations.set_swap_colors(text("swap_colors"));
 }
 
 #[cfg(test)]
