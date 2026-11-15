@@ -125,7 +125,7 @@ fn slint_internal_key(prefix: &str, text: &str) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
         })
-        || prefix.contains("//")
+        || slint_in_line_comment(prefix)
     {
         return false;
     }
@@ -157,6 +157,22 @@ fn slint_last_name(prefix: &str) -> &str {
         .rsplit(|c: char| !c.is_ascii_alphanumeric() && !matches!(c, '-' | '_' | '.'))
         .next()
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+fn slint_in_line_comment(prefix: &str) -> bool {
+    let mut quoted = false;
+    let mut chars = prefix.chars().peekable();
+    while let Some(c) = chars.next() {
+        if quoted && c == '\\' {
+            chars.next();
+        } else if c == '"' {
+            quoted = !quoted;
+        } else if !quoted && c == '/' && chars.peek() == Some(&'/') {
+            return true;
+        }
+    }
+    false
 }
 
 /// Whether a line's literals are exempt: comments and developer-only text.
@@ -393,6 +409,10 @@ mod tests {
         ] {
             assert_eq!(slint_copy(line), ["brush"], "{line}");
         }
+        assert_eq!(
+            slint_copy(r#"{ text: "https://copy", id: "paintbrush" }"#),
+            ["https://copy"]
+        );
     }
 
     #[test]
