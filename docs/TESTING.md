@@ -33,7 +33,7 @@ cargo xtask list           # the smoke table
 | --- | --- |
 | `crates/hoshi-core/` | core, controller and spike tests, plus smoke |
 | `crates/hoshi-controller/` | controller and spike tests, plus smoke |
-| `spikes/desktop-canvas/` | spike tests, plus smoke |
+| `apps/desktop/` | spike tests, plus smoke |
 | `scripts/` | `scripts` (`check_x11_cursor.py` also runs spike tests and smoke) |
 | `docs/`, top-level `*.md`, licences | nothing beyond `lint` |
 | manifests, `Cargo.lock`, toolchain, `.cargo/`, `.config/`, `.github/workflows/`, `xtask/`, anything unknown | everything |
@@ -67,8 +67,8 @@ Put each test in the lowest layer that can observe the behavior.
 | Core unit | `crates/hoshi-core/src/**` `#[cfg(test)]` | private invariants: tiles, masks, memory budget, codecs | `cargo test` |
 | Core API | `crates/hoshi-core/tests/*.rs` | document behavior through the public API: atomic edits, one history entry per action, preview isolation, file round-trips | `cargo test` |
 | Controller | `crates/hoshi-controller/tests/*.rs` | tool and gesture policy, viewport math, colors, without UI | `cargo test` |
-| Adapter interaction | `spikes/desktop-canvas/tests/*.rs` | real Slint UI on the headless software renderer: synthetic pointer, key and focus events, rendered pixels, focus and modal rules | `i-slint-backend-testing` |
-| Native smoke | `spikes/desktop-canvas/examples/*_smoke.rs` | the real winit window, OS event loop, D-Bus portal and cursor; saves snapshots | `cargo xtask test smoke` (Xvfb on Linux) |
+| Adapter interaction | `apps/desktop/tests/*.rs` | real Slint UI on the headless software renderer: synthetic pointer, key and focus events, rendered pixels, focus and modal rules | `i-slint-backend-testing` |
+| Native smoke | `apps/desktop/examples/*_smoke.rs` | the real winit window, OS event loop, D-Bus portal and cursor; saves snapshots | `cargo xtask test smoke` (Xvfb on Linux) |
 | Reference | fixtures under `crates/*/tests/fixtures/` | output matches a pinned reference (blend modes vs Paint.NET 5.2, [BLEND_REFERENCE.md](BLEND_REFERENCE.md)) | `cargo test` |
 
 Each crate builds its integration tests as **one** test binary:
@@ -97,11 +97,11 @@ Rules:
 
 ## Adding a native smoke
 
-1. Write `spikes/desktop-canvas/examples/<name>_smoke.rs` with a `pub fn
+1. Write `apps/desktop/examples/<name>_smoke.rs` with a `pub fn
    main()`. It must exit by itself, panic on failure, and read snapshot paths
    from environment variables. Add `mod <name>_smoke;` and its match arm to
    `examples/smoke.rs`: all smokes are subcommands of that one binary, so
-   Slint is linked once (`cargo run -p hoshi-canvas-spike --example smoke --
+   Slint is linked once (`cargo run -p hoshi-desktop --example smoke --
    <name>_smoke`).
 2. Add one entry to `SMOKES` in `xtask/src/smoke.rs` with its purpose, screen
    size, snapshot variables and display scales. `cargo xtask test smoke`

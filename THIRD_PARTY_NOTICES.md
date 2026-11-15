@@ -31,7 +31,7 @@ Button SVGs retain Lucide's 24px viewport, rounded joins/caps and 2px outline;
 `currentColor` is replaced with Hoshi Paint's dark foreground for static SVG rendering.
 The pipette cursor is adapted to a 32px viewport with a white contrast halo and
 hotspot (3,29). The Windows `.cur` is a rasterized version of that SVG.
-See [the icon asset guide](spikes/desktop-canvas/icons/README.md).
+See [the icon asset guide](apps/desktop/icons/README.md).
 
 The swap-colors, reset-colors and rotate-shape-cursor SVGs are original Hoshi Paint
 artwork covered by GPL-3.0-only.

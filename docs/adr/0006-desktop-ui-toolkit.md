@@ -11,7 +11,7 @@
 ARCH-1 evaluated Slint first, with egui as the desktop fallback, and left the
 production choice open until desktop, licensing and iOS gates were met
 ([UI_EVALUATION.md](../UI_EVALUATION.md)). Since then the Slint 1.18.1 adapter
-in `spikes/desktop-canvas` has grown into the working editor:
+in `apps/desktop` has grown into the working editor:
 
 - Tabs, Open/Save, the Image menu, shapes, brush and eraser, history, colors,
   palettes and Screen Picker, docking panels, and two locales.
@@ -81,12 +81,12 @@ commercial license. Hoshi Paint is `GPL-3.0-only` (workspace `Cargo.toml`).
    Done when no doc calls the desktop adapter disposable or the framework
    decision open.
 2. **Move and rename.**
-   - `spikes/desktop-canvas` → `apps/desktop`, crate `hoshi-canvas-spike` →
+   - `apps/desktop` → `apps/desktop`, crate `hoshi-desktop` →
      `hoshi-desktop`.
    - Update the workspace manifest, CI, xtask paths (smoke, coverage, english
      guard, changed-path rules), README and docs.
    - Mechanical only, depends on 1. Done when CI is green on all three OSes and
-     `rg 'spikes/desktop-canvas|hoshi-canvas-spike'` finds only history docs.
+     `rg 'apps/desktop|hoshi-desktop'` finds only history docs.
 3. **Main window layout out of `lib.rs`.** Move the `slint!` macro body to
    `ui/main-window.slint`. Depends on 2. Done when `lib.rs` holds no Slint
    markup and the tests are unchanged.

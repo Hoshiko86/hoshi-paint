@@ -39,8 +39,8 @@ xcrun --sdk iphoneos --show-sdk-path
 rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
 rustup target add --toolchain 1.99.1 aarch64-apple-ios-sim aarch64-apple-ios
 cargo +1.99.1 test -p hoshi-core -p hoshi-controller --locked
-cargo +1.99.1 build -p hoshi-canvas-spike --target aarch64-apple-ios-sim --locked
-cargo +1.99.1 build -p hoshi-canvas-spike --target aarch64-apple-ios --locked
+cargo +1.99.1 build -p hoshi-desktop --target aarch64-apple-ios-sim --locked
+cargo +1.99.1 build -p hoshi-desktop --target aarch64-apple-ios --locked
 ```
 
 Record the exact Mac, macOS/Xcode versions, installed SDK/runtime versions,
@@ -66,7 +66,7 @@ The post-compile script should run from the checkout root and invoke the
 released helper with these arguments:
 
 ```sh
-bash path/to/build_for_ios_with_cargo.bash hoshi-canvas-spike --package hoshi-canvas-spike --locked
+bash path/to/build_for_ios_with_cargo.bash hoshi-desktop --package hoshi-desktop --locked
 ```
 
 The exact `path/to` depends on the evaluation directory chosen above. The helper
