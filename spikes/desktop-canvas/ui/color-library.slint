@@ -1,5 +1,6 @@
 // Shared name search and palette controls for floating and docked Colors hosts.
 import { Button, ComboBox, LineEdit, Palette } from "std-widgets.slint";
+import { Translations } from "localization.slint";
 export struct NamedColorSuggestion { name: string, preview: color, description: string }
 export struct PaletteSwatch { red: int, green: int, blue: int, alpha: int, index: int, label: string, description: string }
 component ColorTip inherits Rectangle {
@@ -58,7 +59,7 @@ component NameSearch inherits Rectangle {
     HorizontalLayout {
         x: 0px; y: 0px; width: parent.width; height: 32px; spacing: 4px;
         editor := LineEdit {
-            placeholder-text: "Color name…"; accessible-label: "Color name";
+            placeholder-text: Translations.color-name-placeholder; accessible-label: Translations.color-name;
             init => { self.text = root.query; }
             edited(value) => { root.query = value; root.highlight = 0; root.open = value != ""; root.search(value); }
             key-pressed(event) => {
@@ -73,22 +74,22 @@ component NameSearch inherits Rectangle {
                 } else { root.choose(value); }
                 root.open = false; self.text = root.query;
             }
-            Tooltip { text: @markdown("Type a color name. Use Up/Down and Enter, or select a swatch-prefixed suggestion. Typing alone does not change the color."); }
+            Tooltip { text: Translations.styled(Translations.color-name-tooltip); }
         }
-        Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: "Clear color name search";
+        Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.clear-color-search;
             clicked => { root.query = ""; editor.text = ""; root.open = false; root.search(""); }
-            Tooltip { text: @markdown("Clear color name search"); }
+            Tooltip { text: Translations.styled(Translations.clear-color-search); }
         }
     }
     if root.results-height > 0px: Rectangle {
         y: 34px; width: parent.width; height: root.results-height;
         background: #e8edf5; border-width: 1px; border-color: #b7c2d2;
-        if root.suggestions.length == 0: Text { text: "No matching color names"; color: #526079; vertical-alignment: center; x: 8px; }
+        if root.suggestions.length == 0: Text { text: Translations.no-matching-colors; color: #526079; vertical-alignment: center; x: 8px; }
         for suggestion[index] in root.suggestions: Rectangle {
             visible: index < 8;
             y: index * 30px; width: parent.width; height: 30px;
             background: index == root.highlight ? #dbe8ff : transparent;
-            Button { width: parent.width; height: parent.height; accessible-label: "Use color " + suggestion.name;
+            Button { width: parent.width; height: parent.height; accessible-label: Translations.use-color + " " + suggestion.name;
                 clicked => { root.choose(suggestion.name); root.open = false; editor.text = root.query; }
             }
             Rectangle { background: transparent; border-width: index == root.highlight ? 2px : 0px; border-color: #315cae; }
@@ -134,30 +135,30 @@ export component ColorLibrary inherits Rectangle {
         names := NameSearch { query <=> root.color-name-query; suggestions: root.color-name-suggestions;
             search(value) => { root.search-color-name(value); } choose(value) => { root.choose-named-color(value); } }
         HorizontalLayout { height: 30px; spacing: 6px;
-            palette-choice := ComboBox { model: root.palette-names; current-index: root.palette-selected; accessible-label: "Color palette";
+            palette-choice := ComboBox { model: root.palette-names; current-index: root.palette-selected; accessible-label: Translations.color-palette;
                 selected(value) => { root.select-palette(self.current-index); }
             }
             Text { text: root.palette-dirty ? "*" : ""; color: #526079; vertical-alignment: center; }
-            Button { text: root.palette-expanded ? "32" : "96"; width: 36px; accessible-label: root.palette-expanded ? "Show first 32 palette colors" : "Show all 96 palette colors";
+            Button { text: root.palette-expanded ? "32" : "96"; width: 36px; accessible-label: root.palette-expanded ? Translations.show-first-32 : Translations.show-all-96;
                 clicked => { root.set-palette-expanded(!root.palette-expanded); }
-                Tooltip { text: @markdown("Show 32 or all 96 palette colors"); }
+                Tooltip { text: Translations.styled(Translations.palette-size-tooltip); }
             }
         }
         HorizontalLayout { height: 30px; spacing: 4px; alignment: start;
             Rectangle { width: 30px; height: 30px; background: root.palette-inserting ? #c8ddff : transparent; border-width: root.palette-inserting ? 2px : 0px; border-color: #315cae;
-                Button { width: parent.width; height: parent.height; icon: @image-url("../icons/plus.svg"); accessible-label: "Add active color to palette";
+                Button { width: parent.width; height: parent.height; icon: @image-url("../icons/plus.svg"); accessible-label: Translations.add-to-palette;
                     clicked => { root.toggle-palette-insert(); }
-                    Tooltip { text: @markdown("Add active color: enable, then click a palette slot to replace it. Click again to cancel insertion."); }
+                    Tooltip { text: Translations.styled(Translations.add-to-palette-tooltip); }
                 }
                 Preview { x: 20px; y: 20px; width: 9px; height: 9px; value: root.current-color; }
             }
-            Button { width: 30px; icon: @image-url("../icons/save.svg"); accessible-label: "Save current palette as"; clicked => { root.save-palette-as(); } Tooltip { text: @markdown("Save Current Palette As…"); } }
-            Button { width: 30px; icon: @image-url("../icons/file-input.svg"); accessible-label: "Import palette"; clicked => { root.import-palette(); } Tooltip { text: @markdown("Import a Paint.NET palette file"); } }
-            Button { width: 30px; icon: @image-url("../icons/file-output.svg"); accessible-label: "Export palette"; clicked => { root.export-palette(); } Tooltip { text: @markdown("Export the current palette"); } }
-            Button { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: "Open palettes folder"; clicked => { root.open-palettes-folder(); } Tooltip { text: @markdown("Open Palettes Folder"); } }
-            Button { width: 30px; icon: @image-url("../icons/rotate-ccw.svg"); accessible-label: "Reset to default palette"; clicked => { root.reset-palette(); } Tooltip { text: @markdown("Reset to Default Palette"); } }
+            Button { width: 30px; icon: @image-url("../icons/save.svg"); accessible-label: Translations.save-palette-as; clicked => { root.save-palette-as(); } Tooltip { text: Translations.styled(Translations.save-palette-as-tooltip); } }
+            Button { width: 30px; icon: @image-url("../icons/file-input.svg"); accessible-label: Translations.import-palette; clicked => { root.import-palette(); } Tooltip { text: Translations.styled(Translations.import-palette-tooltip); } }
+            Button { width: 30px; icon: @image-url("../icons/file-output.svg"); accessible-label: Translations.export-palette; clicked => { root.export-palette(); } Tooltip { text: Translations.styled(Translations.export-palette-tooltip); } }
+            Button { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: Translations.open-palettes-folder; clicked => { root.open-palettes-folder(); } Tooltip { text: Translations.styled(Translations.open-palettes-folder-tooltip); } }
+            Button { width: 30px; icon: @image-url("../icons/rotate-ccw.svg"); accessible-label: Translations.reset-palette; clicked => { root.reset-palette(); } Tooltip { text: Translations.styled(Translations.reset-palette-tooltip); } }
         }
-        Text { height: 18px; text: root.palette-inserting ? "Choose a slot to replace with the active color" : root.palette-title; color: #526079; font-size: 11px; }
+        Text { height: 18px; text: root.palette-inserting ? Translations.choose-palette-slot : root.palette-title; color: #526079; font-size: 11px; }
         swatch-grid := Rectangle {
             height: root.rows * root.cell; border-width: root.palette-inserting ? 2px : 0px; border-color: #315cae;
             for swatch[index] in root.swatches: PaletteEntry {
