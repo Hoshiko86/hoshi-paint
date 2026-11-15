@@ -47,7 +47,9 @@ Dependencies point inward only: `spikes/desktop-canvas` â†’ `hoshi-controller` â
 - `cargo test -p xtask` fails on a string literal that reads like English
   prose (a capitalized word, then a lowercase word) in non-test Rust source
   (`xtask/src/english.rs`). Developer-only text is lowercase; legal notices
-  are the only allowlisted exception.
+  are the only allowlisted exception. In `spikes/desktop-canvas/ui/*.slint`
+  the rule is stricter: any literal with two consecutive letters fails unless
+  allowlisted (product name, channel symbols); use `Translations.*` properties.
 - Existing English strings may stay until their ticket moves them (#86), but
   don't add new ones. If a task seems to need one, add the catalog key instead.
 
