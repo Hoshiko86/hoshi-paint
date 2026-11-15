@@ -24,10 +24,10 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
             hsv.saturation = picker.get_saturation().into();
         }
     }
-    if (f64::from(picker.get_hue()) - hsv.hue).abs() > 0.0001
-        || picker.get_sv_image().size().width == 0
+    if ((f64::from(picker.get_hue()) - hsv.hue).abs() > 0.0001
+        || picker.get_sv_image().size().width == 0)
+        && let Ok(base) = color::color_from_hsv(hsv.hue, 100.0, 100.0, 255)
     {
-        let base = color::color_from_hsv(hsv.hue, 100.0, 100.0, 255).expect("validated hue");
         let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(256, 180);
         for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
             let s = (index % 256) as f64 / 255.0;
@@ -331,8 +331,11 @@ pub(super) fn bind_picker(
             }
             refresh(&ui, &state.borrow());
             ui.set_colors_visible(true);
-            if !ui.get_colors_docked() {
-                colors.show().expect("show color picker");
+            if !ui.get_colors_docked()
+                && let Err(error) = colors.show()
+            {
+                ui.set_colors_visible(false);
+                eprintln!("show color picker: {error}");
             }
         }
     });
@@ -613,6 +616,27 @@ pub(super) fn describe_workspace_color(value: Color) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn non_finite_hue_preserves_previous_saturation_value_image() {
+        i_slint_backend_testing::init_no_event_loop();
+        let picker = ColorPickerWindow::new().unwrap();
+        let value = Color::rgba(255, 0, 0, 255);
+        synchronize(&picker, value, None);
+        let previous = picker.get_sv_image();
+        for hue in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            synchronize(
+                &picker,
+                value,
+                Some(Hsv {
+                    hue,
+                    saturation: 100.0,
+                    value: 100.0,
+                }),
+            );
+            assert_eq!(picker.get_sv_image(), previous);
+        }
+    }
 
     #[test]
     fn swatch_description_contains_exact_channels_hsv_and_optional_palette_name() {
