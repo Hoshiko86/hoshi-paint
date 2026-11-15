@@ -14,8 +14,23 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "add_to_palette_tooltip",
     "all_files",
     "alpha",
+    "anchor",
+    "anchor_bottom",
+    "anchor_bottom_left",
+    "anchor_bottom_right",
+    "anchor_center",
+    "anchor_left",
+    "anchor_right",
+    "anchor_top",
+    "anchor_top_left",
+    "anchor_top_right",
     "antialiasing",
     "antialiasing_tooltip",
+    "apply_image_settings",
+    "background",
+    "background_secondary",
+    "background_transparent",
+    "background_white",
     "bounds_error_position",
     "bounds_error_size",
     "bounds_heading",
@@ -31,6 +46,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "cancel",
     "cancel_closing_document",
     "cancel_shape",
+    "canvas_anchor",
     "canvas_label",
     "choose_palette_slot",
     "clear_color_search",
@@ -49,10 +65,14 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "colors_tooltip",
     "commit_shape",
     "confirm_format_and_save",
+    "create",
     "crop_to_selection",
     "current",
     "current_color",
     "current_state",
+    "dialog_canvas_size",
+    "dialog_new",
+    "dialog_resize",
     "discard_and_close",
     "dock_location",
     "dock_panel",
@@ -105,14 +125,18 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "file_operation_failed",
     "fill",
     "fill_and_outline",
+    "fill_new_area",
     "fill_pattern",
     "fill_pattern_selector",
     "finish_shape",
     "fit_canvas",
     "float_panel",
+    "gamma_correction",
+    "gamma_tooltip",
     "handle_move_pivot",
     "handle_resize",
     "handle_rotate",
+    "height",
     "hex_apply",
     "hex_color",
     "history",
@@ -145,13 +169,18 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "hoshi_layered_project",
     "hsv_range",
     "hue",
+    "image_background",
+    "image_edit_note",
     "image_error_apply_limits",
     "image_error_invalid_choice",
     "image_error_not_positive",
     "image_error_pixel_range",
     "image_error_resolution_range",
     "image_error_whole_pixels",
+    "image_height",
     "image_summary",
+    "image_units",
+    "image_width",
     "images_hoshi_projects",
     "import_palette",
     "import_palette_tooltip",
@@ -172,6 +201,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "lock_ratio",
     "lock_ratio_label",
     "lock_ratio_tooltip",
+    "maintain_aspect",
     "menu_about",
     "menu_canvas_size",
     "menu_close",
@@ -192,6 +222,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "menu_rotate_counter_clockwise",
     "menu_save_all",
     "menu_save_as",
+    "new_image_note",
     "no_matching_colors",
     "ok",
     "open_image",
@@ -241,6 +272,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "pattern_vertical",
     "picker_editing_shape",
     "picker_next_color",
+    "pixels_per_inch",
     "placement_bottom",
     "placement_float",
     "placement_left",
@@ -251,11 +283,26 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "rectangle",
     "redo",
     "redo_available",
+    "resample_adaptive",
+    "resample_bicubic",
+    "resample_bicubic_smooth",
+    "resample_bilinear",
+    "resample_bilinear_low",
+    "resample_fant",
+    "resample_lanczos",
+    "resample_nearest",
+    "resampling",
+    "resampling_label",
     "reset_colors",
     "reset_colors_label",
     "reset_palette",
     "reset_palette_tooltip",
+    "reset_resampling",
     "reset_view",
+    "resize_mode",
+    "resize_percentage",
+    "resolution",
+    "resolution_label",
     "restore",
     "restore_original_color",
     "rgb_range",
@@ -294,6 +341,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "shortcut_undo",
     "show_all_96",
     "show_first_32",
+    "size_absolute",
+    "size_percentage",
     "status_document",
     "status_no_image",
     "status_shape",
@@ -305,11 +354,16 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "tool",
     "tools_heading",
     "undo",
+    "unit_name_centimeters",
+    "unit_name_inches",
+    "unit_name_pixels",
     "unit_pixels",
+    "units",
     "unsaved_changes_warning",
     "untitled",
     "untitled_numbered",
     "use_color",
+    "width",
     "window_title",
     "zoom_in",
     "zoom_out",
@@ -553,6 +607,60 @@ pub fn apply_shapes(ui: &ShapePropertiesWindow, localizer: &Localizer) {
 fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
     translations.set_locale(localizer.locale.tag().into());
+    translations.set_dialog_new(text("dialog_new"));
+    translations.set_dialog_resize(text("dialog_resize"));
+    translations.set_dialog_canvas_size(text("dialog_canvas_size"));
+    translations.set_size_absolute(text("size_absolute"));
+    translations.set_size_percentage(text("size_percentage"));
+    translations.set_resize_mode(text("resize_mode"));
+    translations.set_resize_percentage(text("resize_percentage"));
+    translations.set_units(text("units"));
+    translations.set_unit_name_pixels(text("unit_name_pixels"));
+    translations.set_unit_name_inches(text("unit_name_inches"));
+    translations.set_unit_name_centimeters(text("unit_name_centimeters"));
+    translations.set_image_units(text("image_units"));
+    translations.set_width(text("width"));
+    translations.set_height(text("height"));
+    translations.set_image_width(text("image_width"));
+    translations.set_image_height(text("image_height"));
+    translations.set_maintain_aspect(text("maintain_aspect"));
+    translations.set_resolution(text("resolution"));
+    translations.set_resolution_label(text("resolution_label"));
+    translations.set_pixels_per_inch(text("pixels_per_inch"));
+    translations.set_resampling(text("resampling"));
+    translations.set_resample_bicubic(text("resample_bicubic"));
+    translations.set_resample_bicubic_smooth(text("resample_bicubic_smooth"));
+    translations.set_resample_bilinear(text("resample_bilinear"));
+    translations.set_resample_bilinear_low(text("resample_bilinear_low"));
+    translations.set_resample_adaptive(text("resample_adaptive"));
+    translations.set_resample_lanczos(text("resample_lanczos"));
+    translations.set_resample_fant(text("resample_fant"));
+    translations.set_resample_nearest(text("resample_nearest"));
+    translations.set_resampling_label(text("resampling_label"));
+    translations.set_reset_resampling(text("reset_resampling"));
+    translations.set_gamma_correction(text("gamma_correction"));
+    translations.set_gamma_tooltip(text("gamma_tooltip"));
+    translations.set_anchor(text("anchor"));
+    translations.set_anchor_top_left(text("anchor_top_left"));
+    translations.set_anchor_top(text("anchor_top"));
+    translations.set_anchor_top_right(text("anchor_top_right"));
+    translations.set_anchor_left(text("anchor_left"));
+    translations.set_anchor_center(text("anchor_center"));
+    translations.set_anchor_right(text("anchor_right"));
+    translations.set_anchor_bottom_left(text("anchor_bottom_left"));
+    translations.set_anchor_bottom(text("anchor_bottom"));
+    translations.set_anchor_bottom_right(text("anchor_bottom_right"));
+    translations.set_canvas_anchor(text("canvas_anchor"));
+    translations.set_background(text("background"));
+    translations.set_fill_new_area(text("fill_new_area"));
+    translations.set_background_white(text("background_white"));
+    translations.set_background_transparent(text("background_transparent"));
+    translations.set_background_secondary(text("background_secondary"));
+    translations.set_image_background(text("image_background"));
+    translations.set_new_image_note(text("new_image_note"));
+    translations.set_image_edit_note(text("image_edit_note"));
+    translations.set_create(text("create"));
+    translations.set_apply_image_settings(text("apply_image_settings"));
     translations.set_placement_float(text("placement_float"));
     translations.set_placement_left(text("placement_left"));
     translations.set_placement_right(text("placement_right"));
@@ -770,6 +878,31 @@ mod tests {
             "Restaurar el color original",
             "Importar paleta",
             "Colores · ubicación del panel",
+        ] {
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&window, label)
+                    .count(),
+                1,
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn image_dialog_labels_follow_the_selected_locale() {
+        use slint::ComponentHandle;
+        i_slint_backend_testing::init_no_event_loop();
+        let window = AppWindow::new().unwrap();
+        apply(&window, &Localizer::new(&select_preferred(["es-ES"])));
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(1120., 760.));
+        window.show().unwrap();
+        window.set_image_dialog_kind(2);
+        for label in [
+            "Aplicar la configuración de imagen",
+            "Anclaje del lienzo Arriba a la izquierda",
+            "Relleno del fondo de la imagen",
         ] {
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(&window, label)

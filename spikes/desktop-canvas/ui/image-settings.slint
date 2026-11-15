@@ -1,5 +1,6 @@
 import { Button, LineEdit, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
 export component ImageSettings inherits Rectangle {
     in property <int> kind;
     in-out property <string> width-text;
@@ -34,68 +35,68 @@ export component ImageSettings inherits Rectangle {
         }
     VerticalLayout {
         padding: 20px; spacing: 10px;
-        Text { text: root.kind == 0 ? "New" : root.kind == 1 ? "Resize" : "Canvas Size"; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+        Text { text: root.kind == 0 ? Translations.dialog-new : root.kind == 1 ? Translations.dialog-resize : Translations.dialog-canvas-size; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
         if root.kind == 1: HorizontalLayout {
-            ComboBox { model: ["By absolute size", "By percentage"]; current-index: root.percentage ? 1 : 0;
-                accessible-label: "Resize sizing mode"; selected(value) => { root.percentage-selected(self.current-index == 1); } }
-            LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: "Resize percentage"; edited(value) => { root.edited(3, value); } accepted => { root.apply(); } }
+            ComboBox { model: [Translations.size-absolute, Translations.size-percentage]; current-index: root.percentage ? 1 : 0;
+                accessible-label: Translations.resize-mode; selected(value) => { root.percentage-selected(self.current-index == 1); } }
+            LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: Translations.resize-percentage; edited(value) => { root.edited(3, value); } accepted => { root.apply(); } }
             Text { text: "%"; vertical-alignment: center; color: DesktopTheme.text; }
         }
         HorizontalLayout {
-            Text { text: "Units"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            ComboBox { model: ["Pixels", "Inches", "Centimeters"]; current-index: root.units;
-                accessible-label: "Image size units"; selected(value) => { root.units-selected(self.current-index); } }
+            Text { text: Translations.units; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
+            ComboBox { model: [Translations.unit-name-pixels, Translations.unit-name-inches, Translations.unit-name-centimeters]; current-index: root.units;
+                accessible-label: Translations.image-units; selected(value) => { root.units-selected(self.current-index); } }
         }
         HorizontalLayout {
-            Text { text: "Width"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: "Image width"; edited(value) => { root.edited(0, value); } accepted => { root.apply(); } }
+            Text { text: Translations.width; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
+            width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: Translations.image-width; edited(value) => { root.edited(0, value); } accepted => { root.apply(); } }
         }
         HorizontalLayout {
-            Text { text: "Height"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: "Image height"; edited(value) => { root.edited(1, value); } accepted => { root.apply(); } }
+            Text { text: Translations.height; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
+            LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: Translations.image-height; edited(value) => { root.edited(1, value); } accepted => { root.apply(); } }
         }
-        CheckBox { text: "Maintain aspect ratio"; checked: root.aspect; enabled: !root.percentage;
+        CheckBox { text: Translations.maintain-aspect; checked: root.aspect; enabled: !root.percentage;
             toggled => { root.aspect-selected(self.checked); } }
         if root.kind != 2: HorizontalLayout {
-            Text { text: "Resolution"; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            LineEdit { text <=> root.resolution-text; accessible-label: "Resolution in pixels per inch"; edited(value) => { root.edited(2, value); } accepted => { root.apply(); } }
-            Text { text: "pixels/inch"; color: DesktopTheme.text; vertical-alignment: center; }
+            Text { text: Translations.resolution; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
+            LineEdit { text <=> root.resolution-text; accessible-label: Translations.resolution-label; edited(value) => { root.edited(2, value); } accepted => { root.apply(); } }
+            Text { text: Translations.pixels-per-inch; color: DesktopTheme.text; vertical-alignment: center; }
         }
         if root.kind == 1: HorizontalLayout {
-            Text { text: "Resampling"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
-            ComboBox { model: ["Bicubic", "Bicubic (Smooth)", "Bilinear", "Bilinear (Low Quality)", "Adaptive (Sharp)", "Lanczos", "Fant", "Nearest Neighbor"]; current-index <=> root.resampling; accessible-label: "Resize resampling"; }
+            Text { text: Translations.resampling; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
+            ComboBox { model: [Translations.resample-bicubic, Translations.resample-bicubic-smooth, Translations.resample-bilinear, Translations.resample-bilinear-low, Translations.resample-adaptive, Translations.resample-lanczos, Translations.resample-fant, Translations.resample-nearest]; current-index <=> root.resampling; accessible-label: Translations.resampling-label; }
             Button { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: "Reset resampling to Bicubic";
-                Tooltip { text: @markdown("Reset resampling to Bicubic"); }
+                Tooltip { text: Translations.styled(Translations.reset-resampling); }
                 clicked => { root.resampling = 0; } }
         }
         if root.kind == 1: CheckBox {
-            text: "Use gamma correction"; accessible-label: "Use gamma correction";
+            text: Translations.gamma-correction; accessible-label: Translations.gamma-correction;
             checked <=> root.gamma-correction;
-            Tooltip { text: @markdown("Resample in linear light to preserve brightness. Alpha is always treated as coverage."); }
+            Tooltip { text: Translations.styled(Translations.gamma-tooltip); }
         }
         if root.kind == 2: HorizontalLayout {
-            Text { text: "Anchor"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
+            Text { text: Translations.anchor; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             Rectangle { width: 150px; height: 108px;
-                for label[index] in ["Top left", "Top", "Top right", "Left", "Center", "Right", "Bottom left", "Bottom", "Bottom right"]: Button {
+                for label[index] in [Translations.anchor-top-left, Translations.anchor-top, Translations.anchor-top-right, Translations.anchor-left, Translations.anchor-center, Translations.anchor-right, Translations.anchor-bottom-left, Translations.anchor-bottom, Translations.anchor-bottom-right]: Button {
                     x: Math.mod(index, 3) * 50px; y: floor(index / 3) * 36px; width: 46px; height: 32px;
                     text: root.anchor == index ? "●" : ["↖", "↑", "↗", "←", "·", "→", "↙", "↓", "↘"][index];
-                    accessible-label: "Canvas anchor " + label; clicked => { root.anchor = index; }
+                    accessible-label: Translations.canvas-anchor + " " + label; clicked => { root.anchor = index; }
                 }
             }
         }
         if root.kind != 1: HorizontalLayout {
-            Text { text: root.kind == 0 ? "Background" : "Fill new area"; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
-            ComboBox { model: root.kind == 0 ? ["White", "Transparent", "Secondary color"] : ["Transparent", "Secondary color"];
-                current-index <=> root.background-choice; accessible-label: "Image background fill"; }
+            Text { text: root.kind == 0 ? Translations.background : Translations.fill-new-area; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
+            ComboBox { model: root.kind == 0 ? [Translations.background-white, Translations.background-transparent, Translations.background-secondary] : [Translations.background-transparent, Translations.background-secondary];
+                current-index <=> root.background-choice; accessible-label: Translations.image-background; }
         }
         Text { text: root.summary; wrap: word-wrap; color: DesktopTheme.muted-text; }
         Text { text: root.error; wrap: word-wrap; color: DesktopTheme.error-text; min-height: 36px; }
-        Text { text: root.kind == 0 ? "Create opens a new document tab; the current image stays open." : "Changes apply to every layer. This edit can be undone."; wrap: word-wrap; color: DesktopTheme.muted-text; font-size: 12px; }
+        Text { text: root.kind == 0 ? Translations.new-image-note : Translations.image-edit-note; wrap: word-wrap; color: DesktopTheme.muted-text; font-size: 12px; }
         HorizontalLayout {
             spacing: 8px;
             Rectangle { horizontal-stretch: 1; }
-            Button { text: "Cancel"; clicked => { root.cancel(); } }
-            Button { text: root.kind == 0 ? "Create" : "OK"; accessible-label: "Apply image settings"; clicked => { root.apply(); } }
+            Button { text: Translations.cancel; clicked => { root.cancel(); } }
+            Button { text: root.kind == 0 ? Translations.create : Translations.ok; accessible-label: Translations.apply-image-settings; clicked => { root.apply(); } }
         }
     }
 }
