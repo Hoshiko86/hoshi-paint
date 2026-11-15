@@ -22,14 +22,14 @@ impl MaskTile {
         })
     }
 
-    fn set_max(&mut self, x: u32, y: u32, value: u8) -> Result<bool, Error> {
-        let pixel = self
-            .values
-            .get_mut(pixel_index(x, y))
-            .ok_or(Error::MemoryLimit)?;
-        let changed = value > *pixel;
-        *pixel = (*pixel).max(value);
-        Ok(changed)
+    fn set_max(&mut self, x: u32, y: u32, value: u8) -> bool {
+        if let Some(pixel) = self.values.get_mut(pixel_index(x, y)) {
+            let changed = value > *pixel;
+            *pixel = (*pixel).max(value);
+            changed
+        } else {
+            false
+        }
     }
 }
 
@@ -90,18 +90,16 @@ impl MaskStore {
         }
         let key = (x / TILE_SIZE, y / TILE_SIZE);
         let changed = if let Some(tile) = self.tiles.get_mut(&key) {
-            tile.set_max(x, y, value)?
+            tile.set_max(x, y, value)
         } else {
             if value <= self.background {
                 return Ok(());
             }
-            let mut pending = self.reserve_tiles();
-            pending.reserve_pixel(x, y)?;
-            pending.commit()?;
-            self.tiles
-                .get_mut(&key)
-                .ok_or(Error::MemoryLimit)?
-                .set_max(x, y, value)?
+            let mut tile = MaskTile::new(self.background)?;
+            let changed = tile.set_max(x, y, value);
+            self.tiles.try_reserve(1).map_err(|_| Error::MemoryLimit)?;
+            self.tiles.insert(key, tile);
+            changed
         };
         if !changed {
             return Ok(());
