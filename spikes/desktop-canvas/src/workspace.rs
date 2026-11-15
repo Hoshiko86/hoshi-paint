@@ -220,7 +220,7 @@ impl Workspace {
             return;
         };
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let parent = path.parent().ok_or("Recent file path has no parent")?;
+            let parent = path.parent().ok_or("recent-files path has no parent")?;
             std::fs::create_dir_all(parent)?;
             let paths: Vec<_> = self.recent.iter().filter_map(|p| p.to_str()).collect();
             let mut file = tempfile::NamedTempFile::new_in(parent)?;

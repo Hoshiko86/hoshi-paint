@@ -3,6 +3,7 @@
 
 mod changed;
 mod coverage;
+mod english;
 mod run;
 mod smoke;
 

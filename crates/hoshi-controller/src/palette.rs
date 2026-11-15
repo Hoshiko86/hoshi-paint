@@ -23,16 +23,17 @@ pub enum PaletteError {
     },
 }
 
+/// Developer-facing text; the adapter maps each variant to catalog text (#119).
 impl std::fmt::Display for PaletteError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidColor { line } => write!(
                 formatter,
-                "Palette line {line} must contain eight hexadecimal ARGB digits."
+                "palette line {line} is not eight hexadecimal ARGB digits"
             ),
             Self::InvalidIndex { index } => write!(
                 formatter,
-                "Palette index {index} is out of range (expected 0–{}).",
+                "palette index {index} out of range 0..={}",
                 PALETTE_SIZE - 1
             ),
         }
