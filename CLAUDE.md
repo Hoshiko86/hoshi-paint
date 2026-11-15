@@ -59,6 +59,9 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
 - [ ] T3 #37 core `history.rs`: remove `.expect`/`records[0]` in `checkpoint`.
 - [ ] #39 localization `Localizer` panics → debug_assert + fallback.
 - [ ] #41 Ctrl+Shift+Z / Caps Lock undo-redo shortcut bug.
+- [ ] #137 canvas render into Slint buffer (no per-frame Vec + copy). Later:
+      dirty-tile redraw (needs core change tracking) → GPU Slint renderer ADR
+      (femtovg/skia) → wgpu eval.
 - [ ] DRAW-1 (#6) → #42 core tip/mask → #43 Document stroke lifecycle →
       #44 controller tools → #47 desktop rail. #45 i18n keys, #46 icons,
       #48 eyedropper spec/tests are independent.
