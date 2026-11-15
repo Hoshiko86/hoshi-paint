@@ -1,5 +1,6 @@
 // Selection decoration is shared by every shape. Hit testing and transforms
 // belong to the controller, so this component never changes document geometry.
+import { Translations } from "localization.slint";
 export struct ControlPoint { x: float, y: float, kind: int }
 export component ShapeControls inherits Rectangle {
     in property <[ControlPoint]> points;
@@ -27,6 +28,6 @@ export component ShapeControls inherits Rectangle {
             text: "+"; color: #315cae; font-size: 11px;
             horizontal-alignment: center; vertical-alignment: center;
         }
-        Tooltip { text: point.kind == 9 ? @markdown("Move rotation pivot") : point.kind == 8 ? @markdown("Rotate shape · Shift snaps to 15°") : @markdown("Resize · Shift keeps proportions · Alt anchors the center"); }
+        Tooltip { text: point.kind == 9 ? Translations.styled(Translations.handle-move-pivot) : point.kind == 8 ? Translations.styled(Translations.handle-rotate) : Translations.styled(Translations.handle-resize); }
     }
 }

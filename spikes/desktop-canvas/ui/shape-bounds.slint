@@ -1,6 +1,7 @@
 // Numeric bounds are a shared shape control, independent of primitive geometry.
 import { LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
 component BoundsEntry inherits HorizontalLayout {
     in property <string> label;
     in property <length> label-width;
@@ -33,7 +34,7 @@ component BoundsEntry inherits HorizontalLayout {
             }
         }
         accepted => { root.submit(self.text); self.text = root.value; }
-        Tooltip { text: @markdown("Whole canvas pixels. X/Y locate the top-left of the unrotated bounds. Apply with Enter or Tab."); }
+        Tooltip { text: Translations.styled(Translations.bounds-tooltip); }
     }
     changed value => { if !entry.has-focus { entry.text = root.value; } }
 }
@@ -62,32 +63,32 @@ export component ShapeBounds inherits Rectangle {
             x-entry := BoundsEntry {
                 x: 0px; y: 0px; width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
                 label-width: root.compact ? 40px : 0px; label: "X"; value: root.x-value; active: root.active;
-                description: "Shape X position"; submit(value) => { root.edit(0,value,root.locked); }
+                description: Translations.bounds-x; submit(value) => { root.edit(0,value,root.locked); }
             }
             y-entry := BoundsEntry {
                 x: root.compact ? (parent.width + 8px) / 2 : 150px; y: 0px;
                 width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
                 label-width: root.compact ? 40px : 0px; label: "Y"; value: root.y-value; active: root.active;
-                description: "Shape Y position"; submit(value) => { root.edit(1,value,root.locked); }
+                description: Translations.bounds-y; submit(value) => { root.edit(1,value,root.locked); }
             }
             width-entry := BoundsEntry {
                 x: root.compact ? 0px : 300px; y: root.compact ? 38px : 0px;
                 width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
-                label-width: root.compact ? 40px : 0px; label: "Width"; value: root.width-value; active: root.active;
-                description: "Shape width"; submit(value) => { root.edit(2,value,root.locked); }
+                label-width: root.compact ? 40px : 0px; label: Translations.bounds-width-label; value: root.width-value; active: root.active;
+                description: Translations.bounds-width; submit(value) => { root.edit(2,value,root.locked); }
             }
             height-entry := BoundsEntry {
                 x: root.compact ? (parent.width + 8px) / 2 : 450px; y: root.compact ? 38px : 0px;
                 width: root.compact ? (parent.width - 8px) / 2 : 144px; height: 32px;
-                label-width: root.compact ? 40px : 0px; label: "Height"; value: root.height-value; active: root.active;
-                description: "Shape height"; submit(value) => { root.edit(3,value,root.locked); }
+                label-width: root.compact ? 40px : 0px; label: Translations.bounds-height-label; value: root.height-value; active: root.active;
+                description: Translations.bounds-height; submit(value) => { root.edit(3,value,root.locked); }
             }
             CheckBox {
                 x: root.compact ? 0px : 600px; y: root.compact ? 80px : 0px;
                 width: root.compact ? parent.width : 120px; height: 32px;
-                text: "Lock ratio"; checked <=> root.locked;
-                accessible-label: "Lock shape aspect ratio";
-                Tooltip { text: @markdown("Keep width and height in proportion when entering a dimension. Rounded to whole canvas pixels."); }
+                text: Translations.lock-ratio; checked <=> root.locked;
+                accessible-label: Translations.lock-ratio-label;
+                Tooltip { text: Translations.styled(Translations.lock-ratio-tooltip); }
             }
         }
     }
