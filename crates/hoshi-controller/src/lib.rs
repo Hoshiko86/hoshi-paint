@@ -21,7 +21,11 @@ use editing::{EditState, Gesture};
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
-use tools::{PointerInput, ToolCx, ToolState, pan::PanTool};
+use tools::{
+    PointerInput, ToolCx, ToolState,
+    pan::PanTool,
+    shapes::{ShapeGesture, ShapeTool},
+};
 pub use viewport::Viewport;
 pub const ROTATION_HANDLE: i32 = 8;
 pub const PIVOT_HANDLE: i32 = 9;
@@ -245,13 +249,39 @@ impl Controller {
         self.drag = Some(ActiveDrag::Gesture(gesture));
     }
 
+    fn shape_gesture(&self) -> Option<&ShapeGesture> {
+        match &self.drag {
+            Some(ActiveDrag::Tool {
+                state: ToolState::Shapes(tool),
+                ..
+            }) => Some(&tool.gesture),
+            _ => None,
+        }
+    }
+
+    fn begin_shape(&mut self, gesture: ShapeGesture) {
+        self.clear_gesture();
+        self.drag = Some(ActiveDrag::Tool {
+            state: ToolState::Shapes(ShapeTool { gesture }),
+            temporary: false,
+        });
+    }
+
+    fn tool_cx(&mut self) -> ToolCx<'_> {
+        let template = self.create_shape(0, 0, 1, 1);
+        ToolCx {
+            viewport: &mut self.viewport,
+            document: &mut self.document,
+            modifiers: self.modifiers,
+            pivot: &mut self.edit_state.pivot,
+            template,
+        }
+    }
+
     /// Ends every drag: legacy gestures and migrated tools.
     fn clear_gesture(&mut self) {
         if let Some(ActiveDrag::Tool { mut state, .. }) = self.drag.take() {
-            state.pointer_up(&mut ToolCx {
-                viewport: &mut self.viewport,
-                document: &mut self.document,
-            });
+            state.pointer_up(&mut self.tool_cx());
         }
     }
 
@@ -261,13 +291,7 @@ impl Controller {
         p: PointerInput,
         temporary: bool,
     ) -> Result<(), ControllerError> {
-        state.pointer_down(
-            &mut ToolCx {
-                viewport: &mut self.viewport,
-                document: &mut self.document,
-            },
-            p,
-        )?;
+        state.pointer_down(&mut self.tool_cx(), p)?;
         self.clear_gesture();
         self.drag = Some(ActiveDrag::Tool { state, temporary });
         Ok(())
@@ -323,7 +347,13 @@ impl Controller {
         ) {
             self.finish_stroke().map(|_| ())
         } else if matches!(self.legacy_gesture(), Some(Gesture::Sample))
-            || matches!(self.drag, Some(ActiveDrag::Tool { .. }))
+            || matches!(
+                self.drag,
+                Some(ActiveDrag::Tool {
+                    state: ToolState::Pan(_),
+                    ..
+                })
+            )
         {
             self.clear_gesture();
             self.sample_snapshot = None;

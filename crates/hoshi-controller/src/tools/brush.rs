@@ -63,6 +63,11 @@ mod tests {
         let mut cx = ToolCx {
             viewport: &mut viewport,
             document: &mut document,
+            modifiers: crate::InputModifiers::default(),
+            pivot: &mut None,
+            template: crate::Controller::new(1, 1)
+                .unwrap()
+                .create_shape(0, 0, 1, 1),
         };
         tool.pointer_down(&mut cx, PointerInput { x: 19.0, y: 29.0 })
             .unwrap();
@@ -87,6 +92,11 @@ mod tests {
         let mut cx = ToolCx {
             viewport: &mut viewport,
             document: &mut document,
+            modifiers: crate::InputModifiers::default(),
+            pivot: &mut None,
+            template: crate::Controller::new(1, 1)
+                .unwrap()
+                .create_shape(0, 0, 1, 1),
         };
         tool.pointer_down(&mut cx, PointerInput { x: 4.5, y: 4.5 })
             .unwrap();
