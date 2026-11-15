@@ -1150,6 +1150,7 @@ fn create_panels(
     localization::apply_colors(&picker, &text);
     let history = history::bind_window(&ui, controller.clone(), &text)?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
+    localization::apply_shapes(&shapes, &text);
     documents::bind(&ui, controller.clone(), dialogs, text);
     let main = ui.as_weak();
     picker.on_file_action(move |action| {

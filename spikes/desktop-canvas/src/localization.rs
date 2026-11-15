@@ -1,6 +1,6 @@
 //! Locale selection and catalog fallback for the desktop adapter.
 
-use crate::{AppWindow, ColorPickerWindow, HistoryWindow, Translations};
+use crate::{AppWindow, ColorPickerWindow, HistoryWindow, ShapePropertiesWindow, Translations};
 use serde_json::Value;
 use slint::ComponentHandle;
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,8 +11,18 @@ const ES_ES: &str = include_str!("../i18n/es-ES.json");
 pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "activate_document",
     "all_files",
+    "antialiasing",
+    "antialiasing_tooltip",
     "bounds_error_position",
     "bounds_error_size",
+    "bounds_heading",
+    "bounds_height",
+    "bounds_height_label",
+    "bounds_tooltip",
+    "bounds_width",
+    "bounds_width_label",
+    "bounds_x",
+    "bounds_y",
     "brush",
     "brush_width",
     "cancel",
@@ -76,8 +86,13 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "file_operation_failed",
     "fill",
     "fill_and_outline",
+    "fill_pattern",
+    "fill_pattern_selector",
     "finish_shape",
     "fit_canvas",
+    "handle_move_pivot",
+    "handle_resize",
+    "handle_rotate",
     "history",
     "history_add_layer",
     "history_brush",
@@ -121,6 +136,16 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "key_commit",
     "layer",
     "layer_name",
+    "line_dash",
+    "line_dash_dot",
+    "line_dash_dot_dot",
+    "line_dot",
+    "line_solid",
+    "line_style",
+    "line_style_selector",
+    "lock_ratio",
+    "lock_ratio_label",
+    "lock_ratio_tooltip",
     "menu_about",
     "menu_canvas_size",
     "menu_close",
@@ -144,6 +169,9 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "ok",
     "open_image",
     "outline",
+    "outline_width",
+    "outline_width_label",
+    "outline_width_tooltip",
     "palette_default",
     "palette_dialog_file_name",
     "palette_dialog_filter",
@@ -171,6 +199,14 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "palette_error_unicode_path",
     "palette_error_unknown_color_name",
     "palette_error_write",
+    "pattern_backward_diagonal",
+    "pattern_checkerboard",
+    "pattern_cross",
+    "pattern_diagonal_cross",
+    "pattern_forward_diagonal",
+    "pattern_horizontal",
+    "pattern_solid",
+    "pattern_vertical",
     "png_image",
     "primary_color",
     "rectangle",
@@ -199,13 +235,19 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "screen_pick_prompt",
     "screen_picker",
     "secondary_color",
+    "shape_heading",
+    "shape_kind",
+    "shape_kind_tooltip",
     "shape_properties",
+    "shape_style",
+    "shape_style_tooltip",
     "shapes",
     "shortcut_redo",
     "shortcut_undo",
     "status_document",
     "status_no_image",
     "status_shape",
+    "style_heading",
     "swap_colors",
     "tab_unsaved",
     "tool",
@@ -451,9 +493,55 @@ pub fn apply_colors(ui: &ColorPickerWindow, localizer: &Localizer) {
     apply_translations(ui.global::<Translations>(), localizer);
 }
 
+pub fn apply_shapes(ui: &ShapePropertiesWindow, localizer: &Localizer) {
+    apply_translations(ui.global::<Translations>(), localizer);
+}
+
 fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     let text = |key: &str| -> slint::SharedString { localizer.text(key).into() };
     translations.set_locale(localizer.locale.tag().into());
+    translations.set_handle_move_pivot(text("handle_move_pivot"));
+    translations.set_handle_rotate(text("handle_rotate"));
+    translations.set_handle_resize(text("handle_resize"));
+    translations.set_bounds_tooltip(text("bounds_tooltip"));
+    translations.set_bounds_x(text("bounds_x"));
+    translations.set_bounds_y(text("bounds_y"));
+    translations.set_bounds_width_label(text("bounds_width_label"));
+    translations.set_bounds_height_label(text("bounds_height_label"));
+    translations.set_bounds_width(text("bounds_width"));
+    translations.set_bounds_height(text("bounds_height"));
+    translations.set_lock_ratio(text("lock_ratio"));
+    translations.set_lock_ratio_label(text("lock_ratio_label"));
+    translations.set_lock_ratio_tooltip(text("lock_ratio_tooltip"));
+    translations.set_shape_heading(text("shape_heading"));
+    translations.set_bounds_heading(text("bounds_heading"));
+    translations.set_style_heading(text("style_heading"));
+    translations.set_shape_kind(text("shape_kind"));
+    translations.set_shape_kind_tooltip(text("shape_kind_tooltip"));
+    translations.set_shape_style(text("shape_style"));
+    translations.set_shape_style_tooltip(text("shape_style_tooltip"));
+    translations.set_fill_pattern_selector(text("fill_pattern_selector"));
+    translations.set_line_style_selector(text("line_style_selector"));
+    translations.set_fill_pattern(text("fill_pattern"));
+    translations.set_line_style(text("line_style"));
+    translations.set_outline_width_label(text("outline_width_label"));
+    translations.set_outline_width(text("outline_width"));
+    translations.set_outline_width_tooltip(text("outline_width_tooltip"));
+    translations.set_line_solid(text("line_solid"));
+    translations.set_line_dash(text("line_dash"));
+    translations.set_line_dot(text("line_dot"));
+    translations.set_line_dash_dot(text("line_dash_dot"));
+    translations.set_line_dash_dot_dot(text("line_dash_dot_dot"));
+    translations.set_pattern_solid(text("pattern_solid"));
+    translations.set_pattern_horizontal(text("pattern_horizontal"));
+    translations.set_pattern_vertical(text("pattern_vertical"));
+    translations.set_pattern_forward_diagonal(text("pattern_forward_diagonal"));
+    translations.set_pattern_backward_diagonal(text("pattern_backward_diagonal"));
+    translations.set_pattern_cross(text("pattern_cross"));
+    translations.set_pattern_diagonal_cross(text("pattern_diagonal_cross"));
+    translations.set_pattern_checkerboard(text("pattern_checkerboard"));
+    translations.set_antialiasing(text("antialiasing"));
+    translations.set_antialiasing_tooltip(text("antialiasing_tooltip"));
     translations.set_brush(text("brush"));
     translations.set_brush_width(text("brush_width"));
     translations.set_eraser(text("eraser"));
@@ -553,6 +641,18 @@ mod tests {
             "es-ES"
         );
         assert_eq!(select_preferred(["invalid"]).resolved.tag(), "en-US");
+    }
+
+    #[test]
+    fn floating_shape_properties_window_follows_the_selected_locale() {
+        use slint::ComponentHandle;
+        i_slint_backend_testing::init_no_event_loop();
+        let window = ShapePropertiesWindow::new().unwrap();
+        apply_shapes(&window, &Localizer::new(&select_preferred(["es-ES"])));
+        let translations = window.global::<Translations>();
+        assert_eq!(translations.get_bounds_width(), "Ancho de la forma");
+        assert_eq!(translations.get_line_dash(), "Guiones");
+        assert_eq!(translations.get_antialiasing(), "Suavizado");
     }
 
     #[test]

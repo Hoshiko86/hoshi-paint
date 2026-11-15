@@ -1,6 +1,7 @@
 // Rendering settings are shared by every shape tool. The controller owns
 // validation, preview updates, and the defaults used for the next gesture.
 import { LineEdit, CheckBox } from "std-widgets.slint";
+import { Translations } from "localization.slint";
 
 component StyleSample inherits Rectangle {
     in property <bool> fill-preview;
@@ -76,7 +77,7 @@ component VisualStyleSelector inherits FocusScope {
     accessible-expandable: true;
     accessible-expanded: popup.is-open;
     accessible-value: root.names[root.current-index];
-    accessible-label: root.fill-preview ? "Shape fill pattern" : "Outline line style";
+    accessible-label: root.fill-preview ? Translations.fill-pattern-selector : Translations.line-style-selector;
     accessible-action-expand => { if root.enabled { popup.show(); } }
     key-pressed(event) => {
         if !root.enabled { return reject; }
@@ -117,7 +118,7 @@ component VisualStyleSelector inherits FocusScope {
                     height: 36px;
                     accessible-role: button;
                     accessible-label: name;
-                    accessible-description: (root.fill-preview ? "Fill pattern: " : "Line style: ") + name;
+                    accessible-description: (root.fill-preview ? Translations.fill-pattern : Translations.line-style) + ": " + name;
                     accessible-action-default => { root.selected(index); popup.close(); root.focus(); }
                     background: index == root.current-index ? #dbe8ff : (row-touch.has-hover ? #edf3ff : #ffffff);
                     border-width: index == root.current-index ? 1px : 0px;
@@ -150,13 +151,13 @@ export component ShapeRendering inherits VerticalLayout {
     changed outline-width => { if !width-edit.has-focus { width-edit.text = "" + root.outline-width; } }
     spacing: 5px;
     HorizontalLayout { spacing: 6px;
-        Text { text: "Width (px)"; color: #526079; font-size: 12px; vertical-alignment: center; }
+        Text { text: Translations.outline-width-label; color: #526079; font-size: 12px; vertical-alignment: center; }
         width-edit := LineEdit {
             enabled: root.outline-enabled;
             init => { self.text = "" + root.outline-width; }
             changed has-focus => { if !self.has-focus { self.text = "" + root.outline-width; } }
-            input-type: decimal; accessible-label: "Outline width in canvas pixels";
-            Tooltip { text: @markdown("0.01–65536 pixels. [ and ] change by 1; Ctrl changes by 5."); }
+            input-type: decimal; accessible-label: Translations.outline-width;
+            Tooltip { text: Translations.styled(Translations.outline-width-tooltip); }
             edited(value) => {
                 if value.is-float() && value.to-float() >= 0.01 && value.to-float() <= 65536 {
                     root.edit-width(value.to-float());
@@ -167,16 +168,16 @@ export component ShapeRendering inherits VerticalLayout {
     }
     VisualStyleSelector {
         enabled: root.outline-enabled; fill-preview: false; current-index: root.line-style;
-        names: ["Solid", "Dash", "Dot", "Dash dot", "Dash dot dot"];
+        names: [Translations.line-solid, Translations.line-dash, Translations.line-dot, Translations.line-dash-dot, Translations.line-dash-dot-dot];
         selected(index) => { root.select-line(index); }
     }
     VisualStyleSelector {
         enabled: root.fill-enabled; fill-preview: true; current-index: root.fill-pattern;
-        names: ["Solid", "Horizontal", "Vertical", "Forward diagonal", "Backward diagonal", "Cross", "Diagonal cross", "Checkerboard"];
+        names: [Translations.pattern-solid, Translations.pattern-horizontal, Translations.pattern-vertical, Translations.pattern-forward-diagonal, Translations.pattern-backward-diagonal, Translations.pattern-cross, Translations.pattern-diagonal-cross, Translations.pattern-checkerboard];
         selected(index) => { root.select-fill(index); }
     }
-    CheckBox { enabled: root.outline-enabled || root.fill-enabled; text: "Antialiasing"; checked: root.antialiasing;
+    CheckBox { enabled: root.outline-enabled || root.fill-enabled; text: Translations.antialiasing; checked: root.antialiasing;
         toggled => { root.toggle-antialiasing(self.checked); }
-        Tooltip { text: @markdown("Smooth shape edges using partial pixel coverage."); }
+        Tooltip { text: Translations.styled(Translations.antialiasing-tooltip); }
     }
 }
