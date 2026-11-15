@@ -35,7 +35,7 @@ Reproduce the current measurements from the repository root:
 
 ```sh
 cargo run -p hoshi-controller --example controller_resize_profile --locked
-cargo run -p hoshi-canvas-spike --example ui_resize_profile --locked
+cargo run -p hoshi-desktop --example ui_resize_profile --locked
 ```
 
 The UI probe uses the headless software renderer and synthetic controller

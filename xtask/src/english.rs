@@ -1,6 +1,6 @@
 //! Guard for the rule "no user-facing text in Rust source" (#92, #119).
 //!
-//! User copy lives in `spikes/desktop-canvas/i18n/*.json`; Rust carries kinds
+//! User copy lives in `apps/desktop/i18n/*.json`; Rust carries kinds
 //! and data. This test scans non-test Rust source of the app crates for string
 //! literals that read like English prose, a capitalized word followed later
 //! by a lowercase word, and fails on any not in `ALLOWED`.
@@ -20,7 +20,7 @@
 const ROOTS: &[&str] = &[
     "crates/hoshi-core/src",
     "crates/hoshi-controller/src",
-    "spikes/desktop-canvas/src",
+    "apps/desktop/src",
 ];
 
 /// `(file, literal prefix)` pairs that are allowed, each with a reason.
@@ -28,15 +28,15 @@ const ROOTS: &[&str] = &[
 const ALLOWED: &[(&str, &str)] = &[
     // About box: copyright and license notices stay as written.
     (
-        "spikes/desktop-canvas/src/lib.rs",
+        "apps/desktop/src/lib.rs",
         "Copyright 2026 Hoshi Paint contributors",
     ),
-    ("spikes/desktop-canvas/src/lib.rs", "Icons: Lucide 1.71.0"),
+    ("apps/desktop/src/lib.rs", "Icons: Lucide 1.71.0"),
 ];
 
 /// Slint layouts the stricter `.slint` scan covers.
 #[cfg(test)]
-const SLINT_UI: &str = "spikes/desktop-canvas/ui";
+const SLINT_UI: &str = "apps/desktop/ui";
 
 /// `(file, literal)` pairs allowed in `.slint` layouts, each with a reason.
 #[cfg(test)]

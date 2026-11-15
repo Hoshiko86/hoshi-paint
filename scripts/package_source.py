@@ -50,9 +50,9 @@ def package_source(output: Path) -> Path:
             "This archive contains the application source and locked Rust dependencies, "
             "including their upstream license files.\n\n"
             "Install the Rust version in rust-toolchain.toml and the system build "
-            "prerequisites described in README.md and spikes/desktop-canvas/README.md. "
+            "prerequisites described in README.md and apps/desktop/README.md. "
             "Then run from this directory:\n\n"
-            "```sh\ncargo build --offline --locked -p hoshi-canvas-spike\n```\n\n"
+            "```sh\ncargo build --offline --locked -p hoshi-desktop\n```\n\n"
             "The .cargo/config.toml source replacement uses the included vendor directory. "
             "System libraries and the Rust toolchain are installed separately. "
             "SOURCE_REVISION identifies the binary's source commit.\n",

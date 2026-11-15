@@ -16,14 +16,14 @@ given, and stop.
 
 ## 1. Workspace layout and ownership
 
-Dependencies point inward only: `spikes/desktop-canvas` → `hoshi-controller` → `hoshi-core`.
+Dependencies point inward only: `apps/desktop` → `hoshi-controller` → `hoshi-core`.
 
 | Crate / path | Owns | Must NOT depend on |
 |---|---|---|
 | `crates/hoshi-core` | Document, layers, pixels (`pixels.rs`), geometry, shape rasterizing (`rendering/`), resampling, history + disk store, `.hoshi` format (`project.rs`), memory budget | Slint, controller, OS/dialog/filesystem-picker APIs, UI text |
 | `crates/hoshi-controller` | Tools, gestures, viewport, logical-coordinate input, color parsing, palettes, named colors, preview image | Slint, platform crates, `std::fs` dialogs |
-| `spikes/desktop-canvas/src` | Slint adapter: `lib.rs` wiring, `workspace.rs` tabs, `documents.rs` open/save flow, `files.rs` codecs + atomic save, `colors.rs`/`color_library.rs` panels, `screen_pick.rs` OS pickers, `localization.rs` | — (outermost layer) |
-| `spikes/desktop-canvas/ui/*.slint` | Presentation only. Colors/sizes come from `theme.slint`; text from `localization.slint` | Editing policy |
+| `apps/desktop/src` | Slint adapter: `lib.rs` wiring, `workspace.rs` tabs, `documents.rs` open/save flow, `files.rs` codecs + atomic save, `colors.rs`/`color_library.rs` panels, `screen_pick.rs` OS pickers, `localization.rs` | — (outermost layer) |
+| `apps/desktop/ui/*.slint` | Presentation only. Colors/sizes come from `theme.slint`; text from `localization.slint` | Editing policy |
 
 - Editing policy lives in core/controller, never in Slint callbacks.
 - Platform `cfg(target_os)` code only inside `screen_pick.rs` (or a new narrow
@@ -41,13 +41,13 @@ Dependencies point inward only: `spikes/desktop-canvas` → `hoshi-controller` �
 - **No user-facing text in Rust source, in any crate** (core, controller *or*
   the desktop adapter). Error enums carry kind and data; their `Display` is
   short lowercase developer text for logs, with no advice to the user.
-- User copy lives in `spikes/desktop-canvas/i18n/en-US.json` **and**
+- User copy lives in `apps/desktop/i18n/en-US.json` **and**
   `es-ES.json`, with every key in `REQUIRED_KEYS` (`localization.rs`). The
   adapter maps each error variant to a key where it is shown (`error_text.rs`).
 - `cargo test -p xtask` fails on a string literal that reads like English
   prose (a capitalized word, then a lowercase word) in non-test Rust source
   (`xtask/src/english.rs`). Developer-only text is lowercase; legal notices
-  are the only allowlisted exception. In `spikes/desktop-canvas/ui/*.slint`
+  are the only allowlisted exception. In `apps/desktop/ui/*.slint`
   the rule is stricter: any literal with two consecutive letters fails unless
   allowlisted (product name, channel symbols); use `Translations.*` properties.
 - Existing English strings may stay until their ticket moves them (#86), but
@@ -104,16 +104,16 @@ cargo xtask test lint   # fmt --check + clippy -D warnings
 cargo xtask test unit   # cargo test --workspace --locked
 ```
 
-If you touched `spikes/desktop-canvas`, also run `cargo xtask test smoke` when
+If you touched `apps/desktop`, also run `cargo xtask test smoke` when
 Xvfb is available; otherwise say it was not run. Where tests go and what they
 must assert: `docs/TESTING.md`. A new `examples/*_smoke.rs` needs an entry in
 `xtask/src/smoke.rs` and a `mod` line plus match arm in
-`spikes/desktop-canvas/examples/smoke.rs`. Each crate's integration tests build as one binary, so a
+`apps/desktop/examples/smoke.rs`. Each crate's integration tests build as one binary, so a
 new `tests/<area>.rs` also needs `mod <area>;` in that crate's `tests/main.rs`
 (count it as part of the same change, not an extra file).
 
 To save time while iterating, test only the crate you touched
-(`cargo test -p hoshi-core`, `-p hoshi-controller`, `-p hoshi-canvas-spike`),
+(`cargo test -p hoshi-core`, `-p hoshi-controller`, `-p hoshi-desktop`),
 then run the full set once at the end. If adding a dependency, drop `--locked`
 for one `cargo build`, then confirm the `--locked` commands pass.
 

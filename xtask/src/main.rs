@@ -269,7 +269,7 @@ fn smoke(workspace: &Workspace, names: &[&str]) -> Result<(), Error> {
     workspace.run(cargo(&[
         "build",
         "--package",
-        "hoshi-canvas-spike",
+        "hoshi-desktop",
         "--bins",
         "--examples",
         "--locked",

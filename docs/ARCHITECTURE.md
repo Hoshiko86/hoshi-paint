@@ -67,7 +67,7 @@ consume those roles rather than duplicating literal values in application
 composition or tests.
 
 Localization is being introduced at the presentation boundary through
-`ui/localization.slint` and locale catalogs under `spikes/desktop-canvas/i18n`.
+`ui/localization.slint` and locale catalogs under `apps/desktop/i18n`.
 The first migrated surface is `ui/app-chrome.slint`; every user-facing literal
 in that component uses the catalog. File-prompt and History chrome, native
 Open/Save dialog labels, and selected save-workflow messages are the next

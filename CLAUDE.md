@@ -10,7 +10,7 @@ Deeper references: `docs/ARCHITECTURE.md` (quality gate — binding),
 ## System shape
 
 ```
-spikes/desktop-canvas (Slint 1.18.1 desktop app, production — ADR 0006)
+apps/desktop (Slint 1.18.1 desktop app, production — ADR 0006)
    └─> hoshi-controller (tools, gestures, viewport, colors; no UI deps)
           └─> hoshi-core (document, sparse COW tiles, history-on-disk, .hoshi I/O)
 ```

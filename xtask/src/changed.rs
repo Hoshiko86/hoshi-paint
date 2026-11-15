@@ -23,13 +23,13 @@ pub const PACKAGES: &[Package] = &[
         depends_on: &["hoshi-core"],
     },
     Package {
-        name: "hoshi-canvas-spike",
-        dir: "spikes/desktop-canvas",
+        name: "hoshi-desktop",
+        dir: "apps/desktop",
         depends_on: &["hoshi-controller", "hoshi-core"],
     },
 ];
 
-const SPIKE: &str = "hoshi-canvas-spike";
+const SPIKE: &str = "hoshi-desktop";
 
 /// Paths that never affect a build or test result.
 fn is_inert(path: &str) -> bool {
@@ -152,7 +152,7 @@ mod tests {
         let selection = select(["crates/hoshi-core/src/painting.rs"]);
         assert_eq!(
             packages(&selection),
-            ["hoshi-canvas-spike", "hoshi-controller", "hoshi-core"]
+            ["hoshi-controller", "hoshi-core", "hoshi-desktop"]
         );
         assert!(selection.smoke && !selection.everything && !selection.scripts);
     }
@@ -160,16 +160,13 @@ mod tests {
     #[test]
     fn controller_change_skips_core() {
         let selection = select(["crates/hoshi-controller/tests/eyedropper.rs"]);
-        assert_eq!(
-            packages(&selection),
-            ["hoshi-canvas-spike", "hoshi-controller"]
-        );
+        assert_eq!(packages(&selection), ["hoshi-controller", "hoshi-desktop"]);
     }
 
     #[test]
     fn spike_change_runs_spike_and_smoke_only() {
-        let selection = select(["spikes/desktop-canvas/ui/app-chrome.slint"]);
-        assert_eq!(packages(&selection), ["hoshi-canvas-spike"]);
+        let selection = select(["apps/desktop/ui/app-chrome.slint"]);
+        assert_eq!(packages(&selection), ["hoshi-desktop"]);
         assert!(selection.smoke);
     }
 
@@ -185,7 +182,7 @@ mod tests {
         assert!(selection.scripts && !selection.smoke && selection.packages.is_empty());
         let cursor = select(["scripts/check_x11_cursor.py"]);
         assert!(cursor.scripts && cursor.smoke && cursor.rust());
-        assert_eq!(packages(&cursor), ["hoshi-canvas-spike"]);
+        assert_eq!(packages(&cursor), ["hoshi-desktop"]);
     }
 
     #[test]
@@ -220,8 +217,8 @@ mod tests {
     #[test]
     fn ci_outputs_for_a_spike_change_skip_coverage() {
         assert_eq!(
-            select(["spikes/desktop-canvas/src/lib.rs"]).ci_outputs(),
-            "rust=true\npackages=hoshi-canvas-spike\nsmoke=true\nscripts=false\ncoverage=false\n"
+            select(["apps/desktop/src/lib.rs"]).ci_outputs(),
+            "rust=true\npackages=hoshi-desktop\nsmoke=true\nscripts=false\ncoverage=false\n"
         );
     }
 
@@ -229,7 +226,7 @@ mod tests {
     fn ci_outputs_for_a_controller_change_list_its_dependents() {
         assert_eq!(
             select(["crates/hoshi-controller/src/lib.rs"]).ci_outputs(),
-            "rust=true\npackages=hoshi-canvas-spike hoshi-controller\nsmoke=true\nscripts=false\ncoverage=true\n"
+            "rust=true\npackages=hoshi-controller hoshi-desktop\nsmoke=true\nscripts=false\ncoverage=true\n"
         );
     }
 

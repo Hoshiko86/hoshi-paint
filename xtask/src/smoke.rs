@@ -1,5 +1,5 @@
 //! Native desktop smoke suite: the single source of truth for which
-//! `spikes/desktop-canvas/examples/*_smoke.rs` programs run, how, and which
+//! `apps/desktop/examples/*_smoke.rs` programs run, how, and which
 //! snapshots they write. Each one is a subcommand of the single
 //! `examples/smoke.rs` binary.
 
@@ -221,8 +221,7 @@ mod tests {
 
     #[test]
     fn every_table_entry_has_an_example_file() {
-        let examples =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../spikes/desktop-canvas/examples");
+        let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../apps/desktop/examples");
         for smoke in SMOKES {
             assert!(
                 examples.join(format!("{}.rs", smoke.name)).is_file(),
@@ -237,8 +236,7 @@ mod tests {
     #[test]
     fn every_table_entry_is_dispatched_by_the_smoke_binary() {
         let dispatcher = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../spikes/desktop-canvas/examples/smoke.rs"),
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../apps/desktop/examples/smoke.rs"),
         )
         .unwrap();
         for smoke in SMOKES {

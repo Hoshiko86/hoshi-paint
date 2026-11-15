@@ -97,7 +97,7 @@ jobs:
           import shutil
           package = Path("target/spike-package")
           package.mkdir(parents=True, exist_ok=True)
-          for source in ["target/debug/hoshi-canvas-spike", "target/debug/hoshi-canvas-spike.exe",
+          for source in ["target/debug/hoshi-desktop", "target/debug/hoshi-desktop.exe",
                          "LICENSE", "THIRD_PARTY_NOTICES.md"]:
               path = Path(source)
               if path.is_file():
@@ -112,7 +112,7 @@ jobs:
       - if: needs.plan.outputs.smoke == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         with:
-          name: canvas-spike-${{ matrix.os }}
+          name: desktop-${{ matrix.os }}
           path: target/spike-package/
           if-no-files-found: error
           retention-days: 14

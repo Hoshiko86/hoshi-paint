@@ -204,7 +204,7 @@ impl Workspace {
 
     /// `examples/*_smoke.rs` files the smoke table does not list.
     pub fn unlisted_smoke_examples(&self) -> Result<Vec<String>, Error> {
-        let dir = self.root.join("spikes/desktop-canvas/examples");
+        let dir = self.root.join("apps/desktop/examples");
         let entries = std::fs::read_dir(&dir).map_err(|source| Error::Io {
             context: format!("reading {}", dir.display()),
             source,

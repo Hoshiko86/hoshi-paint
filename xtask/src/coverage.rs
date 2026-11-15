@@ -38,7 +38,7 @@ pub fn ignore_all_but(floor: &Floor) -> String {
         .filter(|other| other.package != floor.package)
         .map(|other| regex_path(other.path))
         .collect();
-    others.extend(["spikes/".into(), "xtask/".into()].map(|path: String| regex_path(&path)));
+    others.extend(["apps/".into(), "xtask/".into()].map(|path: String| regex_path(&path)));
     format!("({})", others.join("|"))
 }
 
@@ -62,10 +62,7 @@ mod tests {
         let regex = ignore_all_but(core);
         assert!(regex.contains("hoshi\\-controller"), "{regex}");
         assert!(!regex.contains("hoshi\\-core"), "{regex}");
-        assert!(
-            regex.contains("spikes") && regex.contains("xtask"),
-            "{regex}"
-        );
+        assert!(regex.contains("apps") && regex.contains("xtask"), "{regex}");
     }
 
     #[test]

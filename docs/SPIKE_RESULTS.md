@@ -24,7 +24,7 @@ not reference-hardware release performance measurements.
 | New UI-independent controller | 30 integration tests pass, including Shift constraints, color conversion/validation, eyedropper mapping, handles and lifecycle |
 | Slint software rendering and input | Nine integration scenarios pass with Shift modifiers, RGB/HSV/hex/alpha synchronization, sampling, resize/rotation, contrast and pixel assertions, Enter/Escape, undo/redo, text-field isolation, window focus policy and modal blocking |
 | Actual Linux winit/software window | Xvfb smoke passes: show/run native event loop, dispatch synthetic input, commit shape, check displayed pixels, capture screenshot, exit |
-| Build, format, lint | `cargo build -p hoshi-canvas-spike --locked`, rustfmt and workspace/all-target Clippy pass |
+| Build, format, lint | `cargo build -p hoshi-desktop --locked`, rustfmt and workspace/all-target Clippy pass |
 | Project-sync regression | Four Python tests pass |
 | Rootless setup | Saved Debian package helper completes with signature/checksum verification; no host package installation |
 | Windows/macOS spike CI | Configured in this PR; result must be checked after push |
