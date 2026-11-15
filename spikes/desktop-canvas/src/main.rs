@@ -2,9 +2,7 @@ use slint::ComponentHandle;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let paths: Vec<_> = std::env::args_os().skip(1).collect();
     if paths.first().is_some_and(|p| p == "--help" || p == "-h") {
-        println!(
-            "Hoshi Paint\nUsage: hoshi-canvas-spike [IMAGE ...]\nOpens Hoshi projects and supported raster images in separate tabs."
-        );
+        println!("{}", hoshi_canvas_spike::usage_text());
         return Ok(());
     }
     let (ui, state) = hoshi_canvas_spike::create_app()?;

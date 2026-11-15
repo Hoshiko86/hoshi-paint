@@ -190,15 +190,14 @@ impl Manager {
                     self.save(ui, false);
                     return;
                 }
-                ui.set_file_prompt_name(
-                    self.state
-                        .borrow()
+                let name = {
+                    let state = self.state.borrow();
+                    state
                         .active_tab()
-                        .unwrap()
-                        .name
-                        .clone()
-                        .into(),
-                );
+                        .map(|tab| state.tab_name(&tab.name))
+                        .unwrap_or_default()
+                };
+                ui.set_file_prompt_name(name.into());
                 ui.set_file_prompt_visible(true);
                 return;
             }
@@ -242,7 +241,9 @@ impl Manager {
                 tab.path
                     .as_ref()
                     .map(|p| p.with_extension("hoshi"))
-                    .unwrap_or_else(|| PathBuf::from(format!("{}.hoshi", tab.name)))
+                    .unwrap_or_else(|| {
+                        PathBuf::from(format!("{}.hoshi", self.state.borrow().tab_name(&tab.name)))
+                    })
             });
             (tab.id, supported, suggested)
         };
@@ -546,12 +547,12 @@ pub(super) fn refresh(ui: &AppWindow, state: &Workspace) {
             };
             DocumentTabRow {
                 id: tab.id as i32,
-                title: tab.name.clone().into(),
+                title: state.tab_name(&tab.name).into(),
                 detail: tab
                     .path
                     .as_ref()
                     .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "Unsaved image".into())
+                    .unwrap_or_else(|| state.text().text("tab_unsaved").into())
                     .into(),
                 thumbnail,
                 active: state.active_id() == Some(tab.id),
@@ -593,16 +594,16 @@ pub(super) fn refresh(ui: &AppWindow, state: &Workspace) {
         state
             .active_tab()
             .map(|tab| {
-                format!(
-                    "{}{} · Hoshi Paint",
-                    tab.name,
-                    if tab.dirty() { " *" } else { "" }
-                )
+                let dirty = if tab.dirty() { " *" } else { "" };
+                let document = format!("{}{dirty}", state.tab_name(&tab.name));
+                state
+                    .text()
+                    .format("window_title", &[("document", &document)])
             })
             .unwrap_or_else(|| "Hoshi Paint".into())
             .into(),
     );
     if !state.has_document() {
-        ui.set_status("No image open · Ctrl/Cmd+N to create or Ctrl/Cmd+O to open".into())
+        ui.set_status(state.text().text("status_no_image").into())
     }
 }

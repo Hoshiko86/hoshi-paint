@@ -1,6 +1,11 @@
 // User-facing strings cross the adapter through this global. Rust initializes
 // every value from the selected catalog before showing the component tree.
 export global Translations {
+    // Tooltip text from the catalogs. The Rust `slint!` macro cannot spell
+    // `\{..}` interpolation, so it converts plain strings through this.
+    public pure function styled(text: string) -> styled-text {
+        return @markdown("\{text}");
+    }
     in-out property <string> brush;
     in-out property <string> brush-width;
     in-out property <string> eraser;
@@ -55,4 +60,35 @@ export global Translations {
     in-out property <string> ok;
     in-out property <string> current-state;
     in-out property <string> redo-available;
+    in-out property <string> canvas-label;
+    in-out property <string> menu-file;
+    in-out property <string> menu-new;
+    in-out property <string> menu-open;
+    in-out property <string> menu-open-recent;
+    in-out property <string> menu-save-as;
+    in-out property <string> menu-save-all;
+    in-out property <string> menu-close-all;
+    in-out property <string> menu-exit;
+    in-out property <string> menu-image;
+    in-out property <string> menu-resize;
+    in-out property <string> menu-canvas-size;
+    in-out property <string> menu-flip-horizontal;
+    in-out property <string> menu-flip-vertical;
+    in-out property <string> menu-rotate-clockwise;
+    in-out property <string> menu-rotate-counter-clockwise;
+    in-out property <string> menu-rotate-180;
+    in-out property <string> menu-flatten;
+    in-out property <string> menu-help;
+    in-out property <string> menu-about;
+    in-out property <string> tools-heading;
+    in-out property <string> colors-heading;
+    in-out property <string> colors;
+    in-out property <string> menu-close;
+    in-out property <string> clear-recent;
+    in-out property <string> colors-tooltip;
+    in-out property <string> crop-to-selection;
+    in-out property <string> primary-color;
+    in-out property <string> reset-colors;
+    in-out property <string> secondary-color;
+    in-out property <string> swap-colors;
 }

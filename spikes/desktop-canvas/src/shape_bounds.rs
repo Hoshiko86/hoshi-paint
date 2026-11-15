@@ -53,14 +53,11 @@ pub(super) fn bind(ui: &AppWindow, controller: SharedController) {
             true
         };
         if invalid && let Some(ui) = weak.upgrade() {
-            let message = match field {
-                BoundsField::X | BoundsField::Y => {
-                    "Position must be a whole number between -2147483648 and 2147483647."
-                }
-                BoundsField::Width | BoundsField::Height => {
-                    "Dimensions must be 1–262144 pixels; both must fit when the ratio is locked."
-                }
+            let key = match field {
+                BoundsField::X | BoundsField::Y => "bounds_error_position",
+                BoundsField::Width | BoundsField::Height => "bounds_error_size",
             };
+            let message = controller.borrow().text().text(key).to_owned();
             ui.set_status(message.into());
         }
     });
