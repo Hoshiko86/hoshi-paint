@@ -1,7 +1,8 @@
-# Desktop canvas integration spike
+# Hoshi Paint desktop app
 
-An experimental Slint shell, not the final editor. The framework can still be
-replaced; editing behavior lives in `hoshi-core` and `hoshi-controller`.
+The production desktop UI, built with Slint ([ADR 0006](../../docs/adr/0006-desktop-ui-toolkit.md)).
+Editing behavior lives in `hoshi-core` and `hoshi-controller`; this crate is the
+Slint adapter.
 
 ## Build and run
 
@@ -21,7 +22,7 @@ with Visual Studio C++ build tools. Then, from the repository root:
 cargo run --package hoshi-desktop --locked
 ```
 
-The spike selects software rendering; it does not enable the Qt, Skia or GPU
+The app selects software rendering for now (#137); it does not enable the Qt, Skia or GPU
 renderer. To explicitly select the desktop backend, set `SLINT_BACKEND` to
 `winit-software` in the shell. No server, credentials or network connection is
 needed after dependencies have been downloaded.

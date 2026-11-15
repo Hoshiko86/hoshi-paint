@@ -1,6 +1,6 @@
 # Image and canvas setup
 
-The desktop spike exposes File → New and an Image menu patterned after Paint.NET.
+The desktop app exposes File → New and an Image menu patterned after Paint.NET.
 This is an implementation milestone, not a claim of exact current Paint.NET parity.
 The official documentation is now accessible; [resampling compatibility](RESAMPLING.md) records the verified reference and remaining pixel-comparison work.
 
@@ -12,7 +12,7 @@ The official documentation is now accessible; [resampling compatibility](RESAMPL
 | Flip Horizontal / Vertical | Flips all layers without changing layer names, visibility, opacity, or selection |
 | Rotate 90° Clockwise / Counter-Clockwise / 180° | Rotates all layers; quarter-turns swap document dimensions |
 | Flatten | Replaces the visible composite with one visible layer at 100% layer opacity, preserving actual pixel transparency; undo restores original layers and properties |
-| Crop to Selection | Disabled: the spike has no selection tool yet; an active rectangle is not a selection |
+| Crop to Selection | Disabled: there is no selection tool yet; an active rectangle is not a selection |
 
 Ctrl/Cmd+N opens New; Ctrl/Cmd+R opens Resize; Ctrl/Cmd+Shift+R opens Canvas Size;
 Ctrl/Cmd+Shift+F flattens. These shortcuts currently apply while the canvas has focus.

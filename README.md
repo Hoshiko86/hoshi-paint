@@ -3,7 +3,7 @@
 A Rust raster editor inspired by the everyday drawing workflow of Paint.NET.
 Targets: Windows, macOS, Ubuntu Linux, and eventually iOS/iPadOS.
 
-**Status:** an experimental desktop canvas shell now sits above the UI-independent
+**Status:** the Slint desktop app ([ADR 0006](docs/adr/0006-desktop-ui-toolkit.md)) sits above the UI-independent
 document engine and input controller. It supports rectangle preview/adjust/commit,
 undo/redo, Shift-constrained scaling, canvas navigation and RGB/HSV/hex/alpha
 color selection and history in floating/docked panels, rich color swatches,
@@ -11,12 +11,12 @@ Paint.NET-style canvas navigation and a native Color Picker with named-color sea
 and editable, saved palettes ([palette guide](PALETTES.md)). This is not a completed v0.0.0 release.
 
 Run `cargo run --package hoshi-desktop --locked`. See the
-[spike guide](apps/desktop/README.md) for platform prerequisites,
-controls, validation, and remaining evaluation gates.
+[desktop app guide](apps/desktop/README.md) for platform prerequisites,
+controls and validation.
 
 ## Document management
 
-The desktop spike now supports multiple document tabs, native Open/Save dialogs,
+The desktop app supports multiple document tabs, native Open/Save dialogs,
 Save As/Save All, recent files, and unsaved-change prompts. Use `.hoshi` to retain
 layers, or PNG/JPEG for flat images. See [document management](docs/DOCUMENT_MANAGEMENT.md)
 for shortcuts, formats, and remaining Paint.NET parity work.
@@ -38,7 +38,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-No services or secrets are required for the application. The graphical spike
+No services or secrets are required for the application. The desktop app
 uses Slint and platform runtime libraries; the core/controller stay UI-independent.
 Use the existing checkout; cloud tasks are already isolated and do not need a
 separate worktree.
@@ -48,7 +48,7 @@ separate worktree.
 - [Release roadmap](docs/ROADMAP.md)
 - [v0.0.0 specification](docs/V0_0_0.md)
 - [Architecture decisions](docs/ARCHITECTURE.md)
-- [UI framework evaluation and next spike](docs/UI_EVALUATION.md)
+- [UI framework evaluation](docs/UI_EVALUATION.md) (desktop decided in ADR 0006)
 - [Issue-ready backlog](docs/BACKLOG.md)
 - [Apple-host validation checklist](docs/IOS_SPIKE_CHECKLIST.md)
 
