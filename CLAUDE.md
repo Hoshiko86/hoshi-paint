@@ -77,6 +77,9 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
 - [ ] SEL epic #52 (ADR 0001): #54 polygon wrapper ∥ #55 MaskStore (after #42)
       → Selection type → State+history → clip → ActiveEdit → floating → …
 - File later slices only when their prerequisites merge (keeps file refs true).
+  If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
+  #N merges" banner, and don't assign it to Codex. On every PR refresh: when
+  #N has merged, re-check the issue's file refs, then drop the label and banner.
 - Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
 - Next: T4 `WorkspaceError`; `HandleKind` enum (replaces `i32` 8/9);
   replace `Workspace`'s `empty` controller with a `Drawing` settings value,
