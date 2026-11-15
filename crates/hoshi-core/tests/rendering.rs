@@ -267,3 +267,131 @@ fn matching_fill_and_outline_colors_do_not_change_coverage_with_dash_style() {
     shape.rendering.line_style = LineStyle::DashDot;
     assert_eq!(render(shape), expected);
 }
+
+#[test]
+fn thick_ellipse_dash_count_uses_the_stroke_centerline() {
+    let width = 8.;
+    let (rx, ry) = (32. - width / 2., 20. - width / 2.);
+    let mut shape = Shape::new(
+        ShapeKind::Ellipse,
+        8,
+        8,
+        64,
+        40,
+        ShapeStyle::Outline { color: RED, width },
+    );
+    shape.rendering.line_style = LineStyle::Dash;
+    shape.rendering.antialias = false;
+    let mut doc = Document::new(80, 56).unwrap();
+    doc.begin_shape(shape).unwrap();
+    let pixels = doc.composite(true);
+    doc.commit_shape().unwrap();
+    assert_eq!(doc.composite(false), pixels);
+
+    let steps = 4096;
+    let point = |i| {
+        let angle = i as f64 * std::f64::consts::TAU / steps as f64;
+        (40. + rx * angle.sin(), 28. - ry * angle.cos())
+    };
+    let painted = |i| {
+        let (x, y) = point(i);
+        pixels[y.floor() as usize * 80 + x.floor() as usize].a > 0
+    };
+    let perimeter = (0..steps)
+        .map(|i| {
+            let (x, y) = point(i);
+            let (next_x, next_y) = point(i + 1);
+            (next_x - x).hypot(next_y - y)
+        })
+        .sum::<f64>();
+    // Dash repeats 3w on / 1w off. The last partial dash joins the first
+    // across the closed path's seam, so only complete cycles start new runs.
+    let expected = (perimeter / (4. * width)).floor() as usize;
+    let runs = (0..steps)
+        .filter(|&i| painted(i) && !painted((i + steps - 1) % steps))
+        .count();
+    assert_eq!(runs, expected, "centerline perimeter {perimeter}");
+}
+
+#[test]
+fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
+    let cases = [
+        (ShapeKind::Rectangle, LineStyle::Solid),
+        (ShapeKind::Rectangle, LineStyle::Dash),
+        (ShapeKind::Rectangle, LineStyle::Dot),
+        (ShapeKind::Rectangle, LineStyle::DashDot),
+        (ShapeKind::Rectangle, LineStyle::DashDotDot),
+        (ShapeKind::Ellipse, LineStyle::Solid),
+    ];
+    let actual: Vec<_> = cases
+        .into_iter()
+        .map(|(kind, line_style)| {
+            let mut hash = 0xcbf29ce484222325_u64;
+            for width in [2.75, 8.] {
+                for style in [
+                    ShapeStyle::Fill(BLUE),
+                    ShapeStyle::Outline { color: RED, width },
+                    ShapeStyle::Both {
+                        fill: BLUE,
+                        outline: RED,
+                        width,
+                    },
+                ] {
+                    for rotation in [0, 27] {
+                        for antialias in [false, true] {
+                            let mut shape = rectangle(style);
+                            shape.kind = kind;
+                            shape.rendering.line_style = line_style;
+                            shape.rotation_degrees = rotation;
+                            shape.rendering.antialias = antialias;
+                            for pixel in render(shape) {
+                                for byte in [pixel.r, pixel.g, pixel.b, pixel.a] {
+                                    hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            hash
+        })
+        .collect();
+    // Fingerprints captured from main before the ellipse dash-centerline fix.
+    assert_eq!(
+        actual,
+        [
+            9429211239380135253,
+            13972128942793766380,
+            9503033119333196172,
+            18408558443046301532,
+            5384846963200107273,
+            1307527761561294205,
+        ]
+    );
+}
+
+#[test]
+fn ellipse_dash_angle_remains_finite_when_the_centerline_collapses() {
+    for width in [41., 65., 80.] {
+        let mut shape = Shape::new(
+            ShapeKind::Ellipse,
+            8,
+            8,
+            65,
+            41,
+            ShapeStyle::Outline { color: RED, width },
+        );
+        shape.rendering.line_style = LineStyle::Dash;
+        shape.rendering.antialias = false;
+        let mut doc = Document::new(80, 64).unwrap();
+        doc.begin_shape(shape).unwrap();
+        let dashed = doc.composite(true);
+        // One or both centerline radii are zero, and the entire degenerate
+        // perimeter fits in the first 3w painted interval. No gap is expected,
+        // including the pixel exactly at the ellipse center (40.5, 28.5).
+        assert_eq!(doc.composite_pixel(40, 28, true), RED);
+        shape.rendering.line_style = LineStyle::Solid;
+        doc.adjust_shape(shape).unwrap();
+        assert_eq!(doc.composite(true), dashed, "width {width}");
+    }
+}
