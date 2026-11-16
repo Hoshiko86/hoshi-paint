@@ -6,26 +6,31 @@ use crate::{
 };
 const ARC_STEPS: usize = 128;
 
+fn outline_width(style: ShapeStyle) -> Option<f64> {
+    match style {
+        ShapeStyle::Fill(_) => None,
+        ShapeStyle::Outline { width, .. } | ShapeStyle::Both { width, .. } => Some(width),
+    }
+}
+
 /// Prepared once per rendering operation, shared by preview and committed pixels.
 /// Only ellipse dash strokes need the cumulative arc-length lookup table.
 pub(crate) struct RasterShape {
     shape: Shape,
     transform: PreparedTransform,
     arc_lengths: [f64; ARC_STEPS + 1],
+    ellipse_radii: (f64, f64),
 }
 impl RasterShape {
     pub(crate) fn new(mut shape: Shape) -> Self {
         shape.rendering = shape.rendering.for_style(shape.style);
+        let width = outline_width(shape.style).unwrap_or(0.);
+        let (rx, ry) = (
+            (f64::from(shape.width) - width).max(0.) / 2.,
+            (f64::from(shape.height) - width).max(0.) / 2.,
+        );
         let mut arc_lengths = [0.; ARC_STEPS + 1];
         if shape.kind == ShapeKind::Ellipse && shape.rendering.line_style != LineStyle::Solid {
-            let width = match shape.style {
-                ShapeStyle::Outline { width, .. } | ShapeStyle::Both { width, .. } => width,
-                ShapeStyle::Fill(_) => 0.,
-            };
-            let (rx, ry) = (
-                (f64::from(shape.width) - width).max(0.) / 2.,
-                (f64::from(shape.height) - width).max(0.) / 2.,
-            );
             let mut previous = Point::new(0., -ry);
             for (i, length) in arc_lengths.iter_mut().enumerate().skip(1) {
                 let angle = i as f64 * std::f64::consts::TAU / ARC_STEPS as f64;
@@ -37,10 +42,16 @@ impl RasterShape {
                 arc_lengths[i] += arc_lengths[i - 1];
             }
         }
+        let ellipse_radii = if rx == 0. || ry == 0. {
+            (f64::from(shape.width) / 2., f64::from(shape.height) / 2.)
+        } else {
+            (rx, ry)
+        };
         Self {
             shape,
             transform: Frame::from_shape(shape).prepare(),
             arc_lengths,
+            ellipse_radii,
         }
     }
 
@@ -69,10 +80,7 @@ impl RasterShape {
     }
 
     fn outline_width(&self) -> Option<f64> {
-        match self.shape.style {
-            ShapeStyle::Fill(_) => None,
-            ShapeStyle::Outline { width, .. } | ShapeStyle::Both { width, .. } => Some(width),
-        }
+        outline_width(self.shape.style)
     }
 
     fn perimeter_distance(&self, p: Point, width: f64) -> f64 {
@@ -106,14 +114,7 @@ impl RasterShape {
                 }
             }
             ShapeKind::Ellipse => {
-                let (mut rx, mut ry) = (
-                    (f64::from(self.shape.width) - width).max(0.) / 2.,
-                    (f64::from(self.shape.height) - width).max(0.) / 2.,
-                );
-                if rx == 0. || ry == 0. {
-                    rx = f64::from(self.shape.width) / 2.;
-                    ry = f64::from(self.shape.height) / 2.;
-                }
+                let (rx, ry) = self.ellipse_radii;
                 let angle = (p.x / rx)
                     .atan2(-p.y / ry)
                     .rem_euclid(std::f64::consts::TAU);
