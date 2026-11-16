@@ -313,6 +313,23 @@ fn thick_ellipse_dash_count_uses_the_stroke_centerline() {
     assert_eq!(runs, expected, "centerline perimeter {perimeter}");
 }
 
+fn fingerprint(pixels: &[Color]) -> u64 {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for pixel in pixels {
+        for byte in [pixel.r, pixel.g, pixel.b, pixel.a] {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+        }
+    }
+    hash
+}
+
+/// Protects rectangles in every line style and solid ellipses, with fill,
+/// outline and both, fractional and thick widths, 0° and 27° rotation, and
+/// antialiasing on and off. Update these hashes only when a PR intentionally
+/// changes those pixels; its body must explain the change and link the issue.
+/// To regenerate, run `cargo test -p hoshi-core --locked
+/// rectangle_and_solid_ellipse_rendering_remain_byte_identical` and copy the
+/// actual Rust array printed by the failing assertion.
 #[test]
 fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
     let cases = [
@@ -326,7 +343,7 @@ fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
     let actual: Vec<_> = cases
         .into_iter()
         .map(|(kind, line_style)| {
-            let mut hash = 0xcbf29ce484222325_u64;
+            let mut pixels = Vec::new();
             for width in [2.75, 8.] {
                 for style in [
                     ShapeStyle::Fill(BLUE),
@@ -344,16 +361,12 @@ fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
                             shape.rendering.line_style = line_style;
                             shape.rotation_degrees = rotation;
                             shape.rendering.antialias = antialias;
-                            for pixel in render(shape) {
-                                for byte in [pixel.r, pixel.g, pixel.b, pixel.a] {
-                                    hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
-                                }
-                            }
+                            pixels.extend(render(shape));
                         }
                     }
                 }
             }
-            hash
+            fingerprint(&pixels)
         })
         .collect();
     // Fingerprints captured from main before the ellipse dash-centerline fix.
@@ -366,7 +379,8 @@ fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
             18408558443046301532,
             5384846963200107273,
             1307527761561294205,
-        ]
+        ],
+        "actual fingerprints: {actual:?}"
     );
 }
 
