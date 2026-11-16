@@ -218,7 +218,7 @@ fn software_rendered_canvas_accepts_real_input_events() {
     });
     assert_eq!(state.borrow().composite(), committed);
 
-    if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
+    if let Some(path) = std::env::var_os("HOSHI_DESKTOP_SNAPSHOT") {
         let snapshot = ui.window().take_snapshot().unwrap();
         image::save_buffer(
             path,

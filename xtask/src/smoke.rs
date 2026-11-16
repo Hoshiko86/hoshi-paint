@@ -56,10 +56,10 @@ pub const SMOKES: &[Smoke] = &[
         host: Host::Xvfb,
         screen: None,
         env: &[
-            ("HOSHI_SPIKE_SNAPSHOT", Snapshot("spike-desktop.png")),
+            ("HOSHI_DESKTOP_SNAPSHOT", Snapshot("desktop.png")),
             (
-                "HOSHI_SPIKE_EDITABLE_SNAPSHOT",
-                Snapshot("spike-handles.png"),
+                "HOSHI_DESKTOP_EDITABLE_SNAPSHOT",
+                Snapshot("desktop-handles.png"),
             ),
         ],
         scales: &[],
