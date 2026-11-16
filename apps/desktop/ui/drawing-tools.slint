@@ -4,21 +4,21 @@ import { Translations } from "localization.slint";
 
 // Drawing commands and shared brush size; editing policy stays in the controller.
 export component DrawingTools inherits VerticalLayout {
-    in property <int> selected-tool;
+    in property <string> selected-tool;
     in property <bool> enabled;
     in property <float> brush-width;
-    callback choose-tool(int);
+    callback choose-tool(string);
     callback edit-brush-width(float);
     callback pick-screen();
     spacing: 8px;
     for tool in [
-        { id: 4, label: Translations.brush, icon: @image-url("../icons/brush.svg") },
-        { id: 5, label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
-        { id: 3, label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") },
-        { id: -1, label: Translations.screen-picker, icon: @image-url("../icons/scan-eye.svg") }
+        { id: "paintbrush", action: "", label: Translations.brush, icon: @image-url("../icons/brush.svg") },
+        { id: "eraser", action: "", label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
+        { id: "color-picker", action: "", label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") },
+        { id: "", action: "screen-picker", label: Translations.screen-picker, icon: @image-url("../icons/scan-eye.svg") }
     ]: Rectangle {
         height: DesktopTheme.tool-rail-width - 20px;
-        border-width: tool.id >= 0 && root.selected-tool == tool.id ? 2px : 0px;
+        border-width: tool.action == "" && root.selected-tool == tool.id ? 2px : 0px;
         border-color: DesktopTheme.selected-tool;
         border-radius: 4px;
         background: transparent;
@@ -30,12 +30,12 @@ export component DrawingTools inherits VerticalLayout {
             opacity: self.enabled ? 1 : 0.4;
             Tooltip { text: @markdown("\{tool.label}"); }
             clicked => {
-                if tool.id < 0 { root.pick-screen(); }
+                if tool.action != "" { root.pick-screen(); }
                 else { root.choose-tool(tool.id); }
             }
         }
     }
-    if root.selected-tool == 4 || root.selected-tool == 5: LineEdit {
+    if root.selected-tool == "paintbrush" || root.selected-tool == "eraser": LineEdit {
         // Standard LineEdit's 160px minimum would overlap the 64px tool rail.
         min-width: 0px;
         init => { self.text = "" + root.brush-width; }

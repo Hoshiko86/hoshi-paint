@@ -31,7 +31,7 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
     ui.window().set_size(LogicalSize::new(1120.0, 760.0));
     ui.show().unwrap();
     ui.window().take_snapshot().unwrap();
-    ui.invoke_choose_tool(4);
+    ui.invoke_choose_tool("paintbrush".into());
     assert_eq!(state.borrow().tool(), Tool::Brush);
     ui.invoke_edit_brush_width(2.5);
     assert_eq!(state.borrow().brush_width(), 2.5);
@@ -66,7 +66,7 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
         .unwrap();
     refresh_workspace(&ui, &state);
     ui.window().take_snapshot().unwrap();
-    ui.invoke_choose_tool(5);
+    ui.invoke_choose_tool("eraser".into());
     assert_eq!(state.borrow().tool(), Tool::Eraser);
     press(&ui);
     release(
@@ -83,7 +83,7 @@ fn drawing_tools_preserve_strokes_and_document_color_alpha() {
         .unwrap();
     refresh_workspace(&ui, &state);
     ui.window().take_snapshot().unwrap();
-    ui.invoke_choose_tool(3);
+    ui.invoke_choose_tool("color-picker".into());
     assert_eq!(state.borrow().tool(), Tool::Eyedropper);
     press(&ui);
     release(
@@ -146,7 +146,7 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
     let (ui, state) = create_app().unwrap();
     ui.window().set_size(LogicalSize::new(1120.0, 760.0));
     ui.show().unwrap();
-    ui.invoke_choose_tool(4);
+    ui.invoke_choose_tool("paintbrush".into());
     ui.invoke_edit_stroke_width_pixels(2.5);
     ui.window().take_snapshot().unwrap();
     assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("2.5"));
@@ -174,7 +174,7 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
         .mock_single_click(PointerEventButton::Left);
     ui.window().take_snapshot().unwrap();
     ui.invoke_edit_stroke_width_pixels(0.25);
-    ui.invoke_choose_tool(5);
+    ui.invoke_choose_tool("eraser".into());
     ui.window().take_snapshot().unwrap();
     assert_eq!(width_field(&ui).accessible_value().as_deref(), Some("0.25"));
     assert_eq!(state.borrow().brush_width(), 0.25);
