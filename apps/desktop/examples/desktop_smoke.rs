@@ -91,7 +91,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         // Let standard-widget enable/focus animations settle for the visual artifact.
         slint::Timer::single_shot(Duration::from_millis(200), move || {
-            if let Some(path) = std::env::var_os("HOSHI_SPIKE_EDITABLE_SNAPSHOT") {
+            if let Some(path) = std::env::var_os("HOSHI_DESKTOP_EDITABLE_SNAPSHOT") {
                 let snapshot = ui.window().take_snapshot().unwrap();
                 image::save_buffer(
                     path,
@@ -118,7 +118,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let y = ui.get_canvas_top() + ui.get_offset_y() + 208.0 * ui.get_zoom();
             let sample = snapshot.as_slice()[(y as usize * snapshot.width() as usize) + x as usize];
             assert_eq!((sample.r, sample.g, sample.b), (0, 0, 0));
-            if let Some(path) = std::env::var_os("HOSHI_SPIKE_SNAPSHOT") {
+            if let Some(path) = std::env::var_os("HOSHI_DESKTOP_SNAPSHOT") {
                 image::save_buffer(
                     path,
                     snapshot.as_bytes(),

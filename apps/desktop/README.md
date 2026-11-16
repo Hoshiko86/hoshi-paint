@@ -156,7 +156,7 @@ It is not a physical mouse/keyboard or OS input-capture test.
 For an actual Linux winit window under Xvfb:
 
 ```sh
-SLINT_BACKEND=winit-software HOSHI_SPIKE_SNAPSHOT=target/spike-desktop.png \
+SLINT_BACKEND=winit-software HOSHI_DESKTOP_SNAPSHOT=target/desktop.png \
   xvfb-run -a cargo run --package hoshi-desktop --example desktop_smoke --locked
 ```
 
