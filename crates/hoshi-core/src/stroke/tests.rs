@@ -137,7 +137,7 @@ fn a_long_thin_stroke_allocates_only_its_tile_row() {
     )
     .unwrap();
     assert_eq!(
-        mask.tiles.len(),
+        mask.tiles.stored_tile_count(),
         (crate::MAX_DIMENSION / TILE_SIZE) as usize
     );
     assert!(
@@ -158,7 +158,7 @@ fn a_long_diagonal_does_not_allocate_its_bounding_rectangle() {
         BrushTip::new(1.0, false).unwrap(),
     )
     .unwrap();
-    assert_eq!(mask.tiles.len(), (size / TILE_SIZE) as usize);
+    assert_eq!(mask.tiles.stored_tile_count(), (size / TILE_SIZE) as usize);
     assert_eq!(mask.coverage(size - 1, size - 1), 255);
     assert_eq!(mask.coverage(size - 1, 0), 0);
 }

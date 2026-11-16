@@ -149,9 +149,9 @@ impl MaskStore {
         }
     }
 
-    /// Stored tile count retained for unchanged coverage-mask tests.
+    /// Counts allocated tiles, not covered pixels.
     #[cfg(test)]
-    pub(crate) fn len(&self) -> usize {
+    pub(crate) fn stored_tile_count(&self) -> usize {
         self.tiles.len()
     }
 }
