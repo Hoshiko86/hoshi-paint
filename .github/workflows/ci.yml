@@ -124,6 +124,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Linux desktop prerequisites
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
       - name: Install pinned Rust with LLVM tools
         run: rustup show && rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov (prebuilt, pinned; keep in step with xtask/src/coverage.rs)
@@ -141,7 +143,7 @@ jobs:
       - name: Coverage summary
         if: always()
         run: |
-          { echo '### Line coverage (hoshi-core, hoshi-controller)'; echo '```';
+          { echo '### Line coverage (hoshi-core, hoshi-controller, hoshi-desktop)'; echo '```';
             cargo llvm-cov report --summary-only; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
         if: always()

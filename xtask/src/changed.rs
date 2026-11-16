@@ -215,10 +215,10 @@ mod tests {
     }
 
     #[test]
-    fn ci_outputs_for_a_spike_change_skip_coverage() {
+    fn ci_outputs_for_a_desktop_change_run_coverage() {
         assert_eq!(
             select(["apps/desktop/src/lib.rs"]).ci_outputs(),
-            "rust=true\npackages=hoshi-desktop\nsmoke=true\nscripts=false\ncoverage=false\n"
+            "rust=true\npackages=hoshi-desktop\nsmoke=true\nscripts=false\ncoverage=true\n"
         );
     }
 

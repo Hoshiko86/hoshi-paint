@@ -5,14 +5,13 @@ pub struct Floor {
     pub package: &'static str,
     /// Matches this crate's source paths in coverage reports.
     pub path: &'static str,
-    /// Minimum line coverage in percent: the CI-measured baseline rounded
-    /// down. CI is the reference; local runs can differ by a fraction.
+    /// Minimum line coverage in percent; baselines and margins are recorded below.
+    /// CI is the reference; local runs can differ by a fraction.
     /// Raise it when coverage improves; never lower it to get green.
     pub lines: u32,
 }
 
-/// The domain crates, measured by their own tests. The desktop spike is a
-/// disposable adapter and is not instrumented (it would rebuild Slint).
+/// The domain crates and desktop adapter, measured by their own tests.
 pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-core",
@@ -26,6 +25,12 @@ pub const FLOORS: &[Floor] = &[
         // 94.28% locally after #71 (2026-11-13); CI runs about 0.5% lower.
         lines: 93,
     },
+    Floor {
+        package: "hoshi-desktop",
+        path: "apps/desktop/",
+        // 84.12% local baseline (2026-11-16), with a 2-point margin.
+        lines: 82,
+    },
 ];
 
 /// The version CI installs and the runner expects.
@@ -38,7 +43,10 @@ pub fn ignore_all_but(floor: &Floor) -> String {
         .filter(|other| other.package != floor.package)
         .map(|other| regex_path(other.path))
         .collect();
-    others.extend(["apps/".into(), "xtask/".into()].map(|path: String| regex_path(&path)));
+    others.push(regex_path("xtask/"));
+    if !floor.path.starts_with("apps/") {
+        others.push(regex_path("apps/"));
+    }
     format!("({})", others.join("|"))
 }
 
@@ -63,6 +71,20 @@ mod tests {
         assert!(regex.contains("hoshi\\-controller"), "{regex}");
         assert!(!regex.contains("hoshi\\-core"), "{regex}");
         assert!(regex.contains("apps") && regex.contains("xtask"), "{regex}");
+    }
+
+    #[test]
+    fn desktop_gate_keeps_apps_while_domain_gates_ignore_them() {
+        for floor in FLOORS {
+            let regex = ignore_all_but(floor);
+            if floor.package == "hoshi-desktop" {
+                assert!(!regex.contains("apps"), "{regex}");
+                assert!(regex.contains("hoshi\\-core"), "{regex}");
+                assert!(regex.contains("hoshi\\-controller"), "{regex}");
+            } else {
+                assert!(regex.contains(&regex_path("apps/")), "{regex}");
+            }
+        }
     }
 
     #[test]
