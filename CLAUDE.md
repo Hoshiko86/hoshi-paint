@@ -75,7 +75,9 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
       issues.
 - Decisions (owner): **Paint.NET 5.2 parity** is the goal (`docs/PARITY.md`,
   ADRs in `docs/adr/`); iPad/iOS after desktop parity. Color Picker tool samples
-  the canvas (parity) + separate Screen Picker action (Hoshi extra). Lost
+  the canvas like Paint.NET: left click → Primary, right → Secondary; default
+  samples the current layer, Ctrl = Image (#166). Separate Screen Picker action
+  (Hoshi extra) still writes the selected slot. Lost
   pointer capture / focus loss **commits** an active stroke; a failed stroke commit **discards** it (#77). Brush size is one
   shared toolbar value. Ctrl+Shift+Z = Layer Rotate/Zoom (not Redo).
   Esc commits live edits (Paint.NET). Fonts: all system fonts + a bundled
