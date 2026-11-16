@@ -21,6 +21,26 @@ pub(crate) struct ToolCx<'a> {
     pub document: &'a mut Document,
 }
 
+#[cfg(test)]
+impl<'a> ToolCx<'a> {
+    /// Default modifiers and the controller's default shape template.
+    pub(crate) fn for_test(
+        document: &'a mut Document,
+        viewport: &'a mut Viewport,
+        pivot: &'a mut Option<Point>,
+    ) -> Self {
+        Self {
+            viewport,
+            modifiers: InputModifiers::default(),
+            pivot,
+            template: crate::Controller::new(1, 1)
+                .unwrap()
+                .create_shape(0, 0, 1, 1),
+            document,
+        }
+    }
+}
+
 /// Pointer behavior shared by migrated tools, without access to the controller.
 pub(crate) trait ToolBehavior {
     fn pointer_down(&mut self, cx: &mut ToolCx<'_>, p: PointerInput)
