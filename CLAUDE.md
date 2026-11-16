@@ -18,13 +18,13 @@ apps/desktop (Slint 1.18.1 desktop app, production — ADR 0006)
 - Toolchain pinned 1.99.1, edition 2024. `--locked` everywhere. CI runs on
   Linux/Windows/macOS via `cargo xtask test <suite>` (`docs/TESTING.md`;
   smoke table in `xtask/src/smoke.rs`; coverage floors in
-  `xtask/src/coverage.rs`: core 95%, controller 93%). Test epic #63.
+  `xtask/src/coverage.rs`: core 96%, controller 93%). Test epic #63.
 - One integration-test binary per crate (`tests/main.rs`, `autotests = false`):
   a task adding `tests/<area>.rs` must also list `tests/main.rs` in scope.
 - Core: sparse 128×128 `Arc` copy-on-write tiles, ≤262,144 px/axis, global
   memory budget (`memory.rs`, static atomics), disk-backed compressed undo.
 - Shapes: draw → adjust → commit; one history entry per commit.
-- Spike state: `SharedController = Rc<RefCell<Workspace>>`; `Workspace` holds
+- Desktop state: `SharedController = Rc<RefCell<Workspace>>`; `Workspace` holds
   tabs, each with its own `Controller`.
 
 ## Decisions (keep consistent)
@@ -36,35 +36,43 @@ apps/desktop (Slint 1.18.1 desktop app, production — ADR 0006)
 4. Tasks for Codex: **1–2 files each**, one concern, behavior-preserving unless
    stated, with explicit "do not touch" lists and a stop condition.
 
-## Known debt (audit 2026-11)
+## Known debt (audit 2026-11, refreshed 2026-11-16)
 
-1. **Stringly errors in the adapter** — ~48 `Result<_, String>` in `files.rs`/
-   `workspace.rs`; `.map_err(|e| e.to_string())` loses kind. Core `Error` is a
-   fieldless enum whose `Display` holds UI English (conflicts with i18n boundary);
-   `ProjectError::Io(String)` drops the io source.
+Fixed: adapter errors typed (`FileError`, `WorkspaceError`, no
+`Result<_, String>` left in `apps/desktop/src`); core `Error` `Display` is
+developer text, adapters map variants to catalogs; `editing.rs` expects gone.
+
+1. **`ProjectError::Io(String)`** (core `project.rs`) still drops the io source.
 2. **`Rc<RefCell<Workspace>>` + `Deref<Target = Controller>`** — every callback
    reaches through the workspace to the active controller; with no tab open,
-   mutations silently hit a hidden `empty` controller. RefCell re-entrancy risk.
-3. **Invariants by `.expect()` / primitives** — `editing.rs` `.expect("active
-   shape")` ×5; `HandlePoint.kind: i32` with magic 8/9; hub files too big
-   (spike `lib.rs` 1153 lines, core `lib.rs` 723 with `Document` 41 methods).
+   mutations silently hit a hidden `empty` controller. RefCell re-entrancy
+   risk. Plan: #146.
+3. **Primitives / big hubs** — `HandlePoint.kind: i32` with magic 8/9 (#153);
+   `apps/desktop/src/lib.rs` ~480 lines (markup now in `ui/main-window.slint`);
+   core `lib.rs` ~776 lines, ~42 `pub fn` (`Color`/`Layer`/`Document`).
 
 ## Task queue
 
 Status lives in GitHub issues (`codex-task` label); this list is the plan.
 
-- [x] T1 #35 controller `editing.rs` expects (landed in #33).
-- [ ] T2 #36 spike `files.rs`: `FileError` (thiserror) replaces `String`; 4 bridge
-      sites in `workspace.rs` stay `to_string()` until `WorkspaceError` (T4).
-- [ ] T3 #37 core `history.rs`: remove `.expect`/`records[0]` in `checkpoint`.
-- [ ] #39 localization `Localizer` panics → debug_assert + fallback.
-- [ ] #41 Ctrl+Shift+Z / Caps Lock undo-redo shortcut bug.
+- Done: T1 #35, T2 #36 (#83), T3 #37 (#105), T4 `WorkspaceError` (#93), #39
+  (#107), #41, #50, #74 (#128), i18n epic #119 + #125, DRAW-1 chain #42–#48.
+- [ ] TOOL epic #51 (ADR 0003). Done: #53 ToolId, trait/ToolCx + Pan (#108),
+      Brush/Eraser (#117), Shapes slice 6 (#127 via #150).
+      Now: #147 rail ToolId string keys (Codex, PR #154) → #153 `HandleKind`
+      slice 7 (blocked on #147) → #146 retire `empty`/`Deref` (phase 1 =
+      slice 8, after #153) → settings → Color Picker options.
+      Desktop: #148 `FileAction` enum replaces `file-action(int)` (after #147).
+- [ ] SEL epic #52 (ADR 0001). Done: #54 polygon (#122), #55 MaskStore (#129).
+      Next: Selection type → State+history → clip → ActiveEdit → floating → …
 - [ ] #137 canvas render into Slint buffer (no per-frame Vec + copy). Later:
       dirty-tile redraw (needs core change tracking) → GPU Slint renderer ADR
       (femtovg/skia) → wgpu eval.
-- [ ] DRAW-1 (#6) → #42 core tip/mask → #43 Document stroke lifecycle →
-      #44 controller tools → #47 desktop rail. #45 i18n keys, #46 icons,
-      #48 eyedropper spec/tests are independent.
+- [ ] Core follow-ups: #131 ellipse radii once, #132 fingerprint regen doc,
+      #133 `MaskStore::len` rename.
+- [ ] Newer refactors (enums, `view_model.rs` split, core `lib.rs` split,
+      desktop coverage floor, test helpers, renames): see open `codex-task`
+      issues.
 - Decisions (owner): **Paint.NET 5.2 parity** is the goal (`docs/PARITY.md`,
   ADRs in `docs/adr/`); iPad/iOS after desktop parity. Color Picker tool samples
   the canvas (parity) + separate Screen Picker action (Hoshi extra). Lost
@@ -74,23 +82,13 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   curated open-font pack (OFL/Apache/UFL). **Slint is the production
   desktop toolkit, GPL-3.0 (ADR 0006)**; iPad toolkit open until the Apple-host
   checklist runs. Open: blend reference renders (owner).
-- [ ] #50 Esc commits shape (needs #49 merged — done).
-- [ ] TOOL epic #51 (ADR 0003): #53 ToolId → trait/ToolCx → Slint string IDs
-      (after #47) → Pan/Zoom → Brush/Eraser → Shapes → HandleKind → settings
-      → Color Picker options.
-- [ ] SEL epic #52 (ADR 0001): #54 polygon wrapper ∥ #55 MaskStore (after #42)
-      → Selection type → State+history → clip → ActiveEdit → floating → …
 - File later slices only when their prerequisites merge (keeps file refs true).
   If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
   #N merges" banner, and don't assign it to Codex. On every PR refresh: when
   #N has merged, re-check the issue's file refs, then drop the label and banner.
 - Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
-- Next: T4 `WorkspaceError`; `HandleKind` enum (replaces `i32` 8/9);
-  replace `Workspace`'s `empty` controller with a `Drawing` settings value,
-  then drop `Deref` caller file by file (note: `empty` currently carries
-  drawing settings while no tab is open, so a plain no-op is a regression);
-  move core error copy to adapter; desktop `refresh` → `view_model.rs`
-  (main window markup is in `ui/main-window.slint` since ADR 0006 slice 3); split `Color`/`Layer` out of core `lib.rs`.
+- Next (after #146): drop `Deref` caller file by file (`empty` carries
+  drawing settings while no tab is open, so a plain no-op is a regression).
 
 ## PR review checklist
 
