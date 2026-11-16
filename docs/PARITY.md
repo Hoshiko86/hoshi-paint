@@ -1,7 +1,7 @@
 # Paint.NET parity inventory
 
-As of **2026-11-12**. Compares Paint.NET **5.2** (released 2026-11-10) with Hoshi
-Paint at current `main` (desktop app + `hoshi-core` + `hoshi-controller`).
+As of **2026-11-16**. Compares Paint.NET **5.2** (released 2026-11-10) with Hoshi
+Paint at current `main` (the Slint desktop app `apps/desktop`, ADR 0006, + `hoshi-core` + `hoshi-controller`).
 
 Hoshi Paint is *inspired by* Paint.NET's workflow. It is an original
 implementation with original assets (Lucide icons, own palettes, own algorithms)
@@ -69,41 +69,41 @@ Docs: [ToolsWindow](https://www.getpaint.net/doc/latest/ToolsWindow.html),
 [KeyboardMouseCommands](https://www.getpaint.net/doc/latest/KeyboardMouseCommands.html),
 plus each tool page that is linked in the table.
 
-Hoshi currently exposes one drawing tool (Shapes → Rectangle). The controller
-`Tool` enum has `Rectangle`, `MoveShape`, `Pan` and `Eyedropper`. The desktop
-does not use `Tool::Eyedropper` yet.
+The desktop tool rail exposes Shapes (Rectangle), Paintbrush, Eraser and the canvas
+Color Picker, plus the Screen Picker action. The controller `Tool` enum also has
+`MoveShape` and `Pan`, which have no rail button.
 
 | Feature | Paint.NET notes | Hoshi status | Issue/notes |
 | --- | --- | --- | --- |
-| Tools window | Icon grid, F5 toggle, Ctrl+Shift+F5 reset; tool drop-down Alt+T | 🟡 | Icon rail with Shapes only |
-| Tool keys | S (cycles Rect/Lasso/Ellipse/Wand), M, Z, H, F, G, B, E, P, K, L, R, T, O (Line/Curve, then Shapes) | ❌ | |
-| [Rectangle Select](https://www.getpaint.net/doc/latest/RectangleSelectionTool.html) | Normal / Fixed Ratio / Fixed Size; Shift = square | ❌ | Roadmap 0.1.0 |
-| [Ellipse Select](https://www.getpaint.net/doc/latest/EllipseSelectionTool.html) | Shift = circle | ❌ | Roadmap 0.1.0 |
-| [Lasso Select](https://www.getpaint.net/doc/latest/LassoSelectionTool.html) | Freeform outline | ❌ | Roadmap 0.1.0 |
-| [Magic Wand](https://www.getpaint.net/doc/latest/MagicWand.html) | Tolerance; Contiguous/Global flood (Shift = global); Layer/Image sampling | ❌ | Roadmap 0.1.0 |
-| [Move Pixels](https://www.getpaint.net/doc/latest/MoveTools.html) (renamed 5.2) | Move/resize/rotate pixels, Ctrl = copy; resampling incl. Nearest Neighbor (Antialiased) (5.2) | ❌ | Roadmap 0.1.0; shapes have their own move/rotate |
-| [Move Selection](https://www.getpaint.net/doc/latest/MoveTools.html) | Edits the outline only | ❌ | Roadmap 0.1.0 |
+| Tools window | Icon grid, F5 toggle, Ctrl+Shift+F5 reset; tool drop-down Alt+T | 🟡 | Icon rail: Shapes, Paintbrush, Eraser, Color Picker, Screen Picker; no F5 toggle or reset |
+| Tool keys | S (cycles Rect/Lasso/Ellipse/Wand), M, Z, H, F, G, B, E, P, K, L, R, T, O (Line/Curve, then Shapes) | ❌ | Letters defined on the controller `ToolId` (#53); not bound in the desktop |
+| [Rectangle Select](https://www.getpaint.net/doc/latest/RectangleSelectionTool.html) | Normal / Fixed Ratio / Fixed Size; Shift = square | 📋 | #52 (roadmap 0.1.0; core polygon #54 and MaskStore #55 merged; `Selection` type #168) |
+| [Ellipse Select](https://www.getpaint.net/doc/latest/EllipseSelectionTool.html) | Shift = circle | 📋 | #52 (roadmap 0.1.0) |
+| [Lasso Select](https://www.getpaint.net/doc/latest/LassoSelectionTool.html) | Freeform outline | 📋 | #52 (roadmap 0.1.0) |
+| [Magic Wand](https://www.getpaint.net/doc/latest/MagicWand.html) | Tolerance; Contiguous/Global flood (Shift = global); Layer/Image sampling | 📋 | #52 (roadmap 0.1.0) |
+| [Move Pixels](https://www.getpaint.net/doc/latest/MoveTools.html) (renamed 5.2) | Move/resize/rotate pixels, Ctrl = copy; resampling incl. Nearest Neighbor (Antialiased) (5.2) | 📋 | #52 (roadmap 0.1.0); shapes have their own move/rotate |
+| [Move Selection](https://www.getpaint.net/doc/latest/MoveTools.html) | Edits the outline only | 📋 | #52 (roadmap 0.1.0) |
 | [Zoom tool](https://www.getpaint.net/doc/latest/ViewTools.html) | Left click in, right click out | 🟡 | Zoom buttons, wheel zoom at pointer, Fit and reset; no Zoom tool |
 | [Pan tool](https://www.getpaint.net/doc/latest/ViewTools.html) | H; Space+drag from any tool; middle drag | 🟡 | Middle-drag and Space+drag; no H tool |
 | [Paint Bucket](https://www.getpaint.net/doc/latest/PaintBucket.html) | Tolerance, flood mode, Layer/Image sampling, Ctrl = Image (5.2); fill style, AA, blend mode | ❌ | Roadmap 0.2.0 |
 | [Gradient](https://www.getpaint.net/doc/latest/GradientTool.html) | 7 types: Linear, Linear (Reflected), Diamond, Radial, Conical, Spiral (Clockwise), Spiral (Anticlockwise); Color/Transparency mode; repeat modes; editable nubs | 📋 | #24 (multi-stop gradient, enhancement) |
-| [Paintbrush](https://www.getpaint.net/doc/latest/Paintbrush.html) | Decimal size, pressure (5.0), hardness, spacing (5.0), smoothing (5.0), fill style, AA, blend mode | 📋 | #6 → #42, #43, #44, #47 |
-| [Eraser](https://www.getpaint.net/doc/latest/EraserTool.html) | Size, pressure, hardness; fill pattern (5.2) | 📋 | #6 → #42–#44, #47 (icons: #46) |
+| [Paintbrush](https://www.getpaint.net/doc/latest/Paintbrush.html) | Decimal size, pressure (5.0), hardness, spacing (5.0), smoothing (5.0), fill style, AA, blend mode | 🟡 | Rail button (#6, #47); decimal width 1–2,000 px shared with shapes (#89); antialiasing follows the shared toggle; left/right button = Primary/Secondary; one history entry per stroke. Missing: pressure, hardness, spacing, smoothing, fill style, blend mode, B key |
+| [Eraser](https://www.getpaint.net/doc/latest/EraserTool.html) | Size, pressure, hardness; fill pattern (5.2) | 🟡 | Rail button (#6, #47); erases alpha with the shared width. Missing: pressure, hardness, fill pattern (5.2), E key |
 | [Pencil](https://www.getpaint.net/doc/latest/Pencil.html) | 1-px aliased; blend mode | ❌ | Not in an issue |
-| [Color Picker](https://www.getpaint.net/doc/latest/ColorPicker.html) | Layer/Image sampling (Ctrl = Image, 5.2); six sampling sizes; after click: stay / previous tool / Pencil | 📋 | #48, #47. Owner decision: samples the **canvas** (parity) |
+| [Color Picker](https://www.getpaint.net/doc/latest/ColorPicker.html) | Layer/Image sampling (Ctrl = Image, 5.2); six sampling sizes; after click: stay / previous tool / Pencil | 🟡 | Rail button (#47, #48); samples one pixel of the visible canvas composite (incl. a live shape preview) into the active color slot, no history entry. Missing: Layer/Image sampling (Ctrl = Image), sampling sizes, after-click action, K key: #166 |
 | [Clone Stamp](https://www.getpaint.net/doc/latest/CloneStamp.html) | Ctrl+click source; size, pressure, hardness, spacing, smoothing, AA, blend mode | ❌ | Not in an issue |
 | [Recolor](https://www.getpaint.net/doc/latest/RecolorTool.html) | Replaces Secondary with Primary; tolerance, sampling, brush options | ❌ | Not in an issue |
 | [Text](https://www.getpaint.net/doc/latest/TextTool.html) | Font, size (points or Fixed 96 DPI), Bold/Italic/Underline/Strikeout, rendering mode, justification, AA; movable until commit | ❌ | Roadmap 0.7.0 |
 | [Line/Curve](https://www.getpaint.net/doc/latest/LineCurveTool.html) | Straight (5.0) / Cubic Spline / Bézier; start/end caps; line and fill styles; AA; blend; right-drag rotate | 📋 | #8 (line) |
-| [Shapes](https://www.getpaint.net/doc/latest/ShapeTools.html) | Presets: rectangle, rounded rectangle, ellipse, diamond, trapezoid, parallelogram, triangles, polygons/stars, arrows, callouts, symbols (lightning, check, multiply, gear, heart); A / Shift+A cycle | 🟡 | Rectangle exposed. Ellipse exists in core but has no UI. Rounded rect: #8. Others: roadmap 0.2.0 |
+| [Shapes](https://www.getpaint.net/doc/latest/ShapeTools.html) | Presets: rectangle, rounded rectangle, ellipse, diamond, trapezoid, parallelogram, triangles, polygons/stars, arrows, callouts, symbols (lightning, check, multiply, gear, heart); A / Shift+A cycle | 🟡 | Rectangle exposed. Ellipse exists in core (incl. dash patterns, #74) but has no UI. Ellipse, rounded rect and line UI: #8. Others: roadmap 0.2.0 |
 | Shape: draw mode | Outline / Fill / Outline+Fill, Primary/Secondary roles | ✅ | Roles follow the mouse button |
 | Shape: brush width | Decimal; `[` `]`, Ctrl = ±5 | ✅ | 0.01–65,536 px; same keys |
 | Shape: line style | Dash styles in the toolbar | 🟡 | Solid, Dash, Dot, Dash-dot, Dash-dot-dot; no caps; dash gaps transparent in Fill & Outline, as in Paint.NET (#73) |
 | Shape: fill style | Hatch patterns with both colors | 🟡 | 8 procedural patterns; full catalog missing |
 | Shape: handles, move, rotate | Nubs; Shift aspect, Alt center; drag inside; right-drag rotates, Shift = 15°; arrows ±1, Ctrl ±10 | ✅ | All of these, plus a movable pivot and numeric X/Y/W/H |
-| Toolbar: Antialiasing | Split button per tool | ✅ | Shapes only |
+| Toolbar: Antialiasing | Split button per tool | ✅ | One shared toggle (Shape Properties); Paintbrush and Eraser tips use it too |
 | Toolbar: tool blend mode | Layer modes plus Overwrite | ❌ | SHAPE_RENDERING.md remaining work |
-| Toolbar: Finish | Enter commits | ✅ | Enter or the commit icon |
+| Toolbar: Finish | Enter commits | ✅ | Enter, Esc (#50) or the commit icon |
 
 ## Selection
 
@@ -113,16 +113,16 @@ Docs: [SelectionTools](https://www.getpaint.net/doc/latest/SelectionTools.html),
 
 | Feature | Paint.NET notes | Hoshi status | Issue/notes |
 | --- | --- | --- | --- |
-| Rect / ellipse / lasso / wand selections | See Tools | ❌ | Roadmap 0.1.0 |
-| Selection modes | Replace, Add (union), Subtract, Intersect, Invert; Ctrl/Alt with left or right drag | ❌ | |
-| Selection clipping | Pixelated / Antialiased | ❌ | |
-| Select All / Deselect | Ctrl+A / Ctrl+D (or Enter) | ❌ | |
-| Invert Selection | Ctrl+I | ❌ | |
-| Erase Selection / Fill Selection | Delete / Backspace | ❌ | |
-| Copy Selection / Paste Selection | Ctrl+Alt+Shift+C / V; polygon JSON; Paste combine modes | ❌ | |
-| Crop to Selection | Image menu, Ctrl+Shift+X | ❌ | Menu item present but disabled |
+| Rect / ellipse / lasso / wand selections | See Tools | 📋 | #52 (roadmap 0.1.0) |
+| Selection modes | Replace, Add (union), Subtract, Intersect, Invert; Ctrl/Alt with left or right drag | 📋 | #52; `combine` modes: #168 |
+| Selection clipping | Pixelated / Antialiased | 📋 | #52; `mask` quality: #168 |
+| Select All / Deselect | Ctrl+A / Ctrl+D (or Enter) | 📋 | #52 (ADR 0001) |
+| Invert Selection | Ctrl+I | 📋 | #52 |
+| Erase Selection / Fill Selection | Delete / Backspace | 📋 | #52 |
+| Copy Selection / Paste Selection | Ctrl+Alt+Shift+C / V; polygon JSON; Paste combine modes | 📋 | #52 |
+| Crop to Selection | Image menu, Ctrl+Shift+X | 📋 | #52; menu item present but disabled |
 | Zoom to Selection | Ctrl+Shift+B | ❌ | |
-| Selection-limited adjustments/effects | Applies only inside the selection | ❌ | |
+| Selection-limited adjustments/effects | Applies only inside the selection | 📋 | #52 (one `clip` path, ADR 0001) |
 
 ## Edit & clipboard
 
@@ -132,11 +132,11 @@ Docs: [EditMenu](https://www.getpaint.net/doc/latest/EditMenu.html),
 | Feature | Paint.NET notes | Hoshi status | Issue/notes |
 | --- | --- | --- | --- |
 | Edit menu | Present | ❌ | Hoshi menus: File, Image, Help |
-| Undo / Redo | Ctrl+Z / Ctrl+Y | ✅ | Plus toolbar and History. **Note:** Paint.NET binds Ctrl+Shift+Z to Layers → Rotate / Zoom, not Redo. Hoshi follows Paint.NET: Ctrl+Shift+Z is reserved for Rotate / Zoom (#41) |
-| Cut / Copy / Paste | Ctrl+X/C/V; Copy with no selection copies the layer; Paste selects and activates Move Pixels | ❌ | Roadmap 0.1.0 |
-| Copy Flattened (renamed 5.2) | Ctrl+Shift+C, all layers | ❌ | |
-| Paste into New Layer | Ctrl+Shift+V | ❌ | |
-| Paste into New Image | Ctrl+Alt+V, sized to the clipboard | ❌ | |
+| Undo / Redo | Ctrl+Z / Ctrl+Y | ✅ | Plus toolbar and History. **Note:** Paint.NET binds Ctrl+Shift+Z to Layers → Rotate / Zoom, not Redo. Hoshi follows Paint.NET: Ctrl+Shift+Z is unbound, reserved for Rotate / Zoom; Caps Lock fixed (#41) |
+| Cut / Copy / Paste | Ctrl+X/C/V; Copy with no selection copies the layer; Paste selects and activates Move Pixels | 📋 | #52 (roadmap 0.1.0) |
+| Copy Flattened (renamed 5.2) | Ctrl+Shift+C, all layers | 📋 | #52 |
+| Paste into New Layer | Ctrl+Shift+V | 📋 | #52 |
+| Paste into New Image | Ctrl+Alt+V, sized to the clipboard | 📋 | #52 |
 | Paste canvas-resize prompt | Offered when the paste is larger than the canvas | ❌ | |
 | New image sized from clipboard | File → New defaults to the clipboard image size | ❌ | IMAGE_MENU.md "clipboard-based defaults" |
 
@@ -151,7 +151,7 @@ Docs: [ViewMenu](https://www.getpaint.net/doc/latest/ViewMenu.html),
 | Feature | Paint.NET notes | Hoshi status | Issue/notes |
 | --- | --- | --- | --- |
 | View menu | Present | ❌ | Toolbar icons only |
-| Zoom In / Out | Ctrl++ / Ctrl+−, Ctrl+wheel; fixed steps up to 6400% | 🟡 | Buttons and plain wheel at the pointer (×1.2); no keyboard shortcuts |
+| Zoom In / Out | Ctrl++ / Ctrl+−, Ctrl+wheel; fixed steps up to 6400% | 🟡 | Buttons and Ctrl+wheel at the pointer (×1.2; plain wheel pans); no keyboard shortcuts |
 | Zoom to Window | Ctrl+B (pressing twice restores) | 🟡 | Fit button; no shortcut |
 | Actual Size | Ctrl+0 | 🟡 | Reset-view button; no shortcut |
 | Status-bar zoom slider/box | Slider and percent box | 🟡 | Zoom label only |
@@ -172,7 +172,7 @@ Docs: [ImageMenu](https://www.getpaint.net/doc/latest/ImageMenu.html),
 
 | Feature | Paint.NET notes | Hoshi status | Issue/notes |
 | --- | --- | --- | --- |
-| Crop to Selection | Ctrl+Shift+X | ❌ | Disabled until selections exist |
+| Crop to Selection | Ctrl+Shift+X | 📋 | #52; disabled until selections exist |
 | Resize | Ctrl+R; percent or absolute; aspect lock; resolution; print size | ✅ | [IMAGE_MENU.md](IMAGE_MENU.md) |
 | Resampling | Bicubic (default), Bicubic (Smooth), Bilinear, Bilinear (Low Quality), Adaptive (Sharp), Lanczos, Fant, Nearest Neighbor; gamma correction | 🟡 | All 8 plus gamma. No golden-image comparison yet. Hoshi's own Adaptive (Sharp) policy |
 | Canvas Size | Ctrl+Shift+R; anchor; Fill: Transparent, Primary, Secondary, White, Black | 🟡 | Anchor works; fill is Transparent or Secondary only |
@@ -380,7 +380,7 @@ Docs: [ColorsWindow](https://www.getpaint.net/doc/latest/ColorsWindow.html),
 | 96-color palette | Default palette | ✅ | 96 entries; Hoshi's own default colors |
 | Palette files | Open palettes folder, reset to default, .txt palette files | ✅ | Paint.NET text format import/export, Save As, dirty state |
 | Add color to palette | Add icon, then click a slot | ✅ | "Add active color" works the same way |
-| Color Picker tool (canvas) | See Tools | 📋 | #48 |
+| Color Picker tool (canvas) | See Tools | 🟡 | Shipped (#48); options: #166 |
 
 ## History
 
@@ -394,9 +394,9 @@ Docs: [HistoryWindow](https://www.getpaint.net/doc/latest/HistoryWindow.html),
 | Length limited by disk and memory | Per the features page | ✅ | [DISK_HISTORY.md](DISK_HISTORY.md) |
 | A new edit after undo discards redo | | ✅ | |
 | Undo to save point clears the asterisk | | ✅ | |
-| One entry per committed edit | | ✅ | Shapes and image ops; strokes: #43 |
-| Shortcuts Ctrl+Z / Ctrl+Y | | ✅ | Caps Lock bug: #41 |
-| History robustness | | 🟡 | Remove `.expect` in `checkpoint`: #37 |
+| One entry per committed edit | | ✅ | Shapes, brush/eraser strokes (#43) and image ops |
+| Shortcuts Ctrl+Z / Ctrl+Y | | ✅ | Work with Caps Lock (#41) |
+| History robustness | | ✅ | No `.expect` in `checkpoint` (#37) |
 
 ## File formats
 
@@ -445,15 +445,15 @@ Docs: [SettingsDialog](https://www.getpaint.net/doc/latest/SettingsDialog.html),
 | --- | --- | --- | --- |
 | Settings dialog | Tabs: User Interface, Canvas, Tools, Pen & Tablet, Graphics, Color Management, Updates, Plugin Errors, Diagnostics | ❌ | Only config files (recent files, palettes) |
 | User Interface options | Tab exists; individual options not listed in the doc text (unverified) | ❌ | |
-| Languages | 37 languages listed; Uzbek added in 5.2 | 🟡 | en-US and es-ES; migration: #32, #39, #45 |
+| Languages | 37 languages listed; Uzbek added in 5.2 | 🟡 | en-US and es-ES; UI text from both catalogs (#119, #125); localizer fallback (#39). Remaining migration: #32 |
 | Regional number/unit formatting | | 📋 | #32 |
-| Tool defaults | Settings → Tools: Load from Toolbar, Reset | ❌ | Shape defaults last for the session only |
+| Tool defaults | Settings → Tools: Load from Toolbar, Reset | ❌ | Shape and brush settings last for the session only; settings values: #161 (#146) |
 | Updates | Settings → Updates → Check Now | ❌ | Packaging: #13 |
 | File shortcuts | Ctrl+N/O/S/Shift+S/Alt+S/W/P | 🟡 | All except Print; adds Ctrl+Shift+W (Close All) |
 | Image shortcuts | Ctrl+R, Ctrl+Shift+R, Ctrl+Shift+F, Ctrl+H/G, Ctrl+Shift+X | 🟡 | Resize, Canvas Size and Flatten; canvas focus only |
 | Layer/Adjustment/Effect shortcuts | See those sections | ❌ | |
 | Window toggles | F5–F8; Ctrl+Shift+F5–F8 reset | ❌ | Toolbar buttons only |
-| Brush width `[` `]` | Ctrl = ±5 | ✅ | Shape outline width |
+| Brush width `[` `]` | Ctrl = ±5 | ✅ | Shared brush and shape outline width |
 | Help | F1 opens the online docs | ❌ | About dialog only |
 | Global shortcut routing | Shortcuts work app-wide | 🟡 | Canvas focus required; floating panels get file keys only. #11 |
 | Effect plugins | .dll in Documents\Paint.NET App Files\Effects; GPU system (5.0); classic system deprecated (5.2) | ❌ | Not binary compatible. Wasm effect API: roadmap 0.4.0 |
@@ -471,11 +471,11 @@ Sources: [GitHub releases](https://github.com/paintdotnet/release/releases),
 | --- | --- | --- | --- |
 | OS support | Windows 10 21H2+/11/Server 2022; x64 (AVX2; SSE4.2 required) or ARM64; experimental Wine package (5.2) | ✅ | Windows, macOS and Linux on CI. Packaging: #13 |
 | Pen pressure (5.0) | Windows Ink; Settings → Pen & Tablet | ❌ | Roadmap 0.2.0 |
-| Pointer capture / focus loss | | 📋 | #44: commits the active stroke |
+| Pointer capture / focus loss | | ✅ | Commits the active stroke; a failed commit discards it (#44, #77) |
 | High DPI | New-image size scales with system DPI | ✅ | Logical/physical mapping; viewport texture bounded at HiDPI |
 | Color management (5.1) | Windows Advanced Color on HDR/WCG; sRGB mode on SDR | ❌ | sRGB only; ICC rejected |
 | HDR editing | Tone-mapped on load (5.2); native editing planned | ❌ | |
-| GPU acceleration | Direct3D 11; Settings → Graphics | 🟡 | Slint renderer; pixel work on the CPU |
+| GPU acceleration | Direct3D 11; Settings → Graphics | 🟡 | Slint software renderer; pixel work on the CPU. Render path: #137 |
 | Max canvas | 262,144 px per axis ([LARGE_IMAGES.md](LARGE_IMAGES.md) source) | ✅ | Sparse tiles |
 | Performance budgets | | 📋 | #12 |
 | Dirty tracking / prompts | Asterisk and unsaved prompt | 🟡 | Done; keyboard routing: #11 |
@@ -488,7 +488,7 @@ Sources: [GitHub releases](https://github.com/paintdotnet/release/releases),
 
 | Feature | Notes |
 | --- | --- |
-| Screen Picker | Samples any pixel on the OS screen with the native picker (macOS `NSColorSampler`; Linux XDG portal PickColor on GNOME/KDE; Windows native). The result is opaque sRGB. This is separate from the canvas Color Picker. Tool rail: #47, specification/tests: #48 |
+| Screen Picker | Samples any pixel on the OS screen with the native picker (macOS `NSColorSampler`; Linux XDG portal PickColor on GNOME/KDE; Windows native). The result is opaque sRGB. This is separate from the canvas Color Picker. On the tool rail (#47); specification/tests (#48) |
 | Cross-platform | One core/controller on Windows, macOS and Linux. Paint.NET is Windows-only, apart from its experimental Wine package. iPad is planned after desktop parity |
 | 262,144 px sparse canvases | 128×128 copy-on-write tiles, so a blank maximum-size image stores no pixel array. Global memory budget |
 | Disk-backed unlimited undo | Compressed, checksummed, shared tiles; distant History rows load directly |
@@ -504,21 +504,21 @@ Counts are per table row in each area. Hoshi-only extras are not counted.
 
 | Area | ✅ | 🟡 | 📋 | ❌ | Rows |
 | --- | --- | --- | --- | --- | --- |
-| Tools | 5 | 6 | 5 | 13 | 29 |
-| Selection | 0 | 0 | 0 | 10 | 10 |
-| Edit & clipboard | 1 | 0 | 0 | 7 | 8 |
+| Tools | 5 | 9 | 8 | 7 | 29 |
+| Selection | 0 | 0 | 9 | 1 | 10 |
+| Edit & clipboard | 1 | 0 | 4 | 3 | 8 |
 | View | 1 | 7 | 1 | 5 | 14 |
-| Image menu | 3 | 4 | 0 | 2 | 9 |
+| Image menu | 3 | 4 | 1 | 1 | 9 |
 | Layers (incl. blend modes) | 0 | 2 | 6 | 9 | 17 |
 | Adjustments | 0 | 0 | 0 | 14 | 14 |
 | Effects | 0 | 0 | 0 | 50 | 50 |
-| Colors & palettes | 9 | 2 | 1 | 0 | 12 |
-| History | 7 | 1 | 0 | 0 | 8 |
+| Colors & palettes | 9 | 3 | 0 | 0 | 12 |
+| History | 8 | 0 | 0 | 0 | 8 |
 | File formats | 3 | 10 | 0 | 12 | 25 |
 | Settings, shortcuts, plugins | 1 | 4 | 1 | 11 | 17 |
-| Platform | 3 | 3 | 2 | 4 | 12 |
-| **Total** | **33** | **39** | **16** | **137** | **225** |
+| Platform | 4 | 3 | 1 | 4 | 12 |
+| **Total** | **35** | **42** | **31** | **117** | **225** |
 
-The largest gaps are selections, clipboard, painting tools (in progress under
-#6), the layer UI (#7), and all adjustments and effects. File I/O, the Image
+The largest gaps are selections and clipboard (#52), painting-tool options
+(pressure, hardness, Color Picker options #166), the layer UI (#7), and all adjustments and effects. File I/O, the Image
 menu, history and the Colors panel are the most complete areas.
