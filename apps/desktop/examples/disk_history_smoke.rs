@@ -67,7 +67,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             ui.invoke_set_history_placement(0);
             assert!(history.window().is_visible());
             assert_eq!(history.get_rows().row_count(), 514);
-            ui.invoke_file_action(6);
+            ui.invoke_file_action(hoshi_desktop::FileAction::Exit);
             while ui.get_file_prompt_visible() {
                 ui.invoke_file_prompt_response(1);
             }

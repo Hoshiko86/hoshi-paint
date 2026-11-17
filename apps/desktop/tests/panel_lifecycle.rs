@@ -86,7 +86,7 @@ fn pending_properties_are_saved_and_auxiliary_windows_close_for_modals_and_exit(
         "saving an existing-format path does not dismiss tool windows"
     );
     assert!(!state.borrow().any_dirty());
-    ui.invoke_file_action(6);
+    ui.invoke_file_action(hoshi_desktop::FileAction::Exit);
     assert!(!ui.window().is_visible());
     assert!(
         !properties.window().is_visible(),

@@ -67,7 +67,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         snapshot(&ui, "spike-save-configuration.png");
         ui.invoke_confirm_save_configuration(false);
         assert!(!jpeg.exists());
-        ui.invoke_file_action(4);
+        ui.invoke_file_action(hoshi_desktop::FileAction::Close);
         assert!(ui.get_file_prompt_visible());
         snapshot(&ui, "spike-save-prompt.png");
         ui.invoke_file_prompt_response(2);
@@ -76,7 +76,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(state.borrow().tabs().len(), 2);
         assert!(!state.borrow().active_tab().unwrap().dirty());
         refresh_workspace(&ui, &state);
-        ui.invoke_file_action(6);
+        ui.invoke_file_action(hoshi_desktop::FileAction::Exit);
         while ui.get_file_prompt_visible() {
             ui.invoke_file_prompt_response(1);
         }

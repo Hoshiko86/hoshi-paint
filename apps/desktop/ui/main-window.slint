@@ -5,7 +5,8 @@ import { ShapePropertiesPanel } from "shape-properties.slint";
 export { ShapePropertiesWindow } from "shape-properties.slint";
 import { ShapeControls, ControlPoint } from "shape-controls.slint";
 export { ControlPoint } from "shape-controls.slint";
-import { FileShortcuts } from "file-shortcuts.slint";
+import { FileShortcuts, FileAction } from "file-shortcuts.slint";
+export { FileAction } from "file-shortcuts.slint";
 import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "file-prompts.slint";
 import { ImageSettings } from "image-settings.slint";
 import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch } from "colors.slint";
@@ -89,7 +90,7 @@ export component AppWindow inherits Window {
     in-out property <int> save-quality: 95;
     in-out property <string> file-error;
     in property <bool> file-busy;
-    callback file-action(int);
+    callback file-action(FileAction);
     callback activate-document(int);
     callback close-document(int);
     callback cycle-document(bool);
@@ -320,21 +321,21 @@ export component AppWindow inherits Window {
     function close-about() { root.about-open = false; canvas-focus.focus(); }
     MenuBar {
         Menu { title: Translations.menu-file;
-            MenuItem { title: Translations.menu-new; enabled: !root.modal-visible; activated => { root.file-action(7); } }
-            MenuItem { title: Translations.menu-open; enabled: !root.modal-visible; activated => { root.file-action(0); } }
+            MenuItem { title: Translations.menu-new; enabled: !root.modal-visible; activated => { root.file-action(FileAction.new); } }
+            MenuItem { title: Translations.menu-open; enabled: !root.modal-visible; activated => { root.file-action(FileAction.open); } }
             Menu { title: Translations.menu-open-recent;
                 for path[index] in root.recent-files: MenuItem { title: path; enabled: !root.modal-visible; activated => { root.open-recent(index); } }
                 MenuSeparator { }
                 MenuItem { title: Translations.clear-recent; enabled: !root.modal-visible; activated => { root.clear-recent(); } }
             }
             MenuSeparator { }
-            MenuItem { title: Translations.save; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(1); } }
-            MenuItem { title: Translations.menu-save-as; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(2); } }
-            MenuItem { title: Translations.menu-save-all; enabled: root.any-dirty && !root.modal-visible; activated => { root.file-action(3); } }
+            MenuItem { title: Translations.save; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(FileAction.save); } }
+            MenuItem { title: Translations.menu-save-as; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(FileAction.save-as); } }
+            MenuItem { title: Translations.menu-save-all; enabled: root.any-dirty && !root.modal-visible; activated => { root.file-action(FileAction.save-all); } }
             MenuSeparator { }
-            MenuItem { title: Translations.menu-close; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(4); } }
-            MenuItem { title: Translations.menu-close-all; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(5); } }
-            MenuItem { title: Translations.menu-exit; enabled: !root.modal-visible; activated => { root.file-action(6); } }
+            MenuItem { title: Translations.menu-close; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(FileAction.close); } }
+            MenuItem { title: Translations.menu-close-all; enabled: root.has-document && !root.modal-visible; activated => { root.file-action(FileAction.close-all); } }
+            MenuItem { title: Translations.menu-exit; enabled: !root.modal-visible; activated => { root.file-action(FileAction.exit); } }
         }
         Menu { title: Translations.menu-image;
             MenuItem { title: Translations.crop-to-selection; enabled: false; }
