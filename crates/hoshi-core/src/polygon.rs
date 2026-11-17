@@ -9,6 +9,7 @@
 )]
 
 use crate::Error;
+use crate::geometry::{Affine, Point};
 use i_overlay::core::{
     fill_rule::FillRule, overlay::Overlay, overlay::ShapeType, overlay_rule::OverlayRule,
 };
@@ -112,6 +113,36 @@ impl PolygonSet {
         let subject: Vec<_> = self.contours().collect();
         let clip: Vec<_> = other.contours().collect();
         Self::overlay(&subject, &clip, rule)
+    }
+
+    /// Maps each contour once, preserving winding and rejecting collapsed or unsafe geometry.
+    pub(crate) fn transformed(&self, t: &Affine) -> Result<Self, Error> {
+        let det = t.determinant();
+        if !t.is_finite() || !det.is_finite() || det == 0.0 {
+            return Err(Error::InvalidShape);
+        }
+        let mut contours = Vec::new();
+        contours
+            .try_reserve_exact(self.contours.len())
+            .map_err(|_| Error::MemoryLimit)?;
+        for contour in &self.contours {
+            let mut points = Vec::new();
+            points
+                .try_reserve_exact(contour.len())
+                .map_err(|_| Error::MemoryLimit)?;
+            let map = |&(x, y): &(f64, f64)| {
+                let p = t.apply(Point::new(x, y));
+                (p.x, p.y)
+            };
+            if det < 0.0 {
+                points.extend(contour.iter().rev().map(map));
+            } else {
+                points.extend(contour.iter().map(map));
+            }
+            validate_points(&points)?;
+            contours.push(points);
+        }
+        Ok(Self { contours })
     }
 
     /// Whether no filled contours remain after normalization.
@@ -433,5 +464,76 @@ mod tests {
         assert!(empty.boolean(&rect, BoolOp::Intersect).is_empty());
         assert!((area(&empty.boolean(&rect, BoolOp::Union)) - 4.0).abs() < 1e-9);
         assert!(empty.boolean(&empty, BoolOp::Union).is_empty());
+    }
+    #[test]
+    fn affine_maps_preserve_contours_area_and_hole_winding() {
+        let rect = PolygonSet::rect(0., 0., 40., 20.).unwrap();
+        assert_eq!(
+            rect.transformed(&Affine::IDENTITY).unwrap().contours,
+            rect.contours
+        );
+        let rotated = rect
+            .transformed(&Affine::rotate_about(Point::new(0., 0.), 37.))
+            .unwrap();
+        assert!((area(&rotated) - area(&rect)).abs() < 1e-9 * area(&rect));
+        let hole = PolygonSet::rect(0., 0., 6., 6.).unwrap().boolean(
+            &PolygonSet::rect(2., 2., 2., 2.).unwrap(),
+            BoolOp::Difference,
+        );
+        let mirrored = hole.transformed(&Affine::scale(-1., 1.)).unwrap();
+        let signed_area = |path: &[(f64, f64)]| {
+            path.iter()
+                .zip(path.iter().cycle().skip(1))
+                .take(path.len())
+                .map(|(a, b)| a.0 * b.1 - b.0 * a.1)
+                .sum::<f64>()
+        };
+        for (a, b) in hole.contours().zip(mirrored.contours()) {
+            assert_eq!(signed_area(a).signum(), signed_area(b).signum());
+        }
+        for x in -2..9 {
+            for y in -2..9 {
+                let (x, y) = (f64::from(x) + 0.37, f64::from(y) + 0.37);
+                assert_eq!(hole.contains(x, y), mirrored.contains(-x, y));
+            }
+        }
+        assert!(
+            PolygonSet::polygon(&[])
+                .unwrap()
+                .transformed(&Affine::IDENTITY)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn affine_maps_reject_invalid_coefficients_and_unsafe_outputs() {
+        let rect = PolygonSet::rect(0., 0., 2., 2.).unwrap();
+        for transform in [
+            Affine::scale(f64::NAN, 1.),
+            Affine::translate(0., f64::INFINITY),
+            Affine::scale(0., 1.),
+            Affine::scale(1e300, 1e300),
+        ] {
+            assert!(matches!(
+                rect.transformed(&transform),
+                Err(Error::InvalidShape)
+            ));
+        }
+        // Direct fixtures exercise output validation beyond constructor-safe coordinates.
+        let huge = PolygonSet {
+            contours: vec![vec![(1e300, 1.)]],
+        };
+        assert!(matches!(
+            huge.transformed(&Affine::scale(1e300, 1.)),
+            Err(Error::InvalidShape)
+        ));
+        let large = PolygonSet {
+            contours: vec![vec![(2_f64.powi(300), 1.)]],
+        };
+        assert!(matches!(
+            large.transformed(&Affine::scale(2_f64.powi(300), 1.)),
+            Err(Error::InvalidShape)
+        ));
     }
 }

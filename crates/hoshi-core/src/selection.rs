@@ -4,7 +4,7 @@
     expect(dead_code, reason = "ADR 0001 slice 4 wires Selection into State")
 )]
 
-use crate::geometry::Frame;
+use crate::geometry::{Affine, Frame};
 use crate::mask::MaskStore;
 use crate::polygon::{BoolOp, PolygonSet};
 use crate::{Error, MemoryReservation};
@@ -99,6 +99,25 @@ impl Selection {
             }
             (CombineMode::Xor, Some(prev)) => prev.geometry.boolean(&clipped, BoolOp::Xor),
         };
+        Self::from_geometry(geometry, canvas)
+    }
+
+    /// Transforms borrowed geometry and clips it to the original canvas.
+    pub(crate) fn transformed(&self, t: &Affine) -> Result<Option<Self>, Error> {
+        let mut geometry = self.geometry.transformed(t)?;
+        let (w, h) = (f64::from(self.canvas.0), f64::from(self.canvas.1));
+        // ADR 0001 open question: Move Selection may retain off-canvas geometry in
+        // Paint.NET. Floating always derives from its origin, so clipping is safe here.
+        if geometry
+            .bounds()
+            .is_some_and(|(l, t, r, b)| l < 0.0 || t < 0.0 || r > w || b > h)
+        {
+            geometry = geometry.boolean(&PolygonSet::rect(0.0, 0.0, w, h)?, BoolOp::Intersect);
+        }
+        Self::from_geometry(geometry, self.canvas)
+    }
+
+    fn from_geometry(geometry: PolygonSet, canvas: (u32, u32)) -> Result<Option<Self>, Error> {
         if geometry.is_empty() {
             return Ok(None);
         }
@@ -550,6 +569,11 @@ mod tests {
         crate::configure_memory_budget(64).unwrap();
         let selection = select(rect(1.0, 1.0, 3.0, 3.0));
         assert_eq!(crate::memory_usage(), baseline + 64);
+        assert!(matches!(
+            selection.transformed(&Affine::IDENTITY),
+            Err(Error::MemoryLimit)
+        ));
+        assert_eq!(crate::memory_usage(), baseline + 64);
         for quality in [ClipQuality::Aliased, ClipQuality::Antialiased] {
             assert!(matches!(selection.mask(quality), Err(Error::MemoryLimit)));
             assert_eq!(crate::memory_usage(), baseline + 64);
@@ -567,5 +591,58 @@ mod tests {
         assert!(selection.contains(2.0, 2.0));
         drop(selection);
         assert_eq!(crate::memory_usage(), baseline);
+    }
+    #[test]
+    fn transformed_selection_preserves_exact_geometry_and_rotation_membership() {
+        let original = select(rect(5., 6., 6., 4.));
+        let identity = original.transformed(&Affine::IDENTITY).unwrap().unwrap();
+        assert_eq!(identity.bounds(), original.bounds());
+        assert!(identity.contours().eq(original.contours()));
+        let transform = Affine::rotate_about(Point::new(8., 8.), 30.);
+        let rotated = original.transformed(&transform).unwrap().unwrap();
+        let area = |selection: &Selection| {
+            selection
+                .contours()
+                .map(|path| {
+                    path.iter()
+                        .zip(path.iter().cycle().skip(1))
+                        .take(path.len())
+                        .map(|(a, b)| a.0 * b.1 - b.0 * a.1)
+                        .sum::<f64>()
+                })
+                .sum::<f64>()
+                .abs()
+                * 0.5
+        };
+        assert!((area(&rotated) - area(&original)).abs() < 1e-9 * area(&original));
+        let inverse = transform.inverse().unwrap();
+        for x in 0..64 {
+            for y in 0..64 {
+                let (x, y) = (f64::from(x) * 0.25, f64::from(y) * 0.25);
+                let p = inverse.apply(Point::new(x, y));
+                if !on_edge(&rotated, x, y) && !on_edge(&original, p.x, p.y) {
+                    assert_eq!(rotated.contains(x, y), original.contains(p.x, p.y));
+                }
+            }
+        }
+        let clipped = original
+            .transformed(&Affine::translate(-7., 0.))
+            .unwrap()
+            .unwrap();
+        assert_eq!(clipped.bounds(), (0, 6, 4, 10));
+        assert!(
+            original
+                .transformed(&Affine::translate(20., 0.))
+                .unwrap()
+                .is_none()
+        );
+        for invalid in [Affine::scale(0., 1.), Affine::translate(f64::NAN, 0.)] {
+            assert!(matches!(
+                original.transformed(&invalid),
+                Err(Error::InvalidShape)
+            ));
+            assert_eq!(original.bounds(), identity.bounds());
+            assert!(original.contours().eq(identity.contours()));
+        }
     }
 }
