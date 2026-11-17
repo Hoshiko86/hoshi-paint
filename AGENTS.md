@@ -112,6 +112,12 @@ must assert: `docs/TESTING.md`. A new `examples/*_smoke.rs` needs an entry in
 new `tests/<area>.rs` also needs `mod <area>;` in that crate's `tests/main.rs`
 (count it as part of the same change, not an extra file).
 
+Coverage floors live only in `xtask/src/coverage.rs`, and CI's `coverage`
+job enforces them. If you changed `hoshi-core`, `hoshi-controller` or
+`apps/desktop` and `cargo-llvm-cov` is installed, run `cargo xtask test
+coverage`; otherwise say it was not run. A number quoted in an issue may be
+stale: `coverage.rs` wins. Add tests for new code instead of lowering a floor.
+
 To save time while iterating, test only the crate you touched
 (`cargo test -p hoshi-core`, `-p hoshi-controller`, `-p hoshi-desktop`),
 then run the full set once at the end. If adding a dependency, drop `--locked`
