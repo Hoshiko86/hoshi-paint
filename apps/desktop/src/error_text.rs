@@ -228,7 +228,12 @@ pub(crate) fn project(text: &Localizer, error: &ProjectError) -> String {
         ProjectError::ActiveShape => "error_commit_shape_before_save",
         ProjectError::Checksum => "error_project_checksum",
         ProjectError::MemoryLimit => "error_memory_limit",
-        ProjectError::Io(detail) => return text.format("error_file_io", &[("detail", detail)]),
+        ProjectError::Io(error) => {
+            let detail = |key: &str, detail: &dyn std::fmt::Display| {
+                text.format(key, &[("detail", &detail.to_string())])
+            };
+            return detail("error_file_io", error);
+        }
     };
     text.text(key).into()
 }
