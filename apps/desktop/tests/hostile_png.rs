@@ -55,7 +55,7 @@ fn noise(width: u32, height: u32) -> Vec<u8> {
 
 fn layered() -> Document {
     let mut pixels = PixelStore::new(64, 48, Color::TRANSPARENT);
-    for (i, rgba) in noise(64, 48).chunks_exact(4).enumerate() {
+    for (i, rgba) in noise(64, 48).as_chunks::<4>().0.iter().enumerate() {
         pixels
             .set(
                 i as u32 % 64,
@@ -304,7 +304,9 @@ fn icc_tagged_png_is_rejected_and_an_empty_profile_is_untagged() {
         let result = load_bytes(&bytes);
         if empty {
             let expected: Vec<_> = data
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|p| Color::rgba(p[0], p[1], p[2], p[3]))
                 .collect();
             assert_pixels(&result.unwrap(), &expected, 2, 2, 96.);
