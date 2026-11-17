@@ -6,6 +6,8 @@ pub const MAX_DIMENSION: u32 = 262_144;
 mod color;
 pub use color::Color;
 pub mod geometry;
+mod layer;
+pub use layer::Layer;
 mod mask;
 mod memory;
 mod painting;
@@ -21,29 +23,6 @@ use history::History;
 pub use history::HistoryLabel;
 /// Maximum number of layers in a document, bounding dense pixel-buffer allocation.
 pub const MAX_LAYERS: usize = 32;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Layer {
-    name: String,
-    visible: bool,
-    opacity: u8,
-    pixels: Arc<PixelStore>,
-}
-
-impl Layer {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-    pub fn visible(&self) -> bool {
-        self.visible
-    }
-    pub fn opacity(&self) -> u8 {
-        self.opacity
-    }
-    pub fn pixels(&self) -> &PixelStore {
-        &self.pixels
-    }
-}
 
 pub mod rendering;
 use rendering::RasterShape;
