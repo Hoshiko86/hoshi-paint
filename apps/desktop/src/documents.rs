@@ -375,7 +375,7 @@ impl Manager {
                     ids,
                 )
             }
-            FileAction::New => ui.invoke_show_image_settings(0),
+            FileAction::New => ui.invoke_show_image_settings(crate::ImageDialog::NewImage),
         }
     }
 }

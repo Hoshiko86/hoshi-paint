@@ -1,5 +1,7 @@
 //! Dialog drafts do not touch the document until Apply succeeds.
-use crate::{AppWindow, SharedController, localization::Localizer, refresh, update};
+use crate::{
+    AppWindow, ImageDialog, ImageField, SharedController, localization::Localizer, refresh, update,
+};
 use hoshi_controller::{Anchor, Color, ControllerError, ImageTransform, Resampling, ResizeOptions};
 use hoshi_core::Error as CoreError;
 use slint::ComponentHandle;
@@ -139,8 +141,8 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
     ui.on_show_image_settings(move |kind| {
         if let Some(ui) = main.upgrade() {
             if ui.get_modal_visible()
-                || !(0..=2).contains(&kind)
-                || (kind != 0 && !controller.borrow().has_document())
+                || matches!(kind, ImageDialog::Closed)
+                || (kind != ImageDialog::NewImage && !controller.borrow().has_document())
             {
                 return;
             }
@@ -165,7 +167,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                 ratio: f64::from(size.0) / f64::from(size.1),
             };
             ui.set_image_units(0);
-            ui.set_image_aspect(kind != 2);
+            ui.set_image_aspect(kind != ImageDialog::CanvasSize);
             ui.set_image_percentage(false);
             ui.set_image_percent_text("100".into());
             ui.set_image_anchor(4);
@@ -183,52 +185,49 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
         let Some(ui) = main.upgrade() else {
             return;
         };
-        if ui.get_image_dialog_kind() < 0 {
+        if matches!(ui.get_image_dialog_kind(), ImageDialog::Closed) {
             return;
         }
         match which {
-            0 => ui.set_image_width_text(value.clone()),
-            1 => ui.set_image_height_text(value.clone()),
-            2 => ui.set_image_resolution_text(value.clone()),
-            3 => ui.set_image_percent_text(value.clone()),
-            _ => return,
+            ImageField::Width => ui.set_image_width_text(value.clone()),
+            ImageField::Height => ui.set_image_height_text(value.clone()),
+            ImageField::Resolution => ui.set_image_resolution_text(value.clone()),
+            ImageField::Percent => ui.set_image_percent_text(value.clone()),
         }
         let mut d = data.borrow_mut();
         let result = (|| -> Result<(), SettingsError> {
             match which {
-                0 => {
+                ImageField::Width => {
                     d.size.0 = d.dimension(&value)?;
                     if ui.get_image_aspect() {
                         d.size.1 = pixel_count(f64::from(d.size.0) / d.ratio)?;
                     }
                 }
-                1 => {
+                ImageField::Height => {
                     d.size.1 = d.dimension(&value)?;
                     if ui.get_image_aspect() {
                         d.size.0 = pixel_count(f64::from(d.size.1) * d.ratio)?;
                     }
                 }
-                2 => {
+                ImageField::Resolution => {
                     let resolution = positive(&value)?;
                     if !(1.0..=100_000.0).contains(&resolution) {
                         return Err(SettingsError::ResolutionRange);
                     }
                     d.resolution = resolution;
                 }
-                3 => {
+                ImageField::Percent => {
                     d.size = percent_size(&d, &value)?;
                 }
-                _ => unreachable!(),
             }
             let width_text = ui.get_image_width_text();
             let height_text = ui.get_image_height_text();
             d.sync(&ui, &words);
             // Preserve the user's unfinished formatting/caret in the active field.
-            if which == 0 {
-                ui.set_image_width_text(width_text);
-            }
-            if which == 1 {
-                ui.set_image_height_text(height_text);
+            match which {
+                ImageField::Width => ui.set_image_width_text(width_text),
+                ImageField::Height => ui.set_image_height_text(height_text),
+                ImageField::Resolution | ImageField::Percent => {}
             }
             Ok(())
         })();
@@ -280,20 +279,21 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
             return;
         };
         let kind = ui.get_image_dialog_kind();
-        if !(0..=2).contains(&kind) {
+        if matches!(kind, ImageDialog::Closed) {
             return;
         }
         let result = (|| -> Result<(), SettingsError> {
             let d = data.borrow();
-            let (width, height) = if ui.get_image_percentage() && kind == 1 {
-                percent_size(&d, &ui.get_image_percent_text())?
-            } else {
-                (
-                    d.dimension(&ui.get_image_width_text())?,
-                    d.dimension(&ui.get_image_height_text())?,
-                )
-            };
-            let resolution = if kind == 2 {
+            let (width, height) =
+                if ui.get_image_percentage() && matches!(kind, ImageDialog::Resize) {
+                    percent_size(&d, &ui.get_image_percent_text())?
+                } else {
+                    (
+                        d.dimension(&ui.get_image_width_text())?,
+                        d.dimension(&ui.get_image_height_text())?,
+                    )
+                };
+            let resolution = if matches!(kind, ImageDialog::CanvasSize) {
                 d.resolution
             } else {
                 positive(&ui.get_image_resolution_text())?
@@ -301,7 +301,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
             let mut c = controller.borrow_mut();
             let secondary = c.secondary_color();
             let result = match kind {
-                0 => {
+                ImageDialog::NewImage => {
                     if c.tabs().len() >= crate::workspace::MAX_DOCUMENTS {
                         return Err(SettingsError::DocumentLimit);
                     }
@@ -313,7 +313,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                     };
                     c.new_image(width, height, resolution, background)
                 }
-                1 => {
+                ImageDialog::Resize => {
                     let method = match ui.get_image_resampling() {
                         0 => Resampling::Bicubic,
                         1 => Resampling::BicubicSmooth,
@@ -335,7 +335,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                         },
                     )
                 }
-                2 => {
+                ImageDialog::CanvasSize => {
                     let anchor = ui.get_image_anchor();
                     if !(0..=8).contains(&anchor) {
                         return Err(SettingsError::InvalidChoice);
@@ -355,7 +355,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                         fill,
                     )
                 }
-                _ => unreachable!(),
+                ImageDialog::Closed => return Ok(()),
             };
             result.map_err(SettingsError::Apply)?;
             ui.invoke_close_image_settings();

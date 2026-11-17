@@ -50,10 +50,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.invoke_save_document_as(project.to_string_lossy().as_ref().into());
         assert!(project.exists());
         assert!(!state.borrow().any_dirty());
-        ui.invoke_show_image_settings(0);
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::NewImage);
         ui.invoke_select_image_aspect(false);
-        ui.invoke_edit_image_setting(0, "320".into());
-        ui.invoke_edit_image_setting(1, "240".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "320".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Height, "240".into());
         ui.invoke_apply_image_settings();
         let start = point(40., 40.);
         let end = point(150., 130.);

@@ -1,8 +1,11 @@
 import { Button, LineEdit, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
+export enum ImageDialog { closed, new-image, resize, canvas-size }
+export enum ImageField { width, height, resolution, percent }
+
 export component ImageSettings inherits Rectangle {
-    in property <int> kind;
+    in property <ImageDialog> kind;
     in-out property <string> width-text;
     in-out property <string> height-text;
     in-out property <string> resolution-text;
@@ -16,7 +19,7 @@ export component ImageSettings inherits Rectangle {
     in-out property <bool> gamma-correction: true;
     in property <string> summary;
     in property <string> error;
-    callback edited(int, string);
+    callback edited(ImageField, string);
     callback units-selected(int);
     callback aspect-selected(bool);
     callback percentage-selected(bool);
@@ -26,7 +29,7 @@ export component ImageSettings inherits Rectangle {
     init => { width-entry.focus(); }
     ScrollView {
         content-width: self.width;
-        content-height: root.kind == 0 ? 610px : root.kind == 1 ? 700px : 680px;
+        content-height: root.kind == ImageDialog.new-image ? 610px : root.kind == ImageDialog.resize ? 700px : 680px;
     FocusScope {
         width: parent.width; height: parent.height;
         key-pressed(event) => {
@@ -35,11 +38,11 @@ export component ImageSettings inherits Rectangle {
         }
     VerticalLayout {
         padding: 20px; spacing: 10px;
-        Text { text: root.kind == 0 ? Translations.dialog-new : root.kind == 1 ? Translations.dialog-resize : Translations.dialog-canvas-size; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
-        if root.kind == 1: HorizontalLayout {
+        Text { text: root.kind == ImageDialog.new-image ? Translations.dialog-new : root.kind == ImageDialog.resize ? Translations.dialog-resize : Translations.dialog-canvas-size; font-size: 22px; font-weight: 700; color: DesktopTheme.text; }
+        if root.kind == ImageDialog.resize: HorizontalLayout {
             ComboBox { model: [Translations.size-absolute, Translations.size-percentage]; current-index: root.percentage ? 1 : 0;
                 accessible-label: Translations.resize-mode; selected(value) => { root.percentage-selected(self.current-index == 1); } }
-            LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: Translations.resize-percentage; edited(value) => { root.edited(3, value); } accepted => { root.apply(); } }
+            LineEdit { text <=> root.percent-text; enabled: root.percentage; accessible-label: Translations.resize-percentage; edited(value) => { root.edited(ImageField.percent, value); } accepted => { root.apply(); } }
             Text { text: "%"; vertical-alignment: center; color: DesktopTheme.text; }
         }
         HorizontalLayout {
@@ -49,32 +52,32 @@ export component ImageSettings inherits Rectangle {
         }
         HorizontalLayout {
             Text { text: Translations.width; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: Translations.image-width; edited(value) => { root.edited(0, value); } accepted => { root.apply(); } }
+            width-entry := LineEdit { text <=> root.width-text; enabled: !root.percentage; accessible-label: Translations.image-width; edited(value) => { root.edited(ImageField.width, value); } accepted => { root.apply(); } }
         }
         HorizontalLayout {
             Text { text: Translations.height; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: Translations.image-height; edited(value) => { root.edited(1, value); } accepted => { root.apply(); } }
+            LineEdit { text <=> root.height-text; enabled: !root.percentage; accessible-label: Translations.image-height; edited(value) => { root.edited(ImageField.height, value); } accepted => { root.apply(); } }
         }
         CheckBox { text: Translations.maintain-aspect; checked: root.aspect; enabled: !root.percentage;
             toggled => { root.aspect-selected(self.checked); } }
-        if root.kind != 2: HorizontalLayout {
+        if root.kind != ImageDialog.canvas-size: HorizontalLayout {
             Text { text: Translations.resolution; width: 100px; vertical-alignment: center; color: DesktopTheme.text; }
-            LineEdit { text <=> root.resolution-text; accessible-label: Translations.resolution-label; edited(value) => { root.edited(2, value); } accepted => { root.apply(); } }
+            LineEdit { text <=> root.resolution-text; accessible-label: Translations.resolution-label; edited(value) => { root.edited(ImageField.resolution, value); } accepted => { root.apply(); } }
             Text { text: Translations.pixels-per-inch; color: DesktopTheme.text; vertical-alignment: center; }
         }
-        if root.kind == 1: HorizontalLayout {
+        if root.kind == ImageDialog.resize: HorizontalLayout {
             Text { text: Translations.resampling; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             ComboBox { model: [Translations.resample-bicubic, Translations.resample-bicubic-smooth, Translations.resample-bilinear, Translations.resample-bilinear-low, Translations.resample-adaptive, Translations.resample-lanczos, Translations.resample-fant, Translations.resample-nearest]; current-index <=> root.resampling; accessible-label: Translations.resampling-label; }
             Button { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: Translations.reset-resampling;
                 Tooltip { text: Translations.styled(Translations.reset-resampling); }
                 clicked => { root.resampling = 0; } }
         }
-        if root.kind == 1: CheckBox {
+        if root.kind == ImageDialog.resize: CheckBox {
             text: Translations.gamma-correction; accessible-label: Translations.gamma-correction;
             checked <=> root.gamma-correction;
             Tooltip { text: Translations.styled(Translations.gamma-tooltip); }
         }
-        if root.kind == 2: HorizontalLayout {
+        if root.kind == ImageDialog.canvas-size: HorizontalLayout {
             Text { text: Translations.anchor; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             Rectangle { width: 150px; height: 108px;
                 for label[index] in [Translations.anchor-top-left, Translations.anchor-top, Translations.anchor-top-right, Translations.anchor-left, Translations.anchor-center, Translations.anchor-right, Translations.anchor-bottom-left, Translations.anchor-bottom, Translations.anchor-bottom-right]: Button {
@@ -84,19 +87,19 @@ export component ImageSettings inherits Rectangle {
                 }
             }
         }
-        if root.kind != 1: HorizontalLayout {
-            Text { text: root.kind == 0 ? Translations.background : Translations.fill-new-area; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
-            ComboBox { model: root.kind == 0 ? [Translations.background-white, Translations.background-transparent, Translations.background-secondary] : [Translations.background-transparent, Translations.background-secondary];
+        if root.kind != ImageDialog.resize: HorizontalLayout {
+            Text { text: root.kind == ImageDialog.new-image ? Translations.background : Translations.fill-new-area; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
+            ComboBox { model: root.kind == ImageDialog.new-image ? [Translations.background-white, Translations.background-transparent, Translations.background-secondary] : [Translations.background-transparent, Translations.background-secondary];
                 current-index <=> root.background-choice; accessible-label: Translations.image-background; }
         }
         Text { text: root.summary; wrap: word-wrap; color: DesktopTheme.muted-text; }
         Text { text: root.error; wrap: word-wrap; color: DesktopTheme.error-text; min-height: 36px; }
-        Text { text: root.kind == 0 ? Translations.new-image-note : Translations.image-edit-note; wrap: word-wrap; color: DesktopTheme.muted-text; font-size: 12px; }
+        Text { text: root.kind == ImageDialog.new-image ? Translations.new-image-note : Translations.image-edit-note; wrap: word-wrap; color: DesktopTheme.muted-text; font-size: 12px; }
         HorizontalLayout {
             spacing: 8px;
             Rectangle { horizontal-stretch: 1; }
             Button { text: Translations.cancel; clicked => { root.cancel(); } }
-            Button { text: root.kind == 0 ? Translations.create : Translations.ok; accessible-label: Translations.apply-image-settings; clicked => { root.apply(); } }
+            Button { text: root.kind == ImageDialog.new-image ? Translations.create : Translations.ok; accessible-label: Translations.apply-image-settings; clicked => { root.apply(); } }
         }
     }
 }

@@ -267,7 +267,10 @@ fn ui_file_flow_cancel_save_all_format_confirmation_and_close() {
     assert!(!state.borrow().has_document());
     assert!(!ui.get_has_document());
     shortcut(&ui, "n", false, false);
-    assert_eq!(ui.get_image_dialog_kind(), 0);
+    assert_eq!(
+        ui.get_image_dialog_kind(),
+        hoshi_desktop::ImageDialog::NewImage
+    );
     ui.invoke_close_image_settings();
     // Saving from the final close prompt writes the file before removing the tab.
     state

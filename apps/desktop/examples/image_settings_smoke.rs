@@ -27,10 +27,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ui.get_offset_y() + y * ui.get_zoom(),
             )
         };
-        ui.invoke_show_image_settings(0);
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::NewImage);
         ui.invoke_select_image_aspect(false);
-        ui.invoke_edit_image_setting(0, "320".into());
-        ui.invoke_edit_image_setting(1, "200".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "320".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Height, "200".into());
         save(&ui, "spike-image-new.png");
         ui.invoke_apply_image_settings();
         assert_eq!((ui.get_image_width(), ui.get_image_height()), (320, 200));
@@ -39,16 +39,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.invoke_pointer_down(start.0, start.1);
         ui.invoke_pointer_move(end.0, end.1);
         ui.invoke_pointer_up(end.0, end.1);
-        ui.invoke_show_image_settings(1);
-        ui.invoke_edit_image_setting(0, "480".into());
-        ui.invoke_edit_image_setting(2, "144".into());
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::Resize);
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "480".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Resolution, "144".into());
         save(&ui, "spike-image-resize.png");
         ui.invoke_apply_image_settings();
         assert_eq!((ui.get_image_width(), ui.get_image_height()), (480, 300));
         assert_eq!(state.borrow().document().resolution(), 144.);
-        ui.invoke_show_image_settings(2);
-        ui.invoke_edit_image_setting(0, "640".into());
-        ui.invoke_edit_image_setting(1, "400".into());
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::CanvasSize);
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "640".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Height, "400".into());
         ui.set_image_anchor(4);
         ui.set_image_background(1);
         save(&ui, "spike-canvas-size.png");

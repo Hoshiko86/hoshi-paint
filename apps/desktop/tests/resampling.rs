@@ -19,10 +19,10 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
     ui.show().unwrap();
     for method in 0..8 {
         for gamma in [true, false] {
-            ui.invoke_show_image_settings(0);
+            ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::NewImage);
             ui.invoke_select_image_aspect(false);
-            ui.invoke_edit_image_setting(0, "2".into());
-            ui.invoke_edit_image_setting(1, "1".into());
+            ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "2".into());
+            ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Height, "1".into());
             ui.invoke_apply_image_settings();
             ui.invoke_pointer_down(0., 0.);
             ui.invoke_pointer_move(1., 1.);
@@ -32,11 +32,11 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
                 state.borrow().composite(),
                 vec![Color::rgba(0, 0, 0, 255), Color::rgba(255, 255, 255, 255)]
             );
-            ui.invoke_show_image_settings(1);
+            ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::Resize);
             assert_eq!(ui.get_image_resampling(), 0);
             assert!(ui.get_image_gamma_correction());
             ui.invoke_select_image_aspect(false);
-            ui.invoke_edit_image_setting(0, "1".into());
+            ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "1".into());
             ui.window().take_snapshot().unwrap();
             if method == 6 && !gamma {
                 // Exercise the actual dropdown and checkbox rather than only property setters.
@@ -69,7 +69,10 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
                 ui.set_image_gamma_correction(gamma);
             }
             ui.invoke_apply_image_settings();
-            assert_eq!(ui.get_image_dialog_kind(), -1);
+            assert_eq!(
+                ui.get_image_dialog_kind(),
+                hoshi_desktop::ImageDialog::Closed
+            );
             let value = if method == 7 {
                 255
             } else if gamma {
@@ -108,10 +111,10 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
         reference
             .new_image(8, 1, 96., Color::rgba(255, 255, 255, 255))
             .unwrap();
-        ui.invoke_show_image_settings(0);
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::NewImage);
         ui.invoke_select_image_aspect(false);
-        ui.invoke_edit_image_setting(0, "8".into());
-        ui.invoke_edit_image_setting(1, "1".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "8".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Height, "1".into());
         ui.invoke_apply_image_settings();
         for x in [1., 4.] {
             ui.invoke_pointer_down(x, 0.);
@@ -134,9 +137,9 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
                 },
             )
             .unwrap();
-        ui.invoke_show_image_settings(1);
+        ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::Resize);
         ui.invoke_select_image_aspect(false);
-        ui.invoke_edit_image_setting(0, "3".into());
+        ui.invoke_edit_image_setting(hoshi_desktop::ImageField::Width, "3".into());
         ui.set_image_resampling(index as i32);
         ui.invoke_apply_image_settings();
         assert_eq!(
@@ -145,7 +148,7 @@ fn every_resize_option_reaches_the_engine_and_gamma_checkbox_changes_real_pixels
             "mapping for {method:?}"
         );
     }
-    ui.invoke_show_image_settings(1);
+    ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::Resize);
     ui.set_image_resampling(6);
     ui.set_image_gamma_correction(false);
     ui.window().take_snapshot().unwrap();
