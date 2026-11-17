@@ -125,7 +125,9 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Linux desktop prerequisites
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
+        # Fontconfig headers/libraries build Slint; tests use the headless testing backend.
+        # X11 cursor libraries, Xvfb and D-Bus sessions are needed only by native smoke.
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
       - name: Install pinned Rust with LLVM tools
         run: rustup show && rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov (prebuilt, pinned; keep in step with xtask/src/coverage.rs)
