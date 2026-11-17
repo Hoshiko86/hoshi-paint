@@ -18,7 +18,7 @@ apps/desktop (Slint 1.18.1 desktop app, production — ADR 0006)
 - Toolchain pinned 1.99.1, edition 2024. `--locked` everywhere. CI runs on
   Linux/Windows/macOS via `cargo xtask test <suite>` (`docs/TESTING.md`;
   smoke table in `xtask/src/smoke.rs`; coverage floors in
-  `xtask/src/coverage.rs`: core 96%, controller 93%). Test epic #63.
+  `xtask/src/coverage.rs`: core 96%, controller 97%, desktop 82%). Test epic #63.
 - One integration-test binary per crate (`tests/main.rs`, `autotests = false`):
   a task adding `tests/<area>.rs` must also list `tests/main.rs` in scope.
 - Core: sparse 128×128 `Arc` copy-on-write tiles, ≤262,144 px/axis, global

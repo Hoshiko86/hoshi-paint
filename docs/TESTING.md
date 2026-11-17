@@ -121,15 +121,15 @@ page. Each crate has a line-coverage floor in
 baseline rounded down (with a two-point margin for the desktop). Raise a floor
 when coverage rises. Never lower one to get green: add tests instead.
 
-Domain baselines are CI's measurement of the crates' own tests (2026-11-12);
-the desktop baseline is local (2026-11-16). CI is the reference: a local run
-can differ by a fraction of a percent.
+Baselines are CI's measurement of each crate's own tests (2026-11-16, the
+`coverage` job after #183). CI is the reference: a local run can differ by a
+fraction of a percent.
 
 | Crate | Lines | Floor | Weakest files |
 | --- | --- | --- | --- |
-| `hoshi-core` | 95.1% (3,704) | 95% | `history.rs` 88.8%, `lib.rs` 90.1% |
-| `hoshi-controller` | 94.3% (1,468) after #71 | 93% | `lib.rs` 87.5%, `painting.rs` 92.1% |
-| `hoshi-desktop` | 84.12% (5,396), local 2026-11-16 | 82% | `main.rs` 0%, `screen_pick.rs` 15.85%, `error_text.rs` 48.80% |
+| `hoshi-core` | 96.73% (4,221) | 96% | `history.rs` 90.8%, `project.rs` 93.5%, `lib.rs` 94.7% |
+| `hoshi-controller` | 97.77% (1,924) | 97% | `named_colors.rs` 80.4%, `bounds.rs` 93.3%, `palette.rs` 93.4% |
+| `hoshi-desktop` | 84.30% (5,466) | 82% | `main.rs` 0%, `screen_pick.rs` 15.9%, `error_text.rs` 48.8%, `color_library.rs` 70.2% |
 
 Native-only code is carried by smoke, which is why the desktop floor has a
 2-point margin.
