@@ -15,6 +15,7 @@ mod named_colors;
 mod painting;
 mod palette;
 mod rendering;
+mod settings;
 mod shape_editing;
 mod styles;
 mod support;
