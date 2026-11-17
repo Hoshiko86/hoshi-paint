@@ -40,15 +40,8 @@ mod tests {
     fn drag_applies_the_sum_of_logical_deltas() {
         let mut viewport = Viewport::default();
         let mut document = Document::new(32, 32).unwrap();
-        let mut cx = ToolCx {
-            viewport: &mut viewport,
-            document: &mut document,
-            modifiers: crate::InputModifiers::default(),
-            pivot: &mut None,
-            template: crate::Controller::new(1, 1)
-                .unwrap()
-                .create_shape(0, 0, 1, 1),
-        };
+        let mut pivot = None;
+        let mut cx = ToolCx::for_test(&mut document, &mut viewport, &mut pivot);
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
             .unwrap();
@@ -65,31 +58,16 @@ mod tests {
         let mut viewport = Viewport::default();
         let mut document = Document::new(32, 32).unwrap();
         let before = viewport;
+        let mut pivot = None;
         let mut pan = PanTool::default();
         pan.pointer_down(
-            &mut ToolCx {
-                viewport: &mut viewport,
-                document: &mut document,
-                modifiers: crate::InputModifiers::default(),
-                pivot: &mut None,
-                template: crate::Controller::new(1, 1)
-                    .unwrap()
-                    .create_shape(0, 0, 1, 1),
-            },
+            &mut ToolCx::for_test(&mut document, &mut viewport, &mut pivot),
             PointerInput { x: 20.0, y: 30.0 },
         )
         .unwrap();
         assert_eq!(viewport, before);
         pan.pointer_move(
-            &mut ToolCx {
-                viewport: &mut viewport,
-                document: &mut document,
-                modifiers: crate::InputModifiers::default(),
-                pivot: &mut None,
-                template: crate::Controller::new(1, 1)
-                    .unwrap()
-                    .create_shape(0, 0, 1, 1),
-            },
+            &mut ToolCx::for_test(&mut document, &mut viewport, &mut pivot),
             PointerInput { x: 20.0, y: 30.0 },
         )
         .unwrap();
@@ -101,15 +79,8 @@ mod tests {
         let mut viewport = Viewport::default();
         let mut document = Document::new(32, 32).unwrap();
         let before = viewport;
-        let mut cx = ToolCx {
-            viewport: &mut viewport,
-            document: &mut document,
-            modifiers: crate::InputModifiers::default(),
-            pivot: &mut None,
-            template: crate::Controller::new(1, 1)
-                .unwrap()
-                .create_shape(0, 0, 1, 1),
-        };
+        let mut pivot = None;
+        let mut cx = ToolCx::for_test(&mut document, &mut viewport, &mut pivot);
         let mut pan = PanTool::default();
         pan.pointer_down(&mut cx, PointerInput { x: 10.0, y: 20.0 })
             .unwrap();

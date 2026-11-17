@@ -60,15 +60,8 @@ mod tests {
             offset_y: 20.0,
         };
         let mut tool = brush();
-        let mut cx = ToolCx {
-            viewport: &mut viewport,
-            document: &mut document,
-            modifiers: crate::InputModifiers::default(),
-            pivot: &mut None,
-            template: crate::Controller::new(1, 1)
-                .unwrap()
-                .create_shape(0, 0, 1, 1),
-        };
+        let mut pivot = None;
+        let mut cx = ToolCx::for_test(&mut document, &mut viewport, &mut pivot);
         tool.pointer_down(&mut cx, PointerInput { x: 19.0, y: 29.0 })
             .unwrap();
         tool.pointer_move(&mut cx, PointerInput { x: 27.0, y: 29.0 })
@@ -89,15 +82,8 @@ mod tests {
         let mut document = Document::new(16, 16).unwrap();
         let mut viewport = Viewport::default();
         let mut tool = brush();
-        let mut cx = ToolCx {
-            viewport: &mut viewport,
-            document: &mut document,
-            modifiers: crate::InputModifiers::default(),
-            pivot: &mut None,
-            template: crate::Controller::new(1, 1)
-                .unwrap()
-                .create_shape(0, 0, 1, 1),
-        };
+        let mut pivot = None;
+        let mut cx = ToolCx::for_test(&mut document, &mut viewport, &mut pivot);
         tool.pointer_down(&mut cx, PointerInput { x: 4.5, y: 4.5 })
             .unwrap();
         let before = cx.document.composite(true);
