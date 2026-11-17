@@ -16,6 +16,7 @@ mod documents;
 mod drawing_tools;
 mod handles;
 mod history_panel;
+mod hostile_png;
 mod image_settings;
 mod interaction;
 mod large_canvas;
