@@ -4,8 +4,8 @@
 //! native pointer/key events are translated by the UI adapter.
 use super::tools::{PointerInput, shapes::ShapeGesture};
 use super::{
-    ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandlePoint,
-    InputModifiers, PIVOT_HANDLE, PointerButton, ROTATION_HANDLE, Tool,
+    ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandleKind, HandlePoint,
+    InputModifiers, PointerButton, Tool,
 };
 use hoshi_core::geometry::{Frame, Point, ResizeHandle};
 use hoshi_core::{Shape, ShapeKind};
@@ -68,6 +68,7 @@ impl Controller {
             .pivot
             .unwrap_or(Frame::from_shape(shape).center)
     }
+    /// Returns resize handles in `ResizeHandle::ALL` order, then rotate and pivot.
     pub fn handle_positions(&self) -> Vec<HandlePoint> {
         let Some(shape) = self.document.active_shape() else {
             return Vec::new();
@@ -81,23 +82,24 @@ impl Controller {
                 HandlePoint {
                     x,
                     y,
-                    kind: handle.index() as i32,
+                    kind: HandleKind::Resize(handle),
                 }
             })
             .collect();
         let (_, axis) = frame.axes();
-        let top = points[1];
+        let top = frame.handle(ResizeHandle::Top);
+        let (top_x, top_y) = self.viewport.to_logical(top.x, top.y);
         points.push(HandlePoint {
-            x: top.x - axis.x * 28.,
-            y: top.y - axis.y * 28.,
-            kind: ROTATION_HANDLE,
+            x: top_x - axis.x * 28.,
+            y: top_y - axis.y * 28.,
+            kind: HandleKind::Rotate,
         });
         let pivot = self.pivot_for(shape);
         let (x, y) = self.viewport.to_logical(pivot.x, pivot.y);
         points.push(HandlePoint {
             x,
             y,
-            kind: PIVOT_HANDLE,
+            kind: HandleKind::Pivot,
         });
         points
     }
@@ -140,10 +142,10 @@ impl Controller {
         };
         if let Some(hit) = self.hit_handle(x, y) {
             return match hit.kind {
-                PIVOT_HANDLE => EditCursor::Pivot,
-                ROTATION_HANDLE => EditCursor::Rotate,
-                index => {
-                    let (sx, sy) = ResizeHandle::ALL[index as usize].signs();
+                HandleKind::Pivot => EditCursor::Pivot,
+                HandleKind::Rotate => EditCursor::Rotate,
+                HandleKind::Resize(handle) => {
+                    let (sx, sy) = handle.signs();
                     let angle = (f64::from(shape.rotation_degrees) + sy.atan2(sx).to_degrees())
                         .rem_euclid(180.);
                     match (angle / 45.).round() as i32 % 4 {
@@ -193,16 +195,16 @@ impl Controller {
         {
             if let Some(hit) = self.hit_handle(x, y) {
                 match hit.kind {
-                    ROTATION_HANDLE => self.begin_rotation(shape, point),
-                    PIVOT_HANDLE => self.begin_shape(ShapeGesture::Pivot {
+                    HandleKind::Rotate => self.begin_rotation(shape, point),
+                    HandleKind::Pivot => self.begin_shape(ShapeGesture::Pivot {
                         original: self.pivot_for(shape),
                         anchor: point,
                     }),
-                    index => {
+                    HandleKind::Resize(handle) => {
                         self.edit_state.numeric_ratio = None;
                         self.begin_shape(ShapeGesture::Resize {
                             original: shape,
-                            handle: ResizeHandle::ALL[index as usize],
+                            handle,
                             pointer_anchor: point,
                         })
                     }
@@ -331,5 +333,31 @@ impl Controller {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handle_positions_have_each_kind_once_in_documented_order() {
+        let mut controller = Controller::new(256, 256).unwrap();
+        controller.pointer_down(40., 40.).unwrap();
+        controller.pointer_move(140., 100.).unwrap();
+        controller.pointer_up().unwrap();
+        let expected = ResizeHandle::ALL
+            .into_iter()
+            .map(HandleKind::Resize)
+            .chain([HandleKind::Rotate, HandleKind::Pivot])
+            .collect::<Vec<_>>();
+        assert_eq!(
+            controller
+                .handle_positions()
+                .into_iter()
+                .map(|p| p.kind)
+                .collect::<Vec<_>>(),
+            expected
+        );
     }
 }

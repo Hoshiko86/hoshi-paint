@@ -1,11 +1,12 @@
 // Selection decoration is shared by every shape. Hit testing and transforms
 // belong to the controller, so this component never changes document geometry.
 import { Translations } from "localization.slint";
-export struct ControlPoint { x: float, y: float, kind: int }
+export enum ControlKind { resize, rotate, pivot }
+export struct ControlPoint { x: float, y: float, kind: ControlKind }
 export component ShapeControls inherits Rectangle {
     in property <[ControlPoint]> points;
     background: transparent;
-    // Wire IDs 0–7 are bounding-box nubs, 8 rotates, and 9 moves the pivot.
+    // The first eight points are resize handles; rotate and pivot follow.
     if root.points.length >= 9: Path {
         width: parent.width; height: parent.height;
         viewbox-width: self.width / 1px; viewbox-height: self.height / 1px;
@@ -22,12 +23,12 @@ export component ShapeControls inherits Rectangle {
         x: point.x * 1px - 5px; y: point.y * 1px - 5px;
         width: 10px; height: 10px;
         border-width: 1.5px; border-color: #315cae;
-        border-radius: point.kind >= 8 ? 5px : 1px;
-        background: point.kind >= 8 ? #c8ddff : white;
-        if point.kind == 9: Text {
+        border-radius: point.kind != ControlKind.resize ? 5px : 1px;
+        background: point.kind != ControlKind.resize ? #c8ddff : white;
+        if point.kind == ControlKind.pivot: Text {
             text: "+"; color: #315cae; font-size: 11px;
             horizontal-alignment: center; vertical-alignment: center;
         }
-        Tooltip { text: point.kind == 9 ? Translations.styled(Translations.handle-move-pivot) : point.kind == 8 ? Translations.styled(Translations.handle-rotate) : Translations.styled(Translations.handle-resize); }
+        Tooltip { text: point.kind == ControlKind.pivot ? Translations.styled(Translations.handle-move-pivot) : point.kind == ControlKind.rotate ? Translations.styled(Translations.handle-rotate) : Translations.styled(Translations.handle-resize); }
     }
 }

@@ -1,6 +1,8 @@
 //! Slint desktop adapter around the UI-independent controller (ADR 0006).
 
-use hoshi_controller::{ColorSlot, Controller, ControllerError, ShapeMode, Tool, ToolId};
+use hoshi_controller::{
+    ColorSlot, Controller, ControllerError, HandleKind, ShapeMode, Tool, ToolId,
+};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod color_library;
@@ -165,7 +167,11 @@ fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         .map(|p| ControlPoint {
             x: p.x as f32,
             y: p.y as f32,
-            kind: p.kind,
+            kind: match p.kind {
+                HandleKind::Resize(_) => ControlKind::Resize,
+                HandleKind::Rotate => ControlKind::Rotate,
+                HandleKind::Pivot => ControlKind::Pivot,
+            },
         })
         .collect::<Vec<_>>();
     ui.set_control_points(Rc::new(slint::VecModel::from(points)).into());
