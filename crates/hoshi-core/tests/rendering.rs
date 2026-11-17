@@ -384,6 +384,65 @@ fn rectangle_and_solid_ellipse_rendering_remain_byte_identical() {
     );
 }
 
+/// Protects dashed ellipses in every dash style, with outline and both,
+/// fractional and collapsed centerline widths, 0° and 27° rotation, and
+/// antialiasing on and off. Update these hashes only when a PR intentionally
+/// changes those pixels; its body must explain the change and link the issue.
+/// To regenerate, run `cargo test -p hoshi-core --locked
+/// dashed_ellipse_rendering_remains_byte_identical` and copy the actual Rust
+/// array printed by the failing assertion.
+#[test]
+fn dashed_ellipse_rendering_remains_byte_identical() {
+    let actual: Vec<_> = [
+        LineStyle::Dash,
+        LineStyle::Dot,
+        LineStyle::DashDot,
+        LineStyle::DashDotDot,
+    ]
+    .into_iter()
+    .map(|line_style| {
+        let mut pixels = Vec::new();
+        for width in [2.75, 8., 24., 32.] {
+            for style in [
+                ShapeStyle::Outline { color: RED, width },
+                ShapeStyle::Both {
+                    fill: BLUE,
+                    outline: RED,
+                    width,
+                },
+            ] {
+                for rotation in [0, 27] {
+                    for antialias in [false, true] {
+                        let mut shape = rectangle(style);
+                        shape.kind = ShapeKind::Ellipse;
+                        // 40x24 exposes the fallback; at 32x24 it does not affect output.
+                        if width == 24. {
+                            shape.width = 40;
+                        }
+                        shape.rendering.line_style = line_style;
+                        shape.rotation_degrees = rotation;
+                        shape.rendering.antialias = antialias;
+                        pixels.extend(render(shape));
+                    }
+                }
+            }
+        }
+        fingerprint(&pixels)
+    })
+    .collect();
+    assert_eq!(
+        actual,
+        // Fingerprints captured from main commit df1aeba06fa6f143ceb9d40dfc8f4bb2e3ac4c5d.
+        [
+            2398738346836043759,
+            10067259991201750647,
+            576268918866072041,
+            3683496273523748462,
+        ],
+        "actual fingerprints: {actual:?}"
+    );
+}
+
 #[test]
 fn ellipse_dash_angle_remains_finite_when_the_centerline_collapses() {
     for width in [41., 65., 80.] {
