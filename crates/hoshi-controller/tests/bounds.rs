@@ -1,4 +1,4 @@
-use hoshi_controller::{BoundsField, Controller, PIVOT_HANDLE};
+use hoshi_controller::{BoundsField, Controller, HandleKind};
 use hoshi_core::geometry::Point;
 fn rectangle() -> Controller {
     let mut c = Controller::new(256, 256).unwrap();
@@ -57,7 +57,7 @@ fn numeric_translation_moves_custom_pivot_and_stops_stale_drag() {
     let handle = c
         .handle_positions()
         .into_iter()
-        .find(|p| p.kind == PIVOT_HANDLE)
+        .find(|p| p.kind == HandleKind::Pivot)
         .unwrap();
     c.pointer_down(handle.x, handle.y).unwrap();
     c.pointer_move(140., 140.).unwrap();

@@ -18,6 +18,7 @@ mod tool_id;
 mod tools;
 mod viewport;
 use editing::{EditState, Gesture};
+pub use hoshi_core::geometry::ResizeHandle;
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
@@ -27,8 +28,6 @@ use tools::{
     shapes::{ShapeGesture, ShapeTool},
 };
 pub use viewport::Viewport;
-pub const ROTATION_HANDLE: i32 = 8;
-pub const PIVOT_HANDLE: i32 = 9;
 
 pub use hoshi_core::{
     Anchor, Color, FillPattern, HistoryLabel, HistoryStep, ImageTransform, LineStyle,
@@ -53,13 +52,24 @@ pub const MAX_LAYER_NAME_CHARS: usize = 128;
 const MAX_VIEW_OFFSET: f64 = 1_000_000_000.0;
 const HANDLE_RADIUS: f64 = 8.0;
 
-/// Control points in logical viewport pixels: corners/edges clockwise from
-/// top-left (0..=7), followed by the rotation point (8) and pivot (9).
+/// The editing operation represented by a shape control point.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandleKind {
+    /// Resize the frame using this corner or edge.
+    Resize(ResizeHandle),
+    /// Rotate the frame around its pivot.
+    Rotate,
+    /// Move the frame's rotation pivot.
+    Pivot,
+}
+
+/// Control points in logical viewport pixels: resize handles in
+/// `ResizeHandle::ALL` order, followed by rotate and pivot.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HandlePoint {
     pub x: f64,
     pub y: f64,
-    pub kind: i32,
+    pub kind: HandleKind,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

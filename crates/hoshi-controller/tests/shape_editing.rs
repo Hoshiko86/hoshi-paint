@@ -1,6 +1,6 @@
 use hoshi_controller::{
-    Controller, ControllerError, EditCursor, InputModifiers, PIVOT_HANDLE, PointerButton,
-    ROTATION_HANDLE, Tool,
+    Controller, ControllerError, EditCursor, HandleKind, InputModifiers, PointerButton,
+    ResizeHandle, Tool,
 };
 use hoshi_core::ShapeKind;
 
@@ -14,7 +14,7 @@ fn editable() -> Controller {
     c
 }
 
-fn handle(c: &Controller, kind: i32) -> (f64, f64) {
+fn handle(c: &Controller, kind: HandleKind) -> (f64, f64) {
     let h = c
         .handle_positions()
         .into_iter()
@@ -71,7 +71,7 @@ fn ellipse_reuses_handles_pivot_and_keyboard_translation() {
     let handle = c
         .handle_positions()
         .into_iter()
-        .find(|h| h.kind == PIVOT_HANDLE)
+        .find(|h| h.kind == HandleKind::Pivot)
         .unwrap();
     let (x, y) = (handle.x, handle.y);
     c.pointer_down(x, y).unwrap();
@@ -117,9 +117,9 @@ fn hover_cursor_reports_each_region_of_an_editable_shape() {
         "just outside"
     );
     assert_eq!(c.hover_cursor(220., 220.), EditCursor::Draw, "far away");
-    let (x, y) = handle(&c, ROTATION_HANDLE);
+    let (x, y) = handle(&c, HandleKind::Rotate);
     assert_eq!(c.hover_cursor(x, y), EditCursor::Rotate);
-    let (x, y) = handle(&c, PIVOT_HANDLE);
+    let (x, y) = handle(&c, HandleKind::Pivot);
     assert_eq!(c.hover_cursor(x, y), EditCursor::Pivot);
     // ResizeHandle order: TopLeft, Top, TopRight, Right, BottomRight, Bottom,
     // BottomLeft, Left.
@@ -134,7 +134,7 @@ fn hover_cursor_reports_each_region_of_an_editable_shape() {
         EditCursor::ResizeHorizontal,
     ];
     for (kind, cursor) in expected.into_iter().enumerate() {
-        let (x, y) = handle(&c, kind as i32);
+        let (x, y) = handle(&c, HandleKind::Resize(ResizeHandle::ALL[kind]));
         assert_eq!(c.hover_cursor(x, y), cursor, "handle {kind}");
     }
 }
@@ -143,9 +143,9 @@ fn hover_cursor_reports_each_region_of_an_editable_shape() {
 fn resize_cursors_follow_the_shape_rotation() {
     let mut c = editable();
     c.set_shape_rotation(90).unwrap();
-    let (x, y) = handle(&c, 3);
+    let (x, y) = handle(&c, HandleKind::Resize(ResizeHandle::Right));
     assert_eq!(c.hover_cursor(x, y), EditCursor::ResizeVertical, "Right");
-    let (x, y) = handle(&c, 1);
+    let (x, y) = handle(&c, HandleKind::Resize(ResizeHandle::Top));
     assert_eq!(c.hover_cursor(x, y), EditCursor::ResizeHorizontal, "Top");
 }
 
@@ -163,11 +163,11 @@ fn hover_cursor_is_draw_for_tools_that_cannot_edit_shapes() {
 #[test]
 fn active_rotate_and_pivot_drags_keep_their_cursor_anywhere() {
     let mut c = editable();
-    let (x, y) = handle(&c, ROTATION_HANDLE);
+    let (x, y) = handle(&c, HandleKind::Rotate);
     c.pointer_down(x, y).unwrap();
     assert_eq!(c.hover_cursor(220., 220.), EditCursor::Rotate);
     c.pointer_up().unwrap();
-    let (x, y) = handle(&c, PIVOT_HANDLE);
+    let (x, y) = handle(&c, HandleKind::Pivot);
     c.pointer_down(x, y).unwrap();
     assert_eq!(c.hover_cursor(220., 220.), EditCursor::Pivot);
 }

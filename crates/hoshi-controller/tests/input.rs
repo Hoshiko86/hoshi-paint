@@ -1,4 +1,4 @@
-use hoshi_controller::{Controller, ControllerError, Tool};
+use hoshi_controller::{Controller, ControllerError, HandleKind, ResizeHandle, Tool};
 use hoshi_core::Color;
 
 fn draw(controller: &mut Controller) {
@@ -219,7 +219,7 @@ fn large_controller() -> Controller {
     c
 }
 
-fn handle(c: &Controller, kind: i32) -> (f64, f64) {
+fn handle(c: &Controller, kind: HandleKind) -> (f64, f64) {
     let h = c
         .handle_positions()
         .into_iter()
@@ -233,8 +233,8 @@ fn corners_and_edges_resize_preview_under_zoom_without_committing() {
     let mut c = large_controller();
     c.zoom_at(0.0, 0.0, 2.0).unwrap();
     c.pan(17.0, -8.0).unwrap();
-    let fixed = handle(&c, 0);
-    let br = handle(&c, 4);
+    let fixed = handle(&c, HandleKind::Resize(ResizeHandle::TopLeft));
+    let br = handle(&c, HandleKind::Resize(ResizeHandle::BottomRight));
     c.pointer_down(br.0, br.1).unwrap();
     c.pointer_move(br.0 + 20.0, br.1 + 40.0).unwrap();
     c.pointer_up().unwrap();
@@ -243,17 +243,17 @@ fn corners_and_edges_resize_preview_under_zoom_without_committing() {
         (shape.x, shape.y, shape.width, shape.height),
         (20, 30, 90, 80)
     );
-    assert_eq!(handle(&c, 0), fixed);
+    assert_eq!(handle(&c, HandleKind::Resize(ResizeHandle::TopLeft)), fixed);
     assert_eq!(c.document().undo_len(), 0);
 
-    let right = handle(&c, 3);
+    let right = handle(&c, HandleKind::Resize(ResizeHandle::Right));
     c.pointer_down(right.0 + 3.0, right.1 + 2.0).unwrap();
     // Grab offset does not cause the handle to jump; tangential motion is ignored.
     c.pointer_move(right.0 + 23.0, right.1 + 50.0).unwrap();
     c.pointer_up().unwrap();
     let shape = c.document().active_shape().unwrap();
     assert_eq!((shape.width, shape.height), (100, 80));
-    assert_eq!(handle(&c, 0), fixed);
+    assert_eq!(handle(&c, HandleKind::Resize(ResizeHandle::TopLeft)), fixed);
 }
 
 #[test]
@@ -270,8 +270,8 @@ fn all_eight_handles_resize_their_axes_and_preserve_opposite_points() {
     ];
     for (kind, (sx, sy)) in signs.into_iter().enumerate() {
         let mut c = large_controller();
-        let selected = handle(&c, kind as i32);
-        let opposite = handle(&c, ((kind + 4) % 8) as i32);
+        let selected = handle(&c, HandleKind::Resize(ResizeHandle::ALL[kind]));
+        let opposite = handle(&c, HandleKind::Resize(ResizeHandle::ALL[(kind + 4) % 8]));
         c.pointer_down(selected.0, selected.1).unwrap();
         c.pointer_move(selected.0 + sx * 20.0, selected.1 + sy * 30.0)
             .unwrap();
@@ -279,7 +279,10 @@ fn all_eight_handles_resize_their_axes_and_preserve_opposite_points() {
         let shape = c.document().active_shape().unwrap();
         assert_eq!(shape.width, if sx == 0.0 { 80 } else { 100 });
         assert_eq!(shape.height, if sy == 0.0 { 60 } else { 90 });
-        assert_eq!(handle(&c, ((kind + 4) % 8) as i32), opposite);
+        assert_eq!(
+            handle(&c, HandleKind::Resize(ResizeHandle::ALL[(kind + 4) % 8])),
+            opposite
+        );
         assert_eq!(c.document().undo_len(), 0);
     }
 }
@@ -288,22 +291,22 @@ fn all_eight_handles_resize_their_axes_and_preserve_opposite_points() {
 fn rotated_resize_keeps_the_opposite_anchor_fixed() {
     let mut c = large_controller();
     c.set_shape_rotation(37).unwrap();
-    let fixed = handle(&c, 4);
-    let corner = handle(&c, 0);
+    let fixed = handle(&c, HandleKind::Resize(ResizeHandle::BottomRight));
+    let corner = handle(&c, HandleKind::Resize(ResizeHandle::TopLeft));
     c.pointer_down(corner.0, corner.1).unwrap();
     c.pointer_move(corner.0 - 30.0, corner.1 - 30.0).unwrap();
     c.pointer_up().unwrap();
-    let after = handle(&c, 4);
+    let after = handle(&c, HandleKind::Resize(ResizeHandle::BottomRight));
     // Integer raster bounds permit at most half a pixel of rounding per axis.
     assert!((after.0 - fixed.0).hypot(after.1 - fixed.1) <= 0.71);
     assert_eq!(c.document().active_shape().unwrap().rotation_degrees, 37);
-    let edge_fixed = handle(&c, 7);
-    let edge = handle(&c, 3);
+    let edge_fixed = handle(&c, HandleKind::Resize(ResizeHandle::Left));
+    let edge = handle(&c, HandleKind::Resize(ResizeHandle::Right));
     let height = c.document().active_shape().unwrap().height;
     c.pointer_down(edge.0, edge.1).unwrap();
     c.pointer_move(edge.0 + 30.0, edge.1 + 20.0).unwrap();
     c.pointer_up().unwrap();
-    let after = handle(&c, 7);
+    let after = handle(&c, HandleKind::Resize(ResizeHandle::Left));
     assert!((after.0 - edge_fixed.0).hypot(after.1 - edge_fixed.1) <= 0.71);
     assert_eq!(c.document().active_shape().unwrap().height, height);
 }
@@ -311,7 +314,7 @@ fn rotated_resize_keeps_the_opposite_anchor_fixed() {
 #[test]
 fn rotation_handle_keeps_center_and_commits_as_one_undoable_action() {
     let mut c = large_controller();
-    let knob = handle(&c, 8);
+    let knob = handle(&c, HandleKind::Rotate);
     assert_eq!(c.handle_positions().len(), 10);
     assert_eq!(knob, (60.0, 2.0));
     c.pointer_down(knob.0, knob.1).unwrap();
@@ -323,7 +326,7 @@ fn rotation_handle_keeps_center_and_commits_as_one_undoable_action() {
         (20, 30, 80, 60)
     );
     assert_eq!(shape.rotation_degrees, 90);
-    let knob = handle(&c, 8);
+    let knob = handle(&c, HandleKind::Rotate);
     assert!((knob.0 - 118.0).abs() < 1e-10 && (knob.1 - 60.0).abs() < 1e-10);
     let preview = c.composite();
     assert!(c.commit().unwrap());
@@ -340,7 +343,7 @@ fn rotation_handle_keeps_center_and_commits_as_one_undoable_action() {
 fn rotation_wraps_without_jumping_and_ignores_the_undefined_center_angle() {
     let mut c = large_controller();
     c.set_shape_rotation(359).unwrap();
-    let knob = handle(&c, 8);
+    let knob = handle(&c, HandleKind::Rotate);
     c.pointer_down(knob.0, knob.1).unwrap();
     c.pointer_move(60.0, 60.0).unwrap();
     assert_eq!(c.document().active_shape().unwrap().rotation_degrees, 359);
@@ -355,12 +358,12 @@ fn rotation_wraps_without_jumping_and_ignores_the_undefined_center_angle() {
 fn rotation_knob_offset_is_zoom_independent_and_pan_ignores_handles() {
     let mut c = large_controller();
     c.zoom_at(0.0, 0.0, 3.0).unwrap();
-    let top = handle(&c, 1);
-    let knob = handle(&c, 8);
+    let top = handle(&c, HandleKind::Resize(ResizeHandle::Top));
+    let knob = handle(&c, HandleKind::Rotate);
     assert!(((top.0 - knob.0).hypot(top.1 - knob.1) - 28.0).abs() < 1e-10);
     let before = c.document().active_shape();
     c.set_tool(Tool::Pan).unwrap();
-    let corner = handle(&c, 0);
+    let corner = handle(&c, HandleKind::Resize(ResizeHandle::TopLeft));
     c.pointer_down(corner.0, corner.1).unwrap();
     c.pointer_move(corner.0 + 15.0, corner.1 - 5.0).unwrap();
     c.pointer_up().unwrap();
@@ -371,7 +374,7 @@ fn rotation_knob_offset_is_zoom_independent_and_pan_ignores_handles() {
 #[test]
 fn crossing_an_opposite_edge_flips_and_cancel_discards_preview() {
     let mut c = large_controller();
-    let edge = handle(&c, 3);
+    let edge = handle(&c, HandleKind::Resize(ResizeHandle::Right));
     c.pointer_down(edge.0, edge.1).unwrap();
     c.pointer_move(-500.0, edge.1).unwrap();
     c.pointer_up().unwrap();
