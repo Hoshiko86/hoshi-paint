@@ -16,19 +16,20 @@ pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-core",
         path: "crates/hoshi-core/",
-        // CI baseline 96.03% (2026-11-13).
+        // CI baseline 96.73% (2026-11-16).
         lines: 96,
     },
     Floor {
         package: "hoshi-controller",
         path: "crates/hoshi-controller/",
-        // 94.28% locally after #71 (2026-11-13); CI runs about 0.5% lower.
-        lines: 93,
+        // CI baseline 97.77% (2026-11-16).
+        lines: 97,
     },
     Floor {
         package: "hoshi-desktop",
         path: "apps/desktop/",
-        // 84.12% local baseline (2026-11-16), with a 2-point margin.
+        // CI baseline 84.30% (2026-11-16), with a 2-point margin: native-only
+        // code (screen picking, main.rs) is carried by smoke, not coverage.
         lines: 82,
     },
 ];
