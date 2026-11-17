@@ -1,4 +1,4 @@
-import { FileShortcuts } from "file-shortcuts.slint";
+import { FileShortcuts, FileAction } from "file-shortcuts.slint";
 import { Button, ListView, Palette } from "std-widgets.slint";
 import { ToolPanelFrame } from "colors.slint";
 import { DesktopTheme } from "theme.slint";
@@ -58,7 +58,7 @@ export component HistoryPanel inherits Rectangle {
     }
 }
 export component HistoryWindow inherits Window {
-    callback file-action(int);
+    callback file-action(FileAction);
     callback cycle-document(bool);
     title: Translations.history + " · Hoshi Paint";
     preferred-width: 340px; preferred-height: 520px;

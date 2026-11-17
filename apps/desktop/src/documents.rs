@@ -1,7 +1,7 @@
 //! Native file workflow and queued Save / Don't Save / Cancel decisions.
 use crate::{
-    AppWindow, DocumentTabRow, SharedController, files::FileFormat, localization::Localizer,
-    refresh as refresh_app, workspace::Workspace,
+    AppWindow, DocumentTabRow, FileAction, SharedController, files::FileFormat,
+    localization::Localizer, refresh as refresh_app, workspace::Workspace,
 };
 use slint::{ComponentHandle, Model};
 use std::{
@@ -331,12 +331,12 @@ impl Manager {
             ),
         }
     }
-    fn action(&self, ui: &AppWindow, action: i32) {
+    fn action(&self, ui: &AppWindow, action: FileAction) {
         if ui.get_modal_visible() {
             return;
         }
         match action {
-            0 => {
+            FileAction::Open => {
                 self.prepare(ui);
                 ui.set_file_busy(true);
                 let paths = self.dialogs.open(ui.window());
@@ -345,8 +345,8 @@ impl Manager {
                     self.open(ui, paths)
                 }
             }
-            1 | 2 => self.save(ui, action == 2),
-            3 => {
+            FileAction::Save | FileAction::SaveAs => self.save(ui, action == FileAction::SaveAs),
+            FileAction::SaveAll => {
                 let ids = self
                     .state
                     .borrow()
@@ -357,18 +357,25 @@ impl Manager {
                     .collect();
                 self.begin(ui, Goal::SaveAll, ids)
             }
-            4 => {
+            FileAction::Close => {
                 let id = self.state.borrow().active_id();
                 if let Some(id) = id {
                     self.begin(ui, Goal::Close, vec![id])
                 }
             }
-            5 | 6 => {
+            FileAction::CloseAll | FileAction::Exit => {
                 let ids = self.state.borrow().tabs().iter().map(|t| t.id).collect();
-                self.begin(ui, if action == 6 { Goal::Exit } else { Goal::Close }, ids)
+                self.begin(
+                    ui,
+                    if action == FileAction::Exit {
+                        Goal::Exit
+                    } else {
+                        Goal::Close
+                    },
+                    ids,
+                )
             }
-            7 => ui.invoke_show_image_settings(0),
-            _ => {}
+            FileAction::New => ui.invoke_show_image_settings(0),
         }
     }
 }
@@ -518,7 +525,7 @@ pub(super) fn bind(
         if let Some(ui) = main.upgrade()
             && !ui.get_modal_visible()
         {
-            m.action(&ui, 6)
+            m.action(&ui, FileAction::Exit)
         }
         slint::CloseRequestResponse::KeepWindowShown
     });

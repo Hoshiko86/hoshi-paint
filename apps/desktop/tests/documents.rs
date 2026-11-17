@@ -58,6 +58,38 @@ fn shortcut(ui: &hoshi_desktop::AppWindow, key: &str, shift: bool, alt: bool) {
         });
     }
 }
+#[test]
+fn file_shortcuts_emit_the_corresponding_action() {
+    use hoshi_desktop::FileAction;
+    use std::cell::Cell;
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, _) = create_app_with_dialogs(Rc::new(Dialogs::default())).unwrap();
+    ui.window().set_size(LogicalSize::new(1120., 850.));
+    ui.show().unwrap();
+    let actions = Rc::new(Cell::new(None));
+    let captured = Rc::clone(&actions);
+    ui.on_file_action(move |action| assert_eq!(captured.replace(Some(action)), None));
+    for (key, shift, alt, expected) in [
+        ("o", false, false, FileAction::Open),
+        ("s", false, false, FileAction::Save),
+        ("s", true, false, FileAction::SaveAs),
+        ("s", false, true, FileAction::SaveAll),
+        ("w", false, false, FileAction::Close),
+        ("w", true, false, FileAction::CloseAll),
+        ("n", false, false, FileAction::New),
+    ] {
+        shortcut(&ui, key, shift, alt);
+        assert_eq!(actions.take(), Some(expected));
+    }
+    ui.hide().unwrap();
+}
 fn edit(w: &mut Workspace, name: &str) {
     w.rename_layer(name).unwrap();
 }
@@ -163,7 +195,7 @@ fn ui_file_flow_cancel_save_all_format_confirmation_and_close() {
     assert!(ui.get_file_prompt_visible());
     ui.invoke_file_prompt_response(2);
     assert!(state.borrow().has_document());
-    ui.invoke_file_action(4);
+    ui.invoke_file_action(hoshi_desktop::FileAction::Close);
     ui.invoke_file_prompt_response(0); // cancelled native chooser
     assert!(!ui.get_file_prompt_visible());
     assert!(state.borrow().any_dirty());
@@ -226,11 +258,11 @@ fn ui_file_flow_cancel_save_all_format_confirmation_and_close() {
     assert_eq!(state.borrow().tabs().len(), 2); // duplicate open focuses existing tab
     edit(&mut state.borrow_mut(), "Close cancelled");
     refresh_workspace(&ui, &state);
-    ui.invoke_file_action(5);
+    ui.invoke_file_action(hoshi_desktop::FileAction::CloseAll);
     assert!(ui.get_file_prompt_visible());
     ui.invoke_file_prompt_response(2);
     assert_eq!(state.borrow().tabs().len(), 2);
-    ui.invoke_file_action(5);
+    ui.invoke_file_action(hoshi_desktop::FileAction::CloseAll);
     ui.invoke_file_prompt_response(1);
     assert!(!state.borrow().has_document());
     assert!(!ui.get_has_document());
@@ -249,7 +281,7 @@ fn ui_file_flow_cancel_save_all_format_confirmation_and_close() {
         .save
         .borrow_mut()
         .push_back(Some(final_path.clone()));
-    ui.invoke_file_action(4);
+    ui.invoke_file_action(hoshi_desktop::FileAction::Close);
     assert!(ui.get_file_prompt_visible());
     ui.invoke_file_prompt_response(0);
     assert!(final_path.exists());

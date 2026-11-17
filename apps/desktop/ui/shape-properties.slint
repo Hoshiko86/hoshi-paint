@@ -3,7 +3,7 @@ import { ComboBox, Palette } from "std-widgets.slint";
 import { ToolPanelFrame } from "colors.slint";
 import { ShapeBounds } from "shape-bounds.slint";
 import { ShapeRendering } from "shape-rendering.slint";
-import { FileShortcuts } from "file-shortcuts.slint";
+import { FileShortcuts, FileAction } from "file-shortcuts.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
@@ -30,7 +30,7 @@ export component ShapePropertiesPanel inherits Rectangle {
     callback bounds-lock-changed(bool);
     callback placement-selected(int);
     callback close-panel();
-    callback file-action(int);
+    callback file-action(FileAction);
     callback cycle-document(bool);
     out property <float> outline-input-left: rendering.width-left;
     out property <float> outline-input-top: rendering.width-top;
@@ -119,7 +119,7 @@ export component ShapePropertiesWindow inherits Window {
     callback bounds-lock-changed(bool);
     callback placement-selected(int);
     callback close-panel();
-    callback file-action(int);
+    callback file-action(FileAction);
     callback cycle-document(bool);
     FileShortcuts {
         width: parent.width; height: parent.height;
