@@ -587,5 +587,35 @@ pub fn save_atomic(
     }
     temporary.as_file().sync_all()?;
     temporary.persist(path).map_err(|e| e.error)?;
+    sync_parent(parent)?;
     Ok(())
+}
+
+/// Makes the rename durable: on Unix the parent folder's entry is fsynced.
+/// Windows has no std folder handle; NTFS journals the rename itself.
+#[cfg(unix)]
+fn sync_parent(parent: &Path) -> Result<(), FileError> {
+    let parent = if parent.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        parent
+    };
+    File::open(parent)?.sync_all()?;
+    Ok(())
+}
+#[cfg(not(unix))]
+fn sync_parent(_: &Path) -> Result<(), FileError> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sync_parent_accepts_directory_and_empty_parent() {
+        let directory = tempfile::tempdir().unwrap();
+        sync_parent(directory.path()).unwrap();
+        sync_parent(Path::new("")).unwrap();
+    }
 }
