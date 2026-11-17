@@ -22,7 +22,7 @@ cargo xtask list           # the smoke table
 | `full` | `lint` + `unit` + `scripts` + `smoke` | before pushing |
 | `changed [BASE]` | `lint`, then only what the diff since `BASE` (default `origin/main`) needs | while iterating |
 | `ci-plan [BASE\|all]` | prints that selection as GitHub step outputs | CI `plan` job |
-| `coverage` | instrumented tests of `hoshi-core` and `hoshi-controller`; fails below a floor | PRs touching core or controller (Linux) |
+| `coverage` | instrumented tests of `hoshi-core`, `hoshi-controller` and `hoshi-desktop`; fails below a floor | PRs touching core, controller or desktop (Linux) |
 
 ### Selective runs (`changed`)
 
@@ -43,7 +43,7 @@ test, so a new path dependency cannot be skipped silently.
 
 CI uses the same selection. Its `plan` job runs `cargo xtask ci-plan
 origin/<base>` and the other jobs run only what it lists: a docs-only pull
-request builds nothing, a desktop change skips coverage, and a core change runs
+request builds nothing, a desktop change runs coverage, and a core change runs
 everything downstream of core. Pushes to `main` and manual runs use `ci-plan
 all`, so `main` always gets the full suites on all three OSes. Skipped steps
 still leave each required check green.
@@ -113,25 +113,26 @@ lists all failures, rather than stopping at the first.
 
 ## Coverage
 
-`cargo xtask test coverage` instruments the tests of the domain crates with
-cargo-llvm-cov and writes `target/coverage/lcov.info` and
+`cargo xtask test coverage` instruments the tests of the domain crates and
+desktop adapter with cargo-llvm-cov and writes `target/coverage/lcov.info` and
 `target/coverage/html/`. CI uploads both and prints the summary on the run
 page. Each crate has a line-coverage floor in
 [`xtask/src/coverage.rs`](../xtask/src/coverage.rs), set to the measured
-baseline rounded down. Raise a floor when coverage rises. Never lower one to
-get green: add tests instead.
+baseline rounded down (with a two-point margin for the desktop). Raise a floor
+when coverage rises. Never lower one to get green: add tests instead.
 
-Baseline (2026-11-12, CI's measurement of the crates' own tests). CI is the
-reference: a local run can differ by a fraction of a percent.
+Domain baselines are CI's measurement of the crates' own tests (2026-11-12);
+the desktop baseline is local (2026-11-16). CI is the reference: a local run
+can differ by a fraction of a percent.
 
 | Crate | Lines | Floor | Weakest files |
 | --- | --- | --- | --- |
 | `hoshi-core` | 95.1% (3,704) | 95% | `history.rs` 88.8%, `lib.rs` 90.1% |
 | `hoshi-controller` | 94.3% (1,468) after #71 | 93% | `lib.rs` 87.5%, `painting.rs` 92.1% |
+| `hoshi-desktop` | 84.12% (5,396), local 2026-11-16 | 82% | `main.rs` 0%, `screen_pick.rs` 15.85%, `error_text.rs` 48.80% |
 
-The desktop app is not instrumented yet, because instrumenting it rebuilds
-Slint. Since ADR 0006 it is production code, so a coverage floor for it is a
-follow-up; today its integration and smoke tests carry it.
+Native-only code is carried by smoke, which is why the desktop floor has a
+2-point margin.
 
 ## Local prerequisites
 
