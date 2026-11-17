@@ -16,6 +16,7 @@
 //! Lowercase kebab-case internal keys are also exempt, only as `id:`/`action:`
 //! model values, `choose-tool(` arguments, or right-hand literals in
 //! `selected-tool ==`/`!=` comparisons. Lowercase text elsewhere remains copy.
+//! A literal whose position cannot be determined is treated as copy.
 //! Layouts read text from the `Translations` global instead.
 
 /// Crates whose source the guard scans.
@@ -78,17 +79,38 @@ fn slint_copy(line: &str) -> Vec<String> {
             .map_or("", |end| &rest[start + end + 1..]);
     }
     code.push_str(rest);
-    literals(&code)
+    slint_copy_at_offsets(&code, slint_literal_offsets(&code, literals(&code)))
+}
+
+/// Locate every literal, retaining unknown positions after the first failure.
+#[cfg(test)]
+fn slint_literal_offsets(code: &str, texts: Vec<String>) -> Vec<(Option<usize>, String)> {
+    let mut offset = Some(0);
+    texts
         .into_iter()
-        .scan(0, |offset, text| {
-            // `literals` retains escape bytes, so its lengths locate each
-            // occurrence independently, including repeated text on one line.
-            let start = code.get(*offset..)?.find('"')? + *offset;
-            *offset = start + text.len() + 2;
-            Some((start, text))
+        .map(|text| {
+            // `literals` retains escape bytes, so lengths locate repeated text.
+            let start = offset.and_then(|offset| {
+                code.get(offset..)
+                    .and_then(|rest| rest.find('"'))
+                    .map(|start| start + offset)
+            });
+            offset = start.and_then(|start| start.checked_add(text.len())?.checked_add(2));
+            (start, text)
         })
+        .collect()
+}
+
+/// Apply the copy rule, exempting internal keys only at known positions.
+#[cfg(test)]
+fn slint_copy_at_offsets(code: &str, texts: Vec<(Option<usize>, String)>) -> Vec<String> {
+    texts
+        .into_iter()
         .filter(|(start, text)| {
-            if slint_internal_key(&code[..*start], text) {
+            if start
+                .and_then(|start| code.get(..start))
+                .is_some_and(|prefix| slint_internal_key(prefix, text))
+            {
                 return false;
             }
             let mut plain = String::with_capacity(text.len());
@@ -340,6 +362,31 @@ mod tests {
         assert!(slint_copy(r#"  icon: @image-url("../icons/x.svg"); t: "R";"#).is_empty());
         assert!(slint_copy(r#"  text: @markdown("\{name}"); sep: " · ";"#).is_empty());
         assert!(slint_copy(r#"  // "Old copy""#).is_empty());
+    }
+
+    #[test]
+    fn slint_literal_offsets_preserve_unlocated_literals() {
+        assert_eq!(
+            slint_literal_offsets(
+                r#"id: "open""#,
+                ["open", "Open file", "save"].map(String::from).to_vec(),
+            ),
+            vec![
+                (Some(4), "open".into()),
+                (None, "Open file".into()),
+                (None, "save".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn slint_copy_reports_unlocated_internal_keys() {
+        let code = r#"id: "screen-picker""#;
+        assert!(slint_copy(code).is_empty());
+        assert_eq!(
+            slint_copy_at_offsets(code, vec![(None, "screen-picker".into())]),
+            ["screen-picker"]
+        );
     }
 
     #[test]
