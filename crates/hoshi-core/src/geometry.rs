@@ -261,3 +261,105 @@ impl PreparedTransform {
         )
     }
 }
+
+/// General affine map in document pixels, with SVG coefficient order.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Affine {
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    e: f64,
+    f: f64,
+}
+impl Affine {
+    /// Leaves every point unchanged.
+    pub const IDENTITY: Self = Self::from_coefficients([1., 0., 0., 1., 0., 0.]);
+
+    /// Stores coefficients without validation; consumers validate before applying geometry.
+    pub const fn from_coefficients([a, b, c, d, e, f]: [f64; 6]) -> Self {
+        Self { a, b, c, d, e, f }
+    }
+    /// Returns SVG coefficients: x' = ax + cy + e, y' = bx + dy + f.
+    pub const fn coefficients(&self) -> [f64; 6] {
+        [self.a, self.b, self.c, self.d, self.e, self.f]
+    }
+    /// Translates points by the given displacement.
+    pub fn translate(dx: f64, dy: f64) -> Self {
+        Self::from_coefficients([1., 0., 0., 1., dx, dy])
+    }
+    /// Scales about the origin, allowing reflections and singular scales.
+    pub fn scale(sx: f64, sy: f64) -> Self {
+        Self::from_coefficients([sx, 0., 0., sy, 0., 0.])
+    }
+    /// Scales while keeping the pivot fixed.
+    pub fn scale_about(pivot: Point, sx: f64, sy: f64) -> Self {
+        Self::translate(-pivot.x, -pivot.y)
+            .then(&Self::scale(sx, sy))
+            .then(&Self::translate(pivot.x, pivot.y))
+    }
+    /// Rotates about the pivot with exact axes for quarter turns.
+    pub fn rotate_about(pivot: Point, angle_degrees: f64) -> Self {
+        let (sin, cos) = rotation_axes(angle_degrees);
+        Self::translate(-pivot.x, -pivot.y)
+            .then(&Self::from_coefficients([cos, sin, -sin, cos, 0., 0.]))
+            .then(&Self::translate(pivot.x, pivot.y))
+    }
+    /// Maps frame-local points to document coordinates, including frame flips.
+    pub fn from_frame(frame: Frame) -> Self {
+        Self::scale(
+            if frame.flip_horizontal { -1. } else { 1. },
+            if frame.flip_vertical { -1. } else { 1. },
+        )
+        .then(&Self::rotate_about(Point::new(0., 0.), frame.angle_degrees))
+        .then(&Self::translate(frame.center.x, frame.center.y))
+    }
+    /// Applies self first, then next.
+    pub fn then(&self, next: &Self) -> Self {
+        Self::from_coefficients([
+            next.a * self.a + next.c * self.b,
+            next.b * self.a + next.d * self.b,
+            next.a * self.c + next.c * self.d,
+            next.b * self.c + next.d * self.d,
+            next.a * self.e + next.c * self.f + next.e,
+            next.b * self.e + next.d * self.f + next.f,
+        ])
+    }
+    /// Returns signed area scale; zero denotes a singular map.
+    pub fn determinant(&self) -> f64 {
+        self.a * self.d - self.b * self.c
+    }
+    /// Whether all stored coefficients are finite.
+    pub fn is_finite(&self) -> bool {
+        self.coefficients().into_iter().all(f64::is_finite)
+    }
+    /// Rejects non-finite or singular maps and non-finite inverse coefficients.
+    pub fn inverse(&self) -> Result<Self, crate::Error> {
+        let det = self.determinant();
+        if !self.is_finite() || !det.is_finite() || det == 0. {
+            return Err(crate::Error::InvalidShape);
+        }
+        let inverse = Self::from_coefficients([
+            self.d / det,
+            -self.b / det,
+            -self.c / det,
+            self.a / det,
+            (self.c * self.f - self.d * self.e) / det,
+            (self.b * self.e - self.a * self.f) / det,
+        ]);
+        if !inverse.is_finite() {
+            return Err(crate::Error::InvalidShape);
+        }
+        Ok(inverse)
+    }
+    /// Maps a point without coordinate validation; identity preserves every input bit.
+    pub fn apply(&self, p: Point) -> Point {
+        if *self == Self::IDENTITY {
+            return p;
+        }
+        Point::new(
+            self.a * p.x + self.c * p.y + self.e,
+            self.b * p.x + self.d * p.y + self.f,
+        )
+    }
+}

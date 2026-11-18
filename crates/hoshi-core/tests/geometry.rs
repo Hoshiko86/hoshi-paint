@@ -92,3 +92,78 @@ fn rotation_about_custom_pivot_moves_center_and_preserves_size() {
             < 1e-9
     );
 }
+
+#[test]
+fn affine_composition_inverse_and_exact_quarter_turns() {
+    use hoshi_core::geometry::Affine;
+    let p = Point::new(17., -9.);
+    let pivot = Point::new(3., 5.);
+    assert_eq!(Affine::IDENTITY.apply(p), p);
+    assert_eq!(Affine::IDENTITY.coefficients(), [1., 0., 0., 1., 0., 0.]);
+    let translate = Affine::translate(7.25, -3.5);
+    let rotate = Affine::rotate_about(pivot, 37.);
+    let scale = Affine::scale_about(pivot, 2., -3.);
+    let shear = Affine::from_coefficients([2., 0.3, 0.7, 3., 8., -4.]);
+    for (t, inverse) in [
+        (translate, Affine::translate(-7.25, 3.5)),
+        (rotate, Affine::rotate_about(pivot, -37.)),
+        (scale, Affine::scale_about(pivot, 0.5, -1. / 3.)),
+        (shear, shear.inverse().unwrap()),
+    ] {
+        assert!(t.then(&inverse).apply(p).distance(p) < 1e-9);
+        assert!(inverse.apply(t.apply(p)).distance(p) < 1e-9);
+    }
+    let quarter = Affine::rotate_about(pivot, 90.);
+    assert_eq!(
+        quarter
+            .then(&quarter)
+            .then(&quarter)
+            .then(&quarter)
+            .apply(p),
+        p
+    );
+    assert_ne!(rotate.then(&scale).apply(p), scale.then(&rotate).apply(p));
+    for angle in [0., 37., 90., 180., 270.] {
+        for horizontal in [false, true] {
+            for vertical in [false, true] {
+                let frame = Frame {
+                    angle_degrees: angle,
+                    flip_horizontal: horizontal,
+                    flip_vertical: vertical,
+                    ..frame(0)
+                };
+                assert!(
+                    Affine::from_frame(frame)
+                        .apply(p)
+                        .distance(frame.local_to_document(p))
+                        < 1e-12
+                );
+            }
+        }
+    }
+    for invalid in [
+        Affine::scale(0., 1.),
+        Affine::scale(f64::NAN, 1.),
+        Affine::scale(f64::MAX, f64::MAX),
+        Affine::from_coefficients([1e-320, 0., 0., 1., 0., 0.]),
+    ] {
+        assert!(matches!(
+            invalid.inverse(),
+            Err(hoshi_core::Error::InvalidShape)
+        ));
+    }
+}
+
+#[test]
+fn affine_identity_preserves_finite_coordinate_bits() {
+    use hoshi_core::geometry::Affine;
+    for point in [
+        Point::new(-0.0, 0.0),
+        Point::new(f64::MIN_POSITIVE, -f64::MIN_POSITIVE),
+        Point::new(f64::MAX, -f64::MAX),
+    ] {
+        let mapped = Affine::IDENTITY.apply(point);
+        assert_eq!(mapped.x.to_bits(), point.x.to_bits());
+        assert_eq!(mapped.y.to_bits(), point.y.to_bits());
+    }
+}
