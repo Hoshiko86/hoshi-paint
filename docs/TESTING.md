@@ -123,13 +123,14 @@ when coverage rises. Never lower one to get green: add tests instead.
 
 Baselines are CI's measurement of each crate's own tests: core and controller
 from the `coverage` job after #183 (2026-11-16), desktop from the job on #215
-(2026-11-17). CI is the reference: a local run can differ by a fraction of a percent.
+(2026-11-17). CI is the reference: a local run can differ by a fraction of a
+percent.
 
 | Crate | Lines | Floor | Weakest files |
 | --- | --- | --- | --- |
-| `hoshi-core` | 96.73% (4,221) | 96% | `history.rs` 90.8%, `project.rs` 93.5%, `lib.rs` 94.7% |
-| `hoshi-controller` | 97.77% (1,924) | 97% | `named_colors.rs` 80.4%, `bounds.rs` 93.3%, `palette.rs` 93.4% |
-| `hoshi-desktop` | 84.76% (5,446) | 82% | `screen_pick.rs` 15.9%, `error_text.rs` 48.8%, `color_library.rs` 70.2%, `documents.rs` 77.0% |
+| `hoshi-core` | 97.41% (4,860) | 96% | `rendering/paint.rs` 92.3%, `history.rs` 93.1%, `canvas.rs` 94.9%, `lib.rs` 95.1% |
+| `hoshi-controller` | 97.34% (2,029) | 97% | `named_colors.rs` 87.0%, `viewport.rs` 90.5%, `bounds.rs` 93.3%, `palette.rs` 93.4% |
+| `hoshi-desktop` | 84.89% (5,465) | 82% | `screen_pick.rs` 15.9%, `error_text.rs` 47.4%, `color_library.rs` 70.2%, `documents.rs` 77.0% |
 
 Native-only code is carried by smoke, which is why the desktop floor has a
 2-point margin.
