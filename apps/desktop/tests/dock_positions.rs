@@ -1,3 +1,4 @@
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_colors;
 use slint::{ComponentHandle, LogicalSize};
 
@@ -65,10 +66,15 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
         });
     assert_eq!(
         ui.get_colors_placement(),
-        1,
+        PanelPlacement::Left,
         "actual location selector input must dock the panel"
     );
-    for placement in 1..=4 {
+    for placement in [
+        PanelPlacement::Left,
+        PanelPlacement::Right,
+        PanelPlacement::Top,
+        PanelPlacement::Bottom,
+    ] {
         ui.invoke_set_colors_placement(placement);
         ui.invoke_set_history_placement(placement);
         ui.window().take_snapshot().unwrap();
@@ -100,30 +106,30 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
         );
         assert!(
             separated(canvas, colors),
-            "Colors overlaps canvas on edge {placement}: {canvas:?} {colors:?}"
+            "Colors overlaps canvas on edge {placement:?}: {canvas:?} {colors:?}"
         );
         assert!(
             separated(canvas, history),
-            "History overlaps canvas on edge {placement}: {canvas:?} {history:?}"
+            "History overlaps canvas on edge {placement:?}: {canvas:?} {history:?}"
         );
         assert!(
             separated(colors, history),
-            "same-edge panels overlap on edge {placement}: {colors:?} {history:?}"
+            "same-edge panels overlap on edge {placement:?}: {colors:?} {history:?}"
         );
         match placement {
-            1 => assert!(
+            PanelPlacement::Left => assert!(
                 colors.x + colors.width <= canvas.x && history.x + history.width <= canvas.x
             ),
-            2 => {
+            PanelPlacement::Right => {
                 assert!(colors.x >= canvas.x + canvas.width && history.x >= canvas.x + canvas.width)
             }
-            3 => assert!(
+            PanelPlacement::Top => assert!(
                 colors.y + colors.height <= canvas.y && history.y + history.height <= canvas.y
             ),
-            4 => assert!(
+            PanelPlacement::Bottom => assert!(
                 colors.y >= canvas.y + canvas.height && history.y >= canvas.y + canvas.height
             ),
-            _ => unreachable!(),
+            PanelPlacement::Floating => unreachable!(),
         }
         assert_eq!(state.borrow().document().active_shape(), shape);
         assert_eq!(state.borrow().document().undo_len(), 0);
@@ -136,7 +142,7 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
             .next()
             .expect("docked header Float control");
     float.mock_single_click(slint::platform::PointerEventButton::Left);
-    assert_eq!(ui.get_colors_placement(), 0);
+    assert_eq!(ui.get_colors_placement(), PanelPlacement::Floating);
     assert!(picker.window().is_visible());
     picker.window().take_snapshot().unwrap();
     i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
@@ -149,13 +155,13 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
     dock.mock_single_click(slint::platform::PointerEventButton::Left);
     assert_eq!(
         ui.get_colors_placement(),
-        4,
+        PanelPlacement::Bottom,
         "Dock must return to the last selected edge"
     );
     // Opposite horizontal bands adapt to a normal-height window rather than
     // demanding an oversized desktop or reducing the canvas to a sliver.
-    ui.invoke_set_colors_placement(3);
-    ui.invoke_set_history_placement(4);
+    ui.invoke_set_colors_placement(PanelPlacement::Top);
+    ui.invoke_set_history_placement(PanelPlacement::Bottom);
     ui.window().set_size(LogicalSize::new(1120.0, 760.0));
     ui.window().take_snapshot().unwrap();
     assert!(ui.get_canvas_height() >= 199.0);
@@ -163,16 +169,58 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
     assert!(ui.get_history_host_height() < 250.0 && ui.get_history_host_height() > 56.0);
     assert_eq!(state.borrow().document().active_shape(), shape);
     // Different edges are independent rather than a single shared dock toggle.
-    ui.invoke_set_colors_placement(1);
-    ui.invoke_set_history_placement(4);
+    ui.invoke_set_colors_placement(PanelPlacement::Left);
+    ui.invoke_set_history_placement(PanelPlacement::Bottom);
     ui.window().take_snapshot().unwrap();
-    assert_eq!(ui.get_colors_placement(), 1);
-    assert_eq!(ui.get_history_placement(), 4);
-    ui.invoke_set_colors_placement(0);
+    assert_eq!(ui.get_colors_placement(), PanelPlacement::Left);
+    assert_eq!(ui.get_history_placement(), PanelPlacement::Bottom);
+    ui.invoke_set_colors_placement(PanelPlacement::Floating);
     assert!(!ui.get_colors_docked());
     assert!(picker.window().is_visible());
-    assert_eq!(ui.get_history_placement(), 4);
+    assert_eq!(ui.get_history_placement(), PanelPlacement::Bottom);
     assert_eq!(state.borrow().document().active_shape(), shape);
     ui.invoke_close_colors();
     ui.invoke_close_history();
+}
+
+#[test]
+fn every_colors_placement_round_trips_and_displays_its_catalog_text() {
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, _, picker) = create_app_with_colors().unwrap();
+    ui.window().set_size(LogicalSize::new(1400., 1100.));
+    ui.show().unwrap();
+    ui.invoke_show_colors();
+    let text = ui.global::<hoshi_desktop::Translations>();
+    let label = format!("{} {}", text.get_colors(), text.get_dock_location());
+    for (placement, expected) in [
+        (PanelPlacement::Floating, text.get_placement_float()),
+        (PanelPlacement::Left, text.get_placement_left()),
+        (PanelPlacement::Right, text.get_placement_right()),
+        (PanelPlacement::Top, text.get_placement_top()),
+        (PanelPlacement::Bottom, text.get_placement_bottom()),
+    ] {
+        ui.invoke_set_colors_placement(placement);
+        assert_eq!(ui.get_colors_placement(), placement);
+        let choice = if placement == PanelPlacement::Floating {
+            picker.window().take_snapshot().unwrap();
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&*picker, &label)
+                .next()
+        } else {
+            ui.window().take_snapshot().unwrap();
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, &label).next()
+        }
+        .expect("Colors placement ComboBox");
+        assert_eq!(
+            choice.accessible_value().as_deref(),
+            Some(expected.as_str())
+        );
+    }
+    ui.invoke_close_colors();
 }

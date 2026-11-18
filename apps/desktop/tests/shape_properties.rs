@@ -1,4 +1,5 @@
 use hoshi_controller::{FillPattern, LineStyle};
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::{ShapePropertiesWindow, create_app_with_shape_properties};
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
@@ -119,11 +120,11 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
     // Moving or hiding the host applies the field still being typed, without
     // requiring Enter and without letting an old hidden field revert it later.
     type_pending_bound(&*properties, "Shape width", "300");
-    properties.invoke_placement_selected(2);
+    properties.invoke_placement_selected(PanelPlacement::Right);
     assert_eq!(state.borrow().document().active_shape().unwrap().width, 300);
     ui.window().take_snapshot().unwrap();
     type_pending_bound(&ui, "Shape Y position", "88");
-    properties.invoke_placement_selected(0);
+    properties.invoke_placement_selected(PanelPlacement::Floating);
     assert_eq!(state.borrow().document().active_shape().unwrap().y, 88);
     type_pending_bound(&*properties, "Shape X position", "-24");
     properties.invoke_close_panel();
@@ -137,7 +138,13 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
         "saving can flush input without hiding the panel"
     );
     let preview = state.borrow().document().active_shape();
-    for placement in [1, 2, 3, 4, 0] {
+    for placement in [
+        PanelPlacement::Left,
+        PanelPlacement::Right,
+        PanelPlacement::Top,
+        PanelPlacement::Bottom,
+        PanelPlacement::Floating,
+    ] {
         properties.invoke_placement_selected(placement);
         assert_eq!(ui.get_shape_properties_placement(), placement);
         assert_eq!(properties.get_placement(), placement);
@@ -149,7 +156,12 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
     ui.window().set_size(LogicalSize::new(1600., 960.));
     ui.invoke_show_colors();
     ui.invoke_show_history();
-    for placement in [1, 2, 3, 4] {
+    for placement in [
+        PanelPlacement::Left,
+        PanelPlacement::Right,
+        PanelPlacement::Top,
+        PanelPlacement::Bottom,
+    ] {
         ui.invoke_set_colors_placement(placement);
         ui.invoke_set_history_placement(placement);
         properties.invoke_placement_selected(placement);
@@ -182,11 +194,11 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
                         || other_x + other_width <= x
                         || y + height <= other_y
                         || other_y + other_height <= y,
-                    "panels must not overlap at dock placement {placement}"
+                    "panels must not overlap at dock placement {placement:?}"
                 );
             }
         }
-        if placement == 3 {
+        if placement == PanelPlacement::Top {
             let panel_x =
                 ui.get_canvas_left() - ui.get_canvas_layout_x() + ui.get_shapes_layout_x();
             let panel_y = ui.get_canvas_top() - ui.get_canvas_layout_y() + ui.get_shapes_layout_y();
@@ -212,9 +224,9 @@ fn floating_and_docked_shape_properties_share_one_edit_session() {
         assert_eq!(state.borrow().document().active_shape(), preview);
         assert_eq!(state.borrow().document().undo_len(), 0);
     }
-    ui.invoke_set_colors_placement(0);
-    ui.invoke_set_history_placement(0);
-    properties.invoke_placement_selected(0);
+    ui.invoke_set_colors_placement(PanelPlacement::Floating);
+    ui.invoke_set_history_placement(PanelPlacement::Floating);
+    properties.invoke_placement_selected(PanelPlacement::Floating);
     ui.invoke_close_colors();
     ui.invoke_close_history();
     properties.invoke_close_panel();

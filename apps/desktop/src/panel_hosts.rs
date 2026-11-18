@@ -1,29 +1,39 @@
 //! Translate reusable dock geometry into view properties. No document mutation.
 use crate::{
-    AppWindow,
+    AppWindow, PanelPlacement,
     panel_layout::{DockLayout, PanelId, PanelSpec, Rect},
 };
 use slint::ComponentHandle;
 use std::{cell::Cell, rc::Rc};
+
+fn placement_code(placement: PanelPlacement) -> i32 {
+    match placement {
+        PanelPlacement::Floating => 0,
+        PanelPlacement::Left => 1,
+        PanelPlacement::Right => 2,
+        PanelPlacement::Top => 3,
+        PanelPlacement::Bottom => 4,
+    }
+}
 
 fn arrange(ui: &AppWindow) {
     let panels = [
         PanelSpec {
             id: PanelId::Colors,
             visible: ui.get_colors_visible() && ui.get_colors_docked(),
-            placement: ui.get_colors_placement(),
+            placement: placement_code(ui.get_colors_placement()),
             width: 420.,
         },
         PanelSpec {
             id: PanelId::History,
             visible: ui.get_history_visible(),
-            placement: ui.get_history_placement(),
+            placement: placement_code(ui.get_history_placement()),
             width: 300.,
         },
         PanelSpec {
             id: PanelId::ShapeProperties,
             visible: ui.get_shape_properties_visible(),
-            placement: ui.get_shape_properties_placement(),
+            placement: placement_code(ui.get_shape_properties_placement()),
             width: 340.,
         },
     ];

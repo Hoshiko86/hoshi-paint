@@ -1,4 +1,5 @@
 //! Native numeric shape bounds and locked dimensions at the default window size.
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app;
 use slint::{ComponentHandle, LogicalSize};
 use std::time::Duration;
@@ -24,7 +25,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ui.get_offset_y() + y * ui.get_zoom(),
             )
         };
-        ui.invoke_set_shape_properties_placement(2);
+        ui.invoke_set_shape_properties_placement(PanelPlacement::Right);
         let start = point(30., 40.);
         let end = point(110., 80.);
         ui.invoke_pointer_down(start.0, start.1);

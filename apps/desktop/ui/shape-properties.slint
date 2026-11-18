@@ -1,6 +1,6 @@
 // One properties body is hosted in either the main window or a floating window.
 import { ComboBox, Palette } from "std-widgets.slint";
-import { ToolPanelFrame } from "colors.slint";
+import { ToolPanelFrame, PanelPlacement } from "colors.slint";
 import { ShapeBounds } from "shape-bounds.slint";
 import { ShapeRendering } from "shape-rendering.slint";
 import { FileShortcuts, FileAction } from "file-shortcuts.slint";
@@ -20,7 +20,7 @@ export component ShapePropertiesPanel inherits Rectangle {
     in property <string> shape-width-text;
     in property <string> shape-height-text;
     in-out property <bool> shape-bounds-locked;
-    in property <int> placement;
+    in property <PanelPlacement> placement;
     callback select-shape-mode(int);
     callback edit-stroke-width-pixels(float);
     callback select-line-style(int);
@@ -28,7 +28,7 @@ export component ShapePropertiesPanel inherits Rectangle {
     callback toggle-shape-antialiasing(bool);
     callback edit-shape-bound(int, string, bool);
     callback bounds-lock-changed(bool);
-    callback placement-selected(int);
+    callback placement-selected(PanelPlacement);
     callback close-panel();
     callback file-action(FileAction);
     callback cycle-document(bool);
@@ -42,7 +42,7 @@ export component ShapePropertiesPanel inherits Rectangle {
     changed shape-mode => { mode.current-index = root.shape-mode; }
     changed shape-bounds-locked => { root.bounds-lock-changed(root.shape-bounds-locked); }
     ToolPanelFrame {
-        title: Translations.shapes; placement: root.placement; docked: root.placement != 0;
+        title: Translations.shapes; placement: root.placement; docked: root.placement != PanelPlacement.floating;
         // The shared frame scrolls this fixed body even in a short top/bottom dock.
         body-height: 500px;
         placement-selected(value) => { root.placement-selected(value); }
@@ -104,7 +104,7 @@ export component ShapePropertiesWindow inherits Window {
     in property <string> shape-width-text <=> panel.shape-width-text;
     in property <string> shape-height-text <=> panel.shape-height-text;
     in-out property <bool> shape-bounds-locked <=> panel.shape-bounds-locked;
-    in property <int> placement <=> panel.placement;
+    in property <PanelPlacement> placement <=> panel.placement;
     out property <float> outline-input-left: panel.outline-input-left;
     out property <float> outline-input-top: panel.outline-input-top;
     out property <float> shape-mode-left: panel.shape-mode-left;
@@ -117,7 +117,7 @@ export component ShapePropertiesWindow inherits Window {
     callback toggle-shape-antialiasing(bool);
     callback edit-shape-bound(int,string,bool);
     callback bounds-lock-changed(bool);
-    callback placement-selected(int);
+    callback placement-selected(PanelPlacement);
     callback close-panel();
     callback file-action(FileAction);
     callback cycle-document(bool);

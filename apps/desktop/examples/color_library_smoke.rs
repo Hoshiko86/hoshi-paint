@@ -1,4 +1,5 @@
 //! Native snapshots of the same name search and palette in floating/docked hosts.
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_palette_root;
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
 use std::time::Duration;
@@ -64,7 +65,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 text: "blue".into(),
             });
         save(app.colors.window(), "spike-color-library-suggestions.png");
-        app.colors.invoke_placement_selected(2);
+        app.colors.invoke_placement_selected(PanelPlacement::Right);
         save(ui.window(), "spike-color-library-docked.png");
         assert_eq!(app.controller.borrow().document().active_shape(), preview);
         assert_eq!(app.controller.borrow().document().undo_len(), 0);

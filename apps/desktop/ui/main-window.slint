@@ -10,13 +10,13 @@ export { FileAction } from "file-shortcuts.slint";
 import { SavePrompt, SaveConfiguration, FileErrorPrompt } from "file-prompts.slint";
 import { ImageSettings, ImageDialog, ImageField } from "image-settings.slint";
 export { ImageDialog, ImageField } from "image-settings.slint";
-import { ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch } from "colors.slint";
+import { PanelPlacement, ColorPanel, NamedColorSuggestion, PaletteSwatch, WorkspaceColors, ColorSwatch } from "colors.slint";
 import { HistoryPanel, HistoryRow } from "history.slint";
 import { DesktopCommandBars, DocumentTabs, DesktopStatusBar, DocumentTabRow } from "app-chrome.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 export { HistoryWindow, HistoryRow } from "history.slint";
-export { ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "colors.slint";
+export { PanelPlacement, ColorPickerWindow, PaletteSwatch, NamedColorSuggestion } from "colors.slint";
 import { Button, AboutSlint, Palette, ComboBox, SpinBox } from "std-widgets.slint";
 export { DocumentTabRow } from "app-chrome.slint";
 export { Translations } from "localization.slint";
@@ -206,7 +206,7 @@ export component AppWindow inherits Window {
     callback save-palette-path(string);
     callback export-palette-path(string);
 
-    in property <int> colors-placement;
+    in property <PanelPlacement> colors-placement;
     in property <bool> colors-docked;
     in property <bool> colors-visible;
     in property <int> color-r;
@@ -229,7 +229,7 @@ export component AppWindow inherits Window {
     callback edit-hsv(float, float, float);
     callback edit-hex(string);
     callback pick-screen();
-    callback set-colors-placement(int);
+    callback set-colors-placement(PanelPlacement);
     callback toggle-color-dock();
     callback close-colors();
     callback show-colors();
@@ -241,7 +241,7 @@ export component AppWindow inherits Window {
     callback zoom-at(float, float, float);
     // Independent placement for each adjustment panel. Same-edge panels
     // share a row/column without covering the drawing viewport.
-    in property <int> history-placement;
+    in property <PanelPlacement> history-placement;
     in property <bool> history-visible;
     in property <int> history-position;
     in property <[HistoryRow]> history-rows;
@@ -249,18 +249,18 @@ export component AppWindow inherits Window {
     in property <string> history-status;
     callback show-history();
     callback close-history();
-    callback set-history-placement(int);
+    callback set-history-placement(PanelPlacement);
     callback history-jump(int);
     callback history-undo();
     callback history-redo();
     callback sync-history();
-    private property <bool> color-host-visible: root.colors-visible && root.colors-docked && root.colors-placement > 0;
-    private property <bool> history-host-visible: root.history-visible && root.history-placement > 0;
+    private property <bool> color-host-visible: root.colors-visible && root.colors-docked && root.colors-placement != PanelPlacement.floating;
+    private property <bool> history-host-visible: root.history-visible && root.history-placement != PanelPlacement.floating;
     in property <bool> shape-properties-visible;
-    in property <int> shape-properties-placement;
+    in property <PanelPlacement> shape-properties-placement;
     callback show-shape-properties();
     callback close-shape-properties();
-    callback set-shape-properties-placement(int);
+    callback set-shape-properties-placement(PanelPlacement);
     callback sync-shape-properties();
     callback finish-shape-properties-inputs();
     public function finish-shape-properties-edits() { docked-shapes.finish-edits(); }
@@ -293,7 +293,7 @@ export component AppWindow inherits Window {
     in property <float> shapes-layout-y;
     in property <float> shapes-layout-width;
     in property <float> shapes-layout-height;
-    private property <bool> shapes-host-visible: root.shape-properties-visible && root.shape-properties-placement > 0;
+    private property <bool> shapes-host-visible: root.shape-properties-visible && root.shape-properties-placement != PanelPlacement.floating;
     out property <float> shapes-host-left: docked-shapes.absolute-position.x / 1px;
     out property <float> shapes-host-top: docked-shapes.absolute-position.y / 1px;
     out property <float> shapes-host-width: docked-shapes.width / 1px;

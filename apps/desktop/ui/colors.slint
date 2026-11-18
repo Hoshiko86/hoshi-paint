@@ -90,21 +90,28 @@ component ColorPreview inherits Rectangle {
     // The label heads the tooltip; the description carries only color data.
     Tooltip { SwatchDetails { text: root.label + "\n" + root.description; } }
 }
+export enum PanelPlacement { floating, left, right, top, bottom }
+
 export component ToolPanelFrame inherits Rectangle {
     in property <string> title;
-    // 0 floating; 1 left; 2 right; 3 top; 4 bottom.
-    in property <int> placement;
-    callback placement-selected(int);
+    in property <PanelPlacement> placement;
+    callback placement-selected(PanelPlacement);
     in property <length> body-height: 624px;
     in property <bool> docked;
     callback toggle-dock();
     callback close-panel();
     // A selection can replace the ComboBox's initial binding. Keep later
     // Float/Dock shortcut changes reflected in its displayed location too.
-    private property <int> last-nonzero-placement: 2;
+    private property <PanelPlacement> last-docked: PanelPlacement.right;
+    pure function placement-index(placement: PanelPlacement) -> int {
+        return placement == PanelPlacement.floating ? 0 : placement == PanelPlacement.left ? 1 : placement == PanelPlacement.right ? 2 : placement == PanelPlacement.top ? 3 : 4;
+    }
+    pure function placement-at(index: int) -> PanelPlacement {
+        return index == 0 ? PanelPlacement.floating : index == 1 ? PanelPlacement.left : index == 2 ? PanelPlacement.right : index == 3 ? PanelPlacement.top : PanelPlacement.bottom;
+    }
     changed placement => {
-        if root.placement > 0 { root.last-nonzero-placement = root.placement; }
-        placement-choice.current-index = root.placement;
+        if root.placement != PanelPlacement.floating { root.last-docked = root.placement; }
+        placement-choice.current-index = root.placement-index(root.placement);
     }
     background: DesktopTheme.panel-background;
     VerticalLayout {
@@ -116,16 +123,16 @@ export component ToolPanelFrame inherits Rectangle {
             placement-choice := ComboBox {
                 width: 92px;
                 model: [Translations.placement-float, Translations.placement-left, Translations.placement-right, Translations.placement-top, Translations.placement-bottom];
-                current-index: root.placement;
+                current-index: root.placement-index(root.placement);
                 accessible-label: root.title + " " + Translations.dock-location;
-                selected(value) => { root.placement-selected(self.current-index); }
+                selected(value) => { root.placement-selected(root.placement-at(self.current-index)); }
             }
             Button {
                 width: 32px;
                 icon: root.docked ? @image-url("../icons/panels-top-left.svg") : @image-url("../icons/pin.svg");
                 Tooltip { text: Translations.styled(Translations.toggle-dock-tooltip); }
                 accessible-label: (root.docked ? Translations.float-panel : Translations.dock-panel) + " " + root.title;
-                clicked => { root.placement-selected(root.placement == 0 ? root.last-nonzero-placement : 0); }
+                clicked => { root.placement-selected(root.placement == PanelPlacement.floating ? root.last-docked : PanelPlacement.floating); }
             }
             Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.close-panel; Tooltip { text: Translations.styled(Translations.close-panel); } clicked => { root.close-panel(); } }
         }
@@ -205,8 +212,8 @@ export component ColorPanel inherits Rectangle {
     callback pick-screen();
     callback close-picker();
     callback toggle-dock();
-    callback placement-selected(int);
-    in property <int> placement;
+    callback placement-selected(PanelPlacement);
+    in property <PanelPlacement> placement;
     in property <bool> docked;
     preferred-height: 720px;
     ToolPanelFrame {
@@ -392,8 +399,8 @@ export component ColorPickerWindow inherits Window {
     out property <float> swatches-left: panel.swatches-left;
     out property <float> swatches-top: panel.swatches-top;
     in property <bool> docked <=> panel.docked;
-    in property <int> placement <=> panel.placement;
-    callback placement-selected(int);
+    in property <PanelPlacement> placement <=> panel.placement;
+    callback placement-selected(PanelPlacement);
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback set-hex(string);

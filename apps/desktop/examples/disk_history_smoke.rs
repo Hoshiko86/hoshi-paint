@@ -1,4 +1,5 @@
 //! Real desktop long-history browsing with disk-backed states and shared hosts.
+use hoshi_desktop::PanelPlacement;
 use slint::{ComponentHandle, LogicalSize, Model};
 use std::{path::PathBuf, time::Duration};
 
@@ -42,7 +43,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         hoshi_desktop::refresh_workspace(&ui, &state);
         ui.invoke_show_history();
-        ui.invoke_set_history_placement(2);
+        ui.invoke_set_history_placement(PanelPlacement::Right);
         let rows = ui.get_history_rows();
         assert_eq!(rows.row_count(), 514);
         assert!(state.borrow().document().history_storage_bytes() > 0);
@@ -64,7 +65,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         slint::Timer::single_shot(Duration::from_millis(150), move || {
             let ui = weak.upgrade().unwrap();
             snapshot(&ui);
-            ui.invoke_set_history_placement(0);
+            ui.invoke_set_history_placement(PanelPlacement::Floating);
             assert!(history.window().is_visible());
             assert_eq!(history.get_rows().row_count(), 514);
             ui.invoke_file_action(hoshi_desktop::FileAction::Exit);

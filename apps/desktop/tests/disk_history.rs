@@ -1,4 +1,5 @@
 use hoshi_controller::{Color, Resampling};
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::{Translations, create_app_with_panels, refresh_workspace};
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, LogicalSize, Model};
@@ -25,7 +26,7 @@ fn long_history_model_stays_shared_and_navigates_disk_states_across_tabs() {
     }
     refresh_workspace(&ui, &state);
     ui.invoke_show_history();
-    ui.invoke_set_history_placement(2);
+    ui.invoke_set_history_placement(PanelPlacement::Right);
     let model = ui.get_history_rows();
     assert_eq!(model.row_count(), 1025);
     // Slint may request visible rows while an editing callback owns the workspace.

@@ -1,3 +1,4 @@
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_panels;
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, Model};
@@ -41,9 +42,9 @@ fn history_window_tracks_rows_navigates_redo_and_preserves_pending_shapes() {
     assert_eq!(state.borrow().history_position(), 1);
     assert_eq!(state.borrow().composite()[15 * 512 + 15].a, 255);
     assert_eq!(state.borrow().composite()[110 * 512 + 110].a, 0);
-    history.invoke_placement_selected(1);
+    history.invoke_placement_selected(PanelPlacement::Left);
     assert!(ui.get_history_visible());
-    assert_eq!(ui.get_history_placement(), 1);
+    assert_eq!(ui.get_history_placement(), PanelPlacement::Left);
     assert!(!history.window().is_visible());
     ui.invoke_history_jump(2);
     assert_eq!(state.borrow().history_position(), 2);
@@ -61,7 +62,7 @@ fn history_window_tracks_rows_navigates_redo_and_preserves_pending_shapes() {
     ui.invoke_action(2);
     assert_eq!(history.get_rows().row_count(), 4);
     ui.invoke_show_colors();
-    ui.invoke_set_history_placement(0);
+    ui.invoke_set_history_placement(PanelPlacement::Floating);
     assert!(colors.window().is_visible() && history.window().is_visible());
     ui.window()
         .dispatch_event(slint::platform::WindowEvent::CloseRequested);
