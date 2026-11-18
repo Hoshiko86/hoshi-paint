@@ -1,6 +1,6 @@
 //! One history model is shared by the floating and internally docked hosts.
 use crate::{
-    AppWindow, HistoryRow, HistoryWindow, SharedController, localization, update,
+    AppWindow, HistoryRow, HistoryWindow, PanelPlacement, SharedController, localization, update,
     workspace::Workspace,
 };
 use hoshi_core::HistoryLabel;
@@ -251,7 +251,7 @@ pub(super) fn bind_window(
                 c.set_aspect_lock(false)
             });
             ui.set_history_visible(true);
-            if ui.get_history_placement() == 0 {
+            if ui.get_history_placement() == PanelPlacement::Floating {
                 let _ = history.show();
             }
         }
@@ -271,11 +271,10 @@ pub(super) fn bind_window(
             if ui.get_modal_visible() {
                 return;
             }
-            let placement = placement.clamp(0, 4);
             ui.set_history_placement(placement);
             ui.set_history_visible(true);
             window.set_placement(placement);
-            if placement == 0 {
+            if placement == PanelPlacement::Floating {
                 let _ = window.show();
             } else {
                 let _ = window.hide();

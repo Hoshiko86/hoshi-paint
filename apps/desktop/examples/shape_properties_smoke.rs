@@ -1,4 +1,5 @@
 //! Native evidence that a shared shape-properties body can float or dock.
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_shape_properties;
 use slint::{ComponentHandle, LogicalSize};
 use std::time::Duration;
@@ -51,11 +52,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         properties.invoke_select_line_style(1);
         let preview = state.borrow().document().active_shape();
         save(properties.window(), "spike-shape-properties-floating.png");
-        properties.invoke_placement_selected(2);
+        properties.invoke_placement_selected(PanelPlacement::Right);
         save(ui.window(), "spike-shape-properties-docked.png");
         assert_eq!(state.borrow().document().active_shape(), preview);
         assert_eq!(state.borrow().document().undo_len(), 0);
-        properties.invoke_placement_selected(3);
+        properties.invoke_placement_selected(PanelPlacement::Top);
         save(ui.window(), "spike-shape-properties-top.png");
         properties.invoke_close_panel();
         ui.hide().unwrap();

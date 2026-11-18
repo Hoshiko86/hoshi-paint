@@ -2,7 +2,7 @@
 //!
 //! This adapter forwards edits to the main window's existing command bindings;
 //! hosting changes never commit, cancel, or duplicate the shape preview.
-use crate::{AppWindow, ShapePropertiesWindow, SharedController, update};
+use crate::{AppWindow, PanelPlacement, ShapePropertiesWindow, SharedController, update};
 use hoshi_controller::InputModifiers;
 use slint::ComponentHandle;
 use std::rc::Rc;
@@ -59,7 +59,7 @@ pub(super) fn create(
             main.invoke_clear_navigation_state();
             main.set_shape_properties_visible(true);
             sync(&main, &properties);
-            if main.get_shape_properties_placement() == 0 {
+            if main.get_shape_properties_placement() == PanelPlacement::Floating {
                 let _ = properties.show();
             }
         }
@@ -83,11 +83,10 @@ pub(super) fn create(
             // before synchronizing model values into the destination host.
             window.invoke_finish_edits();
             main.invoke_finish_shape_properties_edits();
-            let placement = placement.clamp(0, 4);
             main.set_shape_properties_placement(placement);
             main.set_shape_properties_visible(true);
             sync(&main, &window);
-            if placement == 0 {
+            if placement == PanelPlacement::Floating {
                 let _ = window.show();
             } else {
                 let _ = window.hide();

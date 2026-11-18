@@ -1,5 +1,6 @@
 use hoshi_controller::ShapeStyle;
 use hoshi_controller::{Color, ColorSlot};
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_all_panels;
 use slint::{ComponentHandle, LogicalSize};
 
@@ -71,7 +72,7 @@ fn style_controls_and_both_color_hosts_edit_separate_channels_without_committing
     picker.invoke_restore_original();
     assert_eq!(state.borrow().secondary_color(), original_outline);
     picker.invoke_set_rgba(10, 40, 220, 255);
-    ui.invoke_set_colors_placement(1);
+    ui.invoke_set_colors_placement(PanelPlacement::Left);
     ui.invoke_select_color_slot(0);
     assert_eq!(ui.get_color_r(), 240);
     ui.invoke_edit_rgba(30, 180, 70, 200);

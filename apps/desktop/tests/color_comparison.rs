@@ -1,4 +1,5 @@
 use hoshi_controller::Color;
+use hoshi_desktop::PanelPlacement;
 use hoshi_desktop::create_app_with_colors;
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, LogicalPosition, LogicalSize};
@@ -67,13 +68,13 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
     assert_eq!(state.borrow().primary_color(), original);
     assert_eq!(state.borrow().composite()[60 * 512 + 60], original);
     assert_eq!(restore.accessible_enabled(), Some(false));
-    ui.invoke_set_colors_placement(1);
+    ui.invoke_set_colors_placement(PanelPlacement::Left);
     picker.invoke_set_hsv(120.0, 100.0, 100.0);
     assert_eq!(state.borrow().primary_color(), Color::rgba(0, 255, 0, 96));
     assert_eq!(ui.get_color_original(), slint_color(original));
     ui.invoke_restore_original_color();
     assert_eq!(state.borrow().primary_color(), original);
-    ui.invoke_set_colors_placement(0);
+    ui.invoke_set_colors_placement(PanelPlacement::Floating);
     assert_eq!(picker.get_original_color(), slint_color(original));
     assert_eq!(state.borrow().document().active_shape(), Some(shape));
     assert_eq!(state.borrow().document().undo_len(), 0);

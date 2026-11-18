@@ -1,4 +1,5 @@
 //! Native desktop lifecycle for independent dock locations and history browsing.
+use hoshi_desktop::PanelPlacement;
 use slint::{ComponentHandle, Model};
 use std::time::Duration;
 
@@ -37,8 +38,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         ui.invoke_show_colors();
         ui.invoke_show_history();
-        ui.invoke_set_colors_placement(1);
-        ui.invoke_set_history_placement(2);
+        ui.invoke_set_colors_placement(PanelPlacement::Left);
+        ui.invoke_set_history_placement(PanelPlacement::Right);
         slint::Timer::single_shot(Duration::from_millis(200), move || {
             ui.window().take_snapshot().unwrap();
             assert!(ui.get_colors_host_left() < ui.get_canvas_left());
@@ -50,7 +51,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert!(state.borrow().composite().iter().all(|p| p.a == 0));
             ui.invoke_history_redo();
             assert_eq!(state.borrow().history_position(), 1);
-            ui.invoke_set_history_placement(0);
+            ui.invoke_set_history_placement(PanelPlacement::Floating);
             slint::Timer::single_shot(Duration::from_millis(200), move || {
                 assert!(history.window().is_visible());
                 save(history.window(), "HOSHI_HISTORY_SNAPSHOT");

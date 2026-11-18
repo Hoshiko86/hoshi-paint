@@ -1,6 +1,6 @@
 use crate::{
-    AppWindow, ColorPickerWindow, SharedController, localization::Localizer, refresh,
-    screen_pick::PickResult, update,
+    AppWindow, ColorPickerWindow, PanelPlacement, SharedController, localization::Localizer,
+    refresh, screen_pick::PickResult, update,
 };
 use hoshi_controller::{
     Color,
@@ -202,7 +202,13 @@ pub(super) fn bind_picker(
     let main = ui.as_weak();
     picker.on_toggle_dock(move || {
         if let Some(ui) = main.upgrade() {
-            ui.invoke_set_colors_placement(if ui.get_colors_placement() == 0 { 2 } else { 0 });
+            ui.invoke_set_colors_placement(
+                if ui.get_colors_placement() == PanelPlacement::Floating {
+                    PanelPlacement::Right
+                } else {
+                    PanelPlacement::Floating
+                },
+            );
         }
     });
     let (main, weak, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
@@ -228,13 +234,12 @@ pub(super) fn bind_picker(
                 ]);
                 begin_comparison(&ui, &p, &reference, state.borrow().selected_color());
             }
-            let placement = placement.clamp(0, 4);
             ui.set_colors_placement(placement);
-            ui.set_colors_docked(placement != 0);
+            ui.set_colors_docked(placement != PanelPlacement::Floating);
             ui.set_colors_visible(true);
             p.set_placement(placement);
-            p.set_docked(placement != 0);
-            if placement == 0 {
+            p.set_docked(placement != PanelPlacement::Floating);
+            if placement == PanelPlacement::Floating {
                 let _ = p.show();
             } else {
                 let _ = p.hide();

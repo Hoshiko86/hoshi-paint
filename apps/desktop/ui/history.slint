@@ -1,6 +1,6 @@
 import { FileShortcuts, FileAction } from "file-shortcuts.slint";
 import { Button, ListView, Palette } from "std-widgets.slint";
-import { ToolPanelFrame } from "colors.slint";
+import { ToolPanelFrame, PanelPlacement } from "colors.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 export struct HistoryRow { label: string, index: int, current: bool, redo: bool }
@@ -15,16 +15,16 @@ export component HistoryPanel inherits Rectangle {
     in property <bool> can-undo;
     in property <bool> can-redo;
     in property <bool> has-shape;
-    in property <int> placement;
-    callback placement-selected(int);
+    in property <PanelPlacement> placement;
+    callback placement-selected(PanelPlacement);
     callback close-panel();
     callback jump(int);
     callback undo();
     callback redo();
     ToolPanelFrame {
-        title: Translations.history; placement: root.placement; docked: root.placement != 0; body-height: 400px;
+        title: Translations.history; placement: root.placement; docked: root.placement != PanelPlacement.floating; body-height: 400px;
         placement-selected(value) => { root.placement-selected(value); }
-        toggle-dock => { root.placement-selected(root.placement == 0 ? 2 : 0); }
+        toggle-dock => { root.placement-selected(root.placement == PanelPlacement.floating ? PanelPlacement.right : PanelPlacement.floating); }
         close-panel => { root.close-panel(); }
         VerticalLayout {
             padding: 8px; spacing: 8px;
@@ -72,8 +72,8 @@ export component HistoryWindow inherits Window {
     in property <bool> can-undo <=> panel.can-undo;
     in property <bool> can-redo <=> panel.can-redo;
     in property <bool> has-shape <=> panel.has-shape;
-    in property <int> placement <=> panel.placement;
-    callback placement-selected(int);
+    in property <PanelPlacement> placement <=> panel.placement;
+    callback placement-selected(PanelPlacement);
     callback close-panel();
     callback jump(int);
     callback undo();
