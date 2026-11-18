@@ -75,11 +75,11 @@ impl Default for ToolSettings {
             },
             fill: FillPattern::Solid,
             antialias: true,
-            picker: PickerSettings::default(),
             shape: ShapeSettings {
                 mode: ShapeMode::Fill,
                 line_style: LineStyle::Solid,
             },
+            picker: PickerSettings::default(),
         }
     }
 }

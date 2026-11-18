@@ -7,6 +7,7 @@ use super::{
     ActiveDrag, Controller, ControllerError, EditCursor, HANDLE_RADIUS, HandleKind, HandlePoint,
     InputModifiers, PointerButton, Tool,
 };
+use crate::tools::color_picker::ColorPick;
 use hoshi_core::geometry::{Frame, Point, ResizeHandle};
 use hoshi_core::{Shape, ShapeKind};
 #[derive(Clone, Copy, Default)]
@@ -245,7 +246,7 @@ impl Controller {
             Tool::MoveShape => return Err(ControllerError::NoActiveShape),
             Tool::Pan => self.begin_pan(PointerInput { x, y }, false)?,
             Tool::Eyedropper => {
-                self.pick = Some(crate::tools::color_picker::ColorPick::new(
+                self.pick = Some(ColorPick::new(
                     &self.document,
                     self.settings.picker,
                     self.modifiers.control,

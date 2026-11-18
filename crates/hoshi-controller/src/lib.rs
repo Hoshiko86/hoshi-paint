@@ -119,7 +119,7 @@ pub struct Controller {
     shape_kind: ShapeKind,
     last_pointer: Option<(f64, f64)>,
     pick: Option<ColorPick>,
-    previous_tool: Option<Tool>,
+    previous_tool: Tool,
 }
 
 impl Default for Controller {
@@ -142,7 +142,7 @@ impl Controller {
             shape_kind: ShapeKind::Rectangle,
             last_pointer: None,
             pick: None,
-            previous_tool: None,
+            previous_tool: Tool::Rectangle,
         })
     }
 
@@ -193,7 +193,7 @@ impl Controller {
             self.clear_gesture();
             self.pick = None;
             if self.tool != Tool::Eyedropper {
-                self.previous_tool = Some(self.tool);
+                self.previous_tool = self.tool;
             }
             self.tool = tool;
         }
@@ -326,11 +326,8 @@ impl Controller {
         self.finish_stroke()?;
         self.clear_gesture();
         self.pick = None;
-        if sampled
-            && self.settings.picker.after_click == AfterClick::PreviousTool
-            && let Some(previous) = self.previous_tool
-        {
-            self.set_tool(previous)?;
+        if sampled && self.settings.picker.after_click == AfterClick::PreviousTool {
+            self.set_tool(self.previous_tool)?;
         }
         Ok(())
     }
@@ -579,6 +576,7 @@ impl Controller {
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
         self.tool = Tool::Rectangle;
+        self.previous_tool = Tool::Rectangle;
         self.edit_state = EditState::default();
         self.reset_view();
     }
@@ -596,6 +594,7 @@ impl Controller {
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
         self.tool = Tool::Rectangle;
+        self.previous_tool = Tool::Rectangle;
         self.edit_state = EditState::default();
         self.reset_view();
         Ok(())
@@ -659,24 +658,5 @@ impl Controller {
         self.document
             .rename_layer(self.document.selected_layer(), name)?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod picker_initial_state_tests {
-    use super::*;
-
-    #[test]
-    fn a_successful_pick_without_a_previous_tool_keeps_the_picker() {
-        let mut controller = Controller::new(1, 1).unwrap();
-        // Public tool selection records Rectangle; seed a picker-first startup
-        // state here to exercise the otherwise unreachable no-previous branch.
-        controller.tool = Tool::Eyedropper;
-        controller.settings.picker.after_click = AfterClick::PreviousTool;
-        let history = controller.document().undo_len();
-        controller.pointer_down(0., 0.).unwrap();
-        controller.pointer_up().unwrap();
-        assert_eq!(controller.tool(), Tool::Eyedropper);
-        assert_eq!(controller.document().undo_len(), history);
     }
 }
