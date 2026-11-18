@@ -110,4 +110,11 @@ Blocking:
 
 Follow-up (non-blocking): naming, fn length, missing doc comments, test gaps.
 
+Nits are fixed in the PR, not filed (owner, 2026-11-18):
+- Follow-ups in files the PR already changes → one consolidated `@codex`
+  review comment listing them all; Codex fixes them on the same branch; re-check,
+  then merge. One round per PR.
+- Findings outside the PR's files → an issue only if it is a real defect or
+  blocks planned work; otherwise add a line to that area's open `Polish:` issue.
+
 Review output: findings only, `file:line`, scenario → fix, label blocking/follow-up.
