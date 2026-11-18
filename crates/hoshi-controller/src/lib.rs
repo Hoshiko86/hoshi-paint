@@ -22,11 +22,13 @@ pub use hoshi_core::geometry::ResizeHandle;
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
+pub use tools::color_picker::{AfterClick, PickerSampling, PickerSettings, SampleSize};
 pub use tools::settings::{
     BrushSettings, BrushWidth, ColorSlot, ColorState, ShapeMode, ShapeSettings, ToolSettings,
 };
 use tools::{
     PointerInput, ToolCx, ToolState,
+    color_picker::ColorPick,
     pan::PanTool,
     shapes::{ShapeGesture, ShapeTool},
 };
@@ -36,7 +38,7 @@ pub use hoshi_core::{
     Anchor, Color, FillPattern, HistoryLabel, HistoryStep, ImageTransform, LineStyle,
     RenderOptions, Resampling, ResizeOptions, ShapeStyle,
 };
-use hoshi_core::{Document, DocumentSnapshot, Error, Shape, ShapeKind};
+use hoshi_core::{Document, Error, Shape, ShapeKind};
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
 const MAX_VIEW_OFFSET: f64 = 1_000_000_000.0;
@@ -116,7 +118,8 @@ pub struct Controller {
     edit_state: EditState,
     shape_kind: ShapeKind,
     last_pointer: Option<(f64, f64)>,
-    sample_snapshot: Option<(DocumentSnapshot, Option<Shape>)>,
+    pick: Option<ColorPick>,
+    previous_tool: Tool,
 }
 
 impl Default for Controller {
@@ -138,7 +141,8 @@ impl Controller {
             edit_state: EditState::default(),
             shape_kind: ShapeKind::Rectangle,
             last_pointer: None,
-            sample_snapshot: None,
+            pick: None,
+            previous_tool: Tool::Rectangle,
         })
     }
 
@@ -158,7 +162,7 @@ impl Controller {
         // navigation is explicit, unlike the toolbar's commit-then-undo action.
         let changed = self.document.go_to_history_step(index)?;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         self.modifiers = InputModifiers::default();
         self.last_pointer = None;
         self.edit_state = EditState::default();
@@ -187,7 +191,10 @@ impl Controller {
         self.finish_stroke()?;
         if tool != self.tool {
             self.clear_gesture();
-            self.sample_snapshot = None;
+            self.pick = None;
+            if self.tool != Tool::Eyedropper {
+                self.previous_tool = self.tool;
+            }
             self.tool = tool;
         }
         Ok(())
@@ -212,15 +219,13 @@ impl Controller {
     }
 
     fn sample_color(&mut self, point: (f64, f64)) -> Result<(), ControllerError> {
-        if point.0 >= 0.0
-            && point.1 >= 0.0
-            && point.0 < f64::from(self.document.width())
-            && point.1 < f64::from(self.document.height())
-            && let Some((snapshot, preview)) = &self.sample_snapshot
+        if let Some(pick) = &mut self.pick
+            && let Some(color) = pick.sample(&self.document, point)
         {
-            let color =
-                snapshot.composite_pixel(point.0.floor() as u32, point.1.floor() as u32, *preview);
-            self.set_selected_color(color)?;
+            match pick.target() {
+                ColorSlot::Primary => self.set_primary_color(color)?,
+                ColorSlot::Secondary => self.set_secondary_color(color)?,
+            }
         }
         Ok(())
     }
@@ -316,9 +321,14 @@ impl Controller {
 
     /// Release commits a stroke and stops dragging, leaving shapes editable.
     pub fn pointer_up(&mut self) -> Result<(), ControllerError> {
+        let sampled = matches!(self.legacy_gesture(), Some(Gesture::Sample))
+            && self.pick.as_ref().is_some_and(ColorPick::sampled);
         self.finish_stroke()?;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
+        if sampled && self.settings.picker.after_click == AfterClick::PreviousTool {
+            self.set_tool(self.previous_tool)?;
+        }
         Ok(())
     }
 
@@ -345,7 +355,7 @@ impl Controller {
             )
         {
             self.clear_gesture();
-            self.sample_snapshot = None;
+            self.pick = None;
             Ok(())
         } else {
             self.cancel();
@@ -359,7 +369,7 @@ impl Controller {
     pub fn commit(&mut self) -> Result<bool, ControllerError> {
         let stroke_changed = self.finish_stroke()?;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         let changed = self.document.commit_shape()? || stroke_changed;
         self.edit_state = EditState::default();
         Ok(changed)
@@ -367,7 +377,7 @@ impl Controller {
 
     pub fn cancel(&mut self) {
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         self.document.cancel_shape();
         self.edit_state = EditState::default();
     }
@@ -375,14 +385,14 @@ impl Controller {
     pub fn undo(&mut self) -> Result<bool, ControllerError> {
         self.finish_stroke()?;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         Ok(self.document.undo()?)
     }
 
     pub fn redo(&mut self) -> Result<bool, ControllerError> {
         self.finish_stroke()?;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         Ok(self.document.redo()?)
     }
 
@@ -562,10 +572,11 @@ impl Controller {
     pub fn replace_document(&mut self, document: Document) {
         self.document = document;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
         self.tool = Tool::Rectangle;
+        self.previous_tool = Tool::Rectangle;
         self.edit_state = EditState::default();
         self.reset_view();
     }
@@ -579,10 +590,11 @@ impl Controller {
         let document = Document::new_with_background(width, height, resolution, background)?;
         self.document = document;
         self.clear_gesture();
-        self.sample_snapshot = None;
+        self.pick = None;
         self.last_pointer = None;
         self.modifiers = InputModifiers::default();
         self.tool = Tool::Rectangle;
+        self.previous_tool = Tool::Rectangle;
         self.edit_state = EditState::default();
         self.reset_view();
         Ok(())

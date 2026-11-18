@@ -161,6 +161,9 @@ fn eyedropper_recolors_editable_shape_from_underlying_pixels_then_commit_undo() 
 #[test]
 fn eyedropper_freezes_visible_translucent_preview_for_each_drag() {
     let mut c = Controller::new(128, 128).unwrap();
+    let mut settings = c.settings();
+    settings.picker.sampling = hoshi_controller::PickerSampling::Image;
+    c.set_settings(settings).unwrap();
     c.set_primary_color(Color::rgba(20, 60, 220, 140)).unwrap();
     c.pointer_down(10., 10.).unwrap();
     c.pointer_move(100., 100.).unwrap();
