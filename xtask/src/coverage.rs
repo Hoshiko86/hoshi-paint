@@ -28,8 +28,8 @@ pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-desktop",
         path: "apps/desktop/",
-        // CI baseline 84.30% (2026-11-16), with a 2-point margin: native-only
-        // code (screen picking, main.rs) is carried by smoke, not coverage.
+        // Local baseline 84.81% after entry-point exclusion (2026-11-17).
+        // Native-only screen picking is carried by smoke, keeping a 2-point margin.
         lines: 82,
     },
 ];
@@ -47,6 +47,11 @@ pub fn ignore_all_but(floor: &Floor) -> String {
     others.push(regex_path("xtask/"));
     if !floor.path.starts_with("apps/") {
         others.push(regex_path("apps/"));
+    } else {
+        others.push(format!(
+            r"(^|[/\\]){}main\.rs$",
+            regex_path("apps/desktop/src/")
+        ));
     }
     format!("({})", others.join("|"))
 }
@@ -76,16 +81,26 @@ mod tests {
 
     #[test]
     fn desktop_gate_keeps_apps_while_domain_gates_ignore_them() {
+        let entry_point = r"(^|[/\\])apps[/\\]desktop[/\\]src[/\\]main\.rs$";
         for floor in FLOORS {
             let regex = ignore_all_but(floor);
             if floor.package == "hoshi-desktop" {
-                assert!(!regex.contains("apps"), "{regex}");
+                assert!(regex.contains(entry_point), "{regex}");
                 assert!(regex.contains("hoshi\\-core"), "{regex}");
                 assert!(regex.contains("hoshi\\-controller"), "{regex}");
             } else {
                 assert!(regex.contains(&regex_path("apps/")), "{regex}");
+                assert!(!regex.contains(entry_point), "{regex}");
             }
         }
+        assert_eq!(
+            ignore_all_but(&FLOORS[0]),
+            r"(crates[/\\]hoshi\-controller[/\\]|apps[/\\]desktop[/\\]|xtask[/\\]|apps[/\\])"
+        );
+        assert_eq!(
+            ignore_all_but(&FLOORS[1]),
+            r"(crates[/\\]hoshi\-core[/\\]|apps[/\\]desktop[/\\]|xtask[/\\]|apps[/\\])"
+        );
     }
 
     #[test]
