@@ -69,6 +69,7 @@ pub(crate) struct Selection {
     _reservation: MemoryReservation,
 }
 
+/// An oriented non-horizontal contour edge and its active vertical interval.
 struct EdgeEntry {
     a: (f64, f64),
     b: (f64, f64),
@@ -181,12 +182,7 @@ impl Selection {
             ClipQuality::Aliased => 1,
             ClipQuality::Antialiased => 4,
         };
-        let edges = self
-            .edges()
-            .filter(|(a, b)| a.1 != b.1)
-            .try_fold(0_usize, |count, _| {
-                count.checked_add(1).ok_or(Error::MemoryLimit)
-            })?;
+        let edges = self.edges().filter(|(a, b)| a.1 != b.1).count();
         let width = (right - left) as usize;
         let bytes = [
             std::mem::size_of::<EdgeEntry>(),
@@ -229,6 +225,7 @@ impl Selection {
         Ok(mask)
     }
 
+    /// Iterates every closed contour edge in its original traversal direction.
     fn edges(&self) -> impl Iterator<Item = ((f64, f64), (f64, f64))> {
         self.contours().flat_map(|contour| {
             contour
@@ -239,6 +236,7 @@ impl Selection {
         })
     }
 
+    /// Reserves non-horizontal edges once and sorts them by their minimum height.
     fn edge_table(&self, capacity: usize) -> Result<Vec<EdgeEntry>, Error> {
         let mut table = scratch_vec(capacity)?;
         for (a, b) in self.edges().filter(|(a, b)| a.1 != b.1) {
@@ -279,6 +277,7 @@ impl Selection {
     }
 }
 
+/// Allocates an empty scratch buffer with a fallible exact reservation.
 fn scratch_vec<T>(capacity: usize) -> Result<Vec<T>, Error> {
     let mut buffer = Vec::new();
     buffer
