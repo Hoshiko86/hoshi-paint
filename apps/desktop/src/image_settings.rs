@@ -52,6 +52,14 @@ fn describe(text: &Localizer, error: &SettingsError) -> String {
     }
 }
 
+/// The dialog being applied; `ImageDialog::Closed` has no Apply.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OpenDialog {
+    NewImage,
+    Resize,
+    CanvasSize,
+}
+
 struct Draft {
     original: (u32, u32),
     size: (u32, u32),
@@ -141,7 +149,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
     ui.on_show_image_settings(move |kind| {
         if let Some(ui) = main.upgrade() {
             if ui.get_modal_visible()
-                || matches!(kind, ImageDialog::Closed)
+                || kind == ImageDialog::Closed
                 || (kind != ImageDialog::NewImage && !controller.borrow().has_document())
             {
                 return;
@@ -185,7 +193,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
         let Some(ui) = main.upgrade() else {
             return;
         };
-        if matches!(ui.get_image_dialog_kind(), ImageDialog::Closed) {
+        if ui.get_image_dialog_kind() == ImageDialog::Closed {
             return;
         }
         match which {
@@ -278,22 +286,23 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
         let Some(ui) = main.upgrade() else {
             return;
         };
-        let kind = ui.get_image_dialog_kind();
-        if matches!(kind, ImageDialog::Closed) {
-            return;
-        }
+        let kind = match ui.get_image_dialog_kind() {
+            ImageDialog::Closed => return,
+            ImageDialog::NewImage => OpenDialog::NewImage,
+            ImageDialog::Resize => OpenDialog::Resize,
+            ImageDialog::CanvasSize => OpenDialog::CanvasSize,
+        };
         let result = (|| -> Result<(), SettingsError> {
             let d = data.borrow();
-            let (width, height) =
-                if ui.get_image_percentage() && matches!(kind, ImageDialog::Resize) {
-                    percent_size(&d, &ui.get_image_percent_text())?
-                } else {
-                    (
-                        d.dimension(&ui.get_image_width_text())?,
-                        d.dimension(&ui.get_image_height_text())?,
-                    )
-                };
-            let resolution = if matches!(kind, ImageDialog::CanvasSize) {
+            let (width, height) = if ui.get_image_percentage() && kind == OpenDialog::Resize {
+                percent_size(&d, &ui.get_image_percent_text())?
+            } else {
+                (
+                    d.dimension(&ui.get_image_width_text())?,
+                    d.dimension(&ui.get_image_height_text())?,
+                )
+            };
+            let resolution = if kind == OpenDialog::CanvasSize {
                 d.resolution
             } else {
                 positive(&ui.get_image_resolution_text())?
@@ -301,7 +310,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
             let mut c = controller.borrow_mut();
             let secondary = c.secondary_color();
             let result = match kind {
-                ImageDialog::NewImage => {
+                OpenDialog::NewImage => {
                     if c.tabs().len() >= crate::workspace::MAX_DOCUMENTS {
                         return Err(SettingsError::DocumentLimit);
                     }
@@ -313,7 +322,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                     };
                     c.new_image(width, height, resolution, background)
                 }
-                ImageDialog::Resize => {
+                OpenDialog::Resize => {
                     let method = match ui.get_image_resampling() {
                         0 => Resampling::Bicubic,
                         1 => Resampling::BicubicSmooth,
@@ -335,7 +344,7 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                         },
                     )
                 }
-                ImageDialog::CanvasSize => {
+                OpenDialog::CanvasSize => {
                     let anchor = ui.get_image_anchor();
                     if !(0..=8).contains(&anchor) {
                         return Err(SettingsError::InvalidChoice);
@@ -355,7 +364,6 @@ pub(super) fn bind(ui: &AppWindow, state: SharedController, text: &Localizer) {
                         fill,
                     )
                 }
-                ImageDialog::Closed => return Ok(()),
             };
             result.map_err(SettingsError::Apply)?;
             ui.invoke_close_image_settings();
