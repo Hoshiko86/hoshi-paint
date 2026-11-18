@@ -1,52 +1,63 @@
 //! Workspace paint defaults and live preview styling, separate from gestures.
+use super::{BrushSettings, BrushWidth, ShapeSettings, ToolSettings};
 use super::{Controller, ControllerError, FillPattern, LineStyle, RenderOptions, Shape, ShapeMode};
-use hoshi_core::Error;
 impl Controller {
     pub fn stroke_width_pixels(&self) -> f64 {
-        self.stroke_width
+        self.settings.brush.width.get()
     }
     /// Strokes are inset inside the bounds; wide strokes can consume the fill.
     pub fn set_stroke_width_pixels(&mut self, width: f64) -> Result<(), ControllerError> {
-        if !width.is_finite() || !(0.01..=65_536.).contains(&width) {
-            return Err(Error::InvalidShape.into());
-        }
-        self.stroke_width = width;
-        self.refresh_shape_style()
+        let width = BrushWidth::new(width)?;
+        self.set_settings(ToolSettings {
+            brush: BrushSettings { width },
+            ..self.settings
+        })
     }
     pub fn antialiasing(&self) -> bool {
-        self.rendering.antialias
+        self.settings.antialias
     }
     pub fn line_style(&self) -> LineStyle {
-        self.rendering.line_style
+        self.settings.shape.line_style
     }
     pub fn fill_pattern(&self) -> FillPattern {
-        self.rendering.fill_pattern
+        self.settings.fill
     }
     pub fn set_antialiasing(&mut self, enabled: bool) -> Result<(), ControllerError> {
-        self.rendering.antialias = enabled;
-        self.refresh_shape_style()
+        self.set_settings(ToolSettings {
+            antialias: enabled,
+            ..self.settings
+        })
     }
     pub fn set_line_style(&mut self, style: LineStyle) -> Result<(), ControllerError> {
-        self.rendering.line_style = style;
-        self.refresh_shape_style()
+        self.set_settings(ToolSettings {
+            shape: ShapeSettings {
+                line_style: style,
+                ..self.settings.shape
+            },
+            ..self.settings
+        })
     }
     pub fn set_fill_pattern(&mut self, pattern: FillPattern) -> Result<(), ControllerError> {
-        self.rendering.fill_pattern = pattern;
-        self.refresh_shape_style()
+        self.set_settings(ToolSettings {
+            fill: pattern,
+            ..self.settings
+        })
     }
     pub(super) fn drawing_render_options(&self) -> RenderOptions {
         let (primary, secondary) = if self.edit_state.secondary_colors {
-            (self.secondary_color, self.primary_color)
+            (self.colors.secondary, self.colors.primary)
         } else {
-            (self.primary_color, self.secondary_color)
+            (self.colors.primary, self.colors.secondary)
         };
         RenderOptions {
-            pattern_color: if self.shape_mode == ShapeMode::Both {
+            pattern_color: if self.settings.shape.mode == ShapeMode::Both {
                 primary
             } else {
                 secondary
             },
-            ..self.rendering
+            antialias: self.settings.antialias,
+            line_style: self.settings.shape.line_style,
+            fill_pattern: self.settings.fill,
         }
     }
     pub(super) fn create_shape(&self, x: i32, y: i32, width: u32, height: u32) -> Shape {

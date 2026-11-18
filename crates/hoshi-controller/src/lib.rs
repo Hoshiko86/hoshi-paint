@@ -22,6 +22,9 @@ pub use hoshi_core::geometry::ResizeHandle;
 pub use input::{EditCursor, InputModifiers, PointerButton};
 pub use preview::PreviewImage;
 pub use tool_id::ToolId;
+pub use tools::settings::{
+    BrushSettings, BrushWidth, ColorSlot, ColorState, ShapeMode, ShapeSettings, ToolSettings,
+};
 use tools::{
     PointerInput, ToolCx, ToolState,
     pan::PanTool,
@@ -34,19 +37,6 @@ pub use hoshi_core::{
     RenderOptions, Resampling, ResizeOptions, ShapeStyle,
 };
 use hoshi_core::{Document, DocumentSnapshot, Error, Shape, ShapeKind};
-
-/// Drawing style retained for the next shape as well as the active preview.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ShapeMode {
-    Fill,
-    Outline,
-    Both,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ColorSlot {
-    Primary,
-    Secondary,
-}
 
 pub const MAX_LAYER_NAME_CHARS: usize = 128;
 const MAX_VIEW_OFFSET: f64 = 1_000_000_000.0;
@@ -120,12 +110,8 @@ pub struct Controller {
     viewport: Viewport,
     tool: Tool,
     drag: Option<ActiveDrag>,
-    primary_color: Color,
-    secondary_color: Color,
-    color_slot: ColorSlot,
-    shape_mode: ShapeMode,
-    stroke_width: f64,
-    rendering: RenderOptions,
+    settings: ToolSettings,
+    colors: ColorState,
     modifiers: InputModifiers,
     edit_state: EditState,
     shape_kind: ShapeKind,
@@ -146,12 +132,8 @@ impl Controller {
             viewport: Viewport::default(),
             tool: Tool::Rectangle,
             drag: None,
-            primary_color: Color::rgba(0, 0, 0, 255),
-            secondary_color: Color::rgba(255, 255, 255, 255),
-            color_slot: ColorSlot::Primary,
-            shape_mode: ShapeMode::Fill,
-            stroke_width: 2.,
-            rendering: RenderOptions::default(),
+            settings: ToolSettings::default(),
+            colors: ColorState::default(),
             modifiers: InputModifiers::default(),
             edit_state: EditState::default(),
             shape_kind: ShapeKind::Rectangle,
@@ -190,13 +172,10 @@ impl Controller {
         self.tool
     }
     pub fn primary_color(&self) -> Color {
-        self.primary_color
+        self.colors.primary
     }
     pub fn selected_color(&self) -> Color {
-        match self.color_slot {
-            ColorSlot::Primary => self.primary_color,
-            ColorSlot::Secondary => self.secondary_color,
-        }
+        self.colors.selected()
     }
     pub fn is_dragging(&self) -> bool {
         self.drag.is_some()
@@ -459,37 +438,37 @@ impl Controller {
     }
 
     pub fn color_slot(&self) -> ColorSlot {
-        self.color_slot
+        self.colors.slot
     }
     pub fn secondary_color(&self) -> Color {
-        self.secondary_color
+        self.colors.secondary
     }
     pub fn shape_mode(&self) -> ShapeMode {
-        self.shape_mode
+        self.settings.shape.mode
     }
     pub fn stroke_width(&self) -> u32 {
-        self.stroke_width.ceil() as u32
+        self.settings.brush.width.get().ceil() as u32
     }
     pub fn set_color_slot(&mut self, target: ColorSlot) {
-        self.color_slot = target;
+        self.colors.slot = target;
     }
 
     fn drawing_style(&self) -> ShapeStyle {
         let (primary, secondary) = if self.edit_state.secondary_colors {
-            (self.secondary_color, self.primary_color)
+            (self.colors.secondary, self.colors.primary)
         } else {
-            (self.primary_color, self.secondary_color)
+            (self.colors.primary, self.colors.secondary)
         };
-        match self.shape_mode {
+        match self.settings.shape.mode {
             ShapeMode::Fill => ShapeStyle::Fill(primary),
             ShapeMode::Outline => ShapeStyle::Outline {
                 color: primary,
-                width: self.stroke_width,
+                width: self.settings.brush.width.get(),
             },
             ShapeMode::Both => ShapeStyle::Both {
                 fill: secondary,
                 outline: primary,
-                width: self.stroke_width,
+                width: self.settings.brush.width.get(),
             },
         }
     }
@@ -504,8 +483,13 @@ impl Controller {
     }
 
     pub fn set_shape_mode(&mut self, mode: ShapeMode) -> Result<(), ControllerError> {
-        self.shape_mode = mode;
-        self.refresh_shape_style()
+        self.set_settings(ToolSettings {
+            shape: ShapeSettings {
+                mode,
+                ..self.settings.shape
+            },
+            ..self.settings
+        })
     }
 
     /// Integer compatibility adapter; decimal-aware callers use set_stroke_width_pixels.
@@ -515,29 +499,58 @@ impl Controller {
 
     /// Set Primary regardless of which workspace slot is selected.
     pub fn set_primary_color(&mut self, color: Color) -> Result<(), ControllerError> {
-        self.primary_color = color;
-        self.refresh_shape_style()
+        self.set_colors(ColorState {
+            primary: color,
+            ..self.colors
+        })
     }
     pub fn set_secondary_color(&mut self, color: Color) -> Result<(), ControllerError> {
-        self.secondary_color = color;
-        self.refresh_shape_style()
+        self.set_colors(ColorState {
+            secondary: color,
+            ..self.colors
+        })
     }
     pub fn swap_colors(&mut self) -> Result<(), ControllerError> {
-        std::mem::swap(&mut self.primary_color, &mut self.secondary_color);
-        self.refresh_shape_style()
+        self.set_colors(self.colors.swapped())
     }
     pub fn reset_colors(&mut self) -> Result<(), ControllerError> {
-        self.primary_color = Color::rgba(0, 0, 0, 255);
-        self.secondary_color = Color::rgba(255, 255, 255, 255);
-        self.refresh_shape_style()
+        self.set_colors(ColorState {
+            slot: self.colors.slot,
+            ..ColorState::default()
+        })
     }
     /// Color inputs and sampling edit this slot without changing tool semantics.
     pub fn set_selected_color(&mut self, color: Color) -> Result<(), ControllerError> {
-        match self.color_slot {
-            ColorSlot::Primary => self.primary_color = color,
-            ColorSlot::Secondary => self.secondary_color = color,
+        let mut colors = self.colors;
+        colors.set_selected(color);
+        self.set_colors(colors)
+    }
+
+    /// Return the validated shared toolbar values.
+    pub fn settings(&self) -> ToolSettings {
+        self.settings
+    }
+    /// Restyle the preview, restoring toolbar values if adjustment fails.
+    pub fn set_settings(&mut self, settings: ToolSettings) -> Result<(), ControllerError> {
+        let previous = std::mem::replace(&mut self.settings, settings);
+        if let Err(error) = self.refresh_shape_style() {
+            self.settings = previous;
+            return Err(error);
         }
-        self.refresh_shape_style()
+        Ok(())
+    }
+    /// Return the independent workspace color state.
+    pub fn colors(&self) -> ColorState {
+        self.colors
+    }
+    /// Recolor the preview, restoring colors if adjustment fails.
+    pub fn set_colors(&mut self, colors: ColorState) -> Result<(), ControllerError> {
+        let previous = std::mem::replace(&mut self.colors, colors);
+        if let Err(error) = self.refresh_shape_style() {
+            self.colors = previous;
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub fn flatten_for_export(&mut self, matte: Option<Color>) -> Result<(), ControllerError> {

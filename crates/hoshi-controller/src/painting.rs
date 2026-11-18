@@ -11,7 +11,7 @@ impl Controller {
 
     /// Set the shared outline width after validating the circular brush limits.
     pub fn set_brush_width(&mut self, width: f64) -> Result<(), ControllerError> {
-        BrushTip::new(width, self.rendering.antialias)?;
+        BrushTip::new(width, self.settings.antialias)?;
         self.set_stroke_width_pixels(width)
     }
 
@@ -21,13 +21,13 @@ impl Controller {
         button: PointerButton,
     ) -> Result<(), ControllerError> {
         self.commit()?;
-        let tip = BrushTip::new(self.brush_width(), self.rendering.antialias)?;
+        let tip = BrushTip::new(self.brush_width(), self.settings.antialias)?;
         let blend = if self.tool == Tool::Eraser {
             StrokeBlend::Erase
         } else {
             StrokeBlend::Paint(match button {
-                PointerButton::Primary => self.primary_color,
-                PointerButton::Secondary => self.secondary_color,
+                PointerButton::Primary => self.colors.primary,
+                PointerButton::Secondary => self.colors.secondary,
             })
         };
         self.begin_tool(

@@ -1,4 +1,5 @@
 //! Narrow tool capabilities and behavior, introduced one tool at a time.
+pub(crate) mod settings;
 use super::{ControllerError, InputModifiers, Viewport};
 use hoshi_core::{Document, Shape, geometry::Point};
 
