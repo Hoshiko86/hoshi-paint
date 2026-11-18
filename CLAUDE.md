@@ -88,7 +88,7 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
   #N merges" banner, and don't assign it to Codex. On every PR refresh: when
   #N has merged, re-check the issue's file refs, then drop the label and banner.
-- Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
+- Workflow: Codex gets "Implement issue #N"; fixes via a forwarded prompt (below).
 - Issues never quote coverage numbers: write "coverage floors pass
   (`cargo xtask test coverage`)"; floors live in `xtask/src/coverage.rs`.
 - Next (after #146): drop `Deref` caller file by file (`empty` carries
