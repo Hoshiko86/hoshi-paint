@@ -1,4 +1,5 @@
 //! Validated shared toolbar values and independent workspace colors.
+use super::color_picker::PickerSettings;
 use hoshi_core::{Color, Error, FillPattern, LineStyle};
 
 /// Drawing style retained for the next shape as well as the active preview.
@@ -63,6 +64,8 @@ pub struct ToolSettings {
     pub antialias: bool,
     /// Shape options.
     pub shape: ShapeSettings,
+    /// Canvas Color Picker options.
+    pub picker: PickerSettings,
 }
 impl Default for ToolSettings {
     fn default() -> Self {
@@ -72,6 +75,7 @@ impl Default for ToolSettings {
             },
             fill: FillPattern::Solid,
             antialias: true,
+            picker: PickerSettings::default(),
             shape: ShapeSettings {
                 mode: ShapeMode::Fill,
                 line_style: LineStyle::Solid,

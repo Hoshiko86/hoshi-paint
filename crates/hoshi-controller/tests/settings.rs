@@ -10,6 +10,7 @@ fn custom_settings() -> ToolSettings {
         },
         fill: FillPattern::Cross,
         antialias: false,
+        picker: hoshi_controller::PickerSettings::default(),
         shape: ShapeSettings {
             mode: ShapeMode::Both,
             line_style: LineStyle::Dash,

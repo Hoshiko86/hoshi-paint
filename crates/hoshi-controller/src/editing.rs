@@ -245,8 +245,12 @@ impl Controller {
             Tool::MoveShape => return Err(ControllerError::NoActiveShape),
             Tool::Pan => self.begin_pan(PointerInput { x, y }, false)?,
             Tool::Eyedropper => {
-                self.sample_snapshot =
-                    Some((self.document.snapshot(), self.document.active_shape()));
+                self.pick = Some(crate::tools::color_picker::ColorPick::new(
+                    &self.document,
+                    self.settings.picker,
+                    self.modifiers.control,
+                    button,
+                ));
                 self.sample_color(p)?;
                 self.begin_gesture(Gesture::Sample)
             }
