@@ -25,6 +25,7 @@ mod palette_store;
 mod panel_lifecycle;
 mod rectangle_editing;
 mod resampling;
+mod save_failures;
 mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
