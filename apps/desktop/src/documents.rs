@@ -159,6 +159,10 @@ impl Manager {
         };
         self.advance(ui);
     }
+    fn begin_all(&self, ui: &AppWindow, goal: Goal) {
+        let ids = self.state.borrow().tabs().iter().map(|t| t.id).collect();
+        self.begin(ui, goal, ids);
+    }
     fn advance(&self, ui: &AppWindow) {
         loop {
             let (goal, id) = {
@@ -345,7 +349,8 @@ impl Manager {
                     self.open(ui, paths)
                 }
             }
-            FileAction::Save | FileAction::SaveAs => self.save(ui, action == FileAction::SaveAs),
+            FileAction::Save => self.save(ui, false),
+            FileAction::SaveAs => self.save(ui, true),
             FileAction::SaveAll => {
                 let ids = self
                     .state
@@ -363,18 +368,8 @@ impl Manager {
                     self.begin(ui, Goal::Close, vec![id])
                 }
             }
-            FileAction::CloseAll | FileAction::Exit => {
-                let ids = self.state.borrow().tabs().iter().map(|t| t.id).collect();
-                self.begin(
-                    ui,
-                    if action == FileAction::Exit {
-                        Goal::Exit
-                    } else {
-                        Goal::Close
-                    },
-                    ids,
-                )
-            }
+            FileAction::CloseAll => self.begin_all(ui, Goal::Close),
+            FileAction::Exit => self.begin_all(ui, Goal::Exit),
             FileAction::New => ui.invoke_show_image_settings(crate::ImageDialog::NewImage),
         }
     }
