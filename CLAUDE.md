@@ -111,9 +111,12 @@ Blocking:
 Follow-up (non-blocking): naming, fn length, missing doc comments, test gaps.
 
 Nits are fixed in the PR, not filed (owner, 2026-11-18):
-- Follow-ups in files the PR already changes → one consolidated `@codex`
-  review comment listing them all; Codex fixes them on the same branch; re-check,
-  then merge. One round per PR.
+- Follow-ups in files the PR already changes → one paste-ready Codex prompt
+  (branch, `file:line`, fix) in the review reply; the owner forwards it; Codex
+  fixes on the same branch; re-check, then merge. One round per PR. Batch
+  several PRs' nits into one prompt.
+- Don't post `@codex` fix requests on PRs: anything but `@codex review` routes
+  to legacy Codex Cloud, which can't see our environment (2026-11-18).
 - Findings outside the PR's files → an issue only if it is a real defect or
   blocks planned work; otherwise add a line to that area's open `Polish:` issue.
 
