@@ -1,4 +1,5 @@
-use hoshi_core::{Color, Document, MAX_DIMENSION, PixelStore, Shape, ShapeKind, ShapeStyle};
+use crate::support::{layered, noise};
+use hoshi_core::{Color, Document, MAX_DIMENSION};
 use hoshi_desktop::{
     files::{self, FileError, FileFormat},
     workspace::Workspace,
@@ -36,67 +37,6 @@ fn chunks(bytes: &[u8]) -> Vec<(usize, u32, [u8; 4])> {
         offset += 12 + len as usize;
     }
     result
-}
-
-fn noise(width: u32, height: u32) -> Vec<u8> {
-    (0..height)
-        .flat_map(|y| {
-            (0..width).flat_map(move |x| {
-                [
-                    (x * 17 + y * 11) as u8,
-                    (x * 7 + y * 23) as u8,
-                    ((x >> 4) ^ (y >> 3)) as u8,
-                    if (x + y).is_multiple_of(7) { 0 } else { 173 },
-                ]
-            })
-        })
-        .collect()
-}
-
-fn layered() -> Document {
-    let mut pixels = PixelStore::new(64, 48, Color::TRANSPARENT);
-    for (i, rgba) in noise(64, 48).as_chunks::<4>().0.iter().enumerate() {
-        pixels
-            .set(
-                i as u32 % 64,
-                i as u32 / 64,
-                Color::rgba(rgba[0], rgba[1], rgba[2], rgba[3]),
-            )
-            .unwrap();
-    }
-    let mut document = Document::from_pixels(64, 48, 144.125, pixels).unwrap();
-    document.add_layer("Ellipse").unwrap();
-    let mut shape = Shape {
-        kind: ShapeKind::Ellipse,
-        x: 12,
-        y: 9,
-        width: 31,
-        height: 23,
-        rotation_degrees: 27,
-        flip_horizontal: false,
-        flip_vertical: false,
-        rendering: hoshi_core::RenderOptions {
-            antialias: true,
-            ..Default::default()
-        },
-        style: ShapeStyle::Fill(Color::rgba(40, 170, 220, 200)),
-    };
-    document.begin_shape(shape).unwrap();
-    document.commit_shape().unwrap();
-    document.set_layer_properties(1, true, 128).unwrap();
-    document.add_layer("Hidden rectangle").unwrap();
-    shape.kind = ShapeKind::Rectangle;
-    shape.x = 4;
-    shape.y = 5;
-    shape.width = 8;
-    shape.height = 7;
-    shape.rotation_degrees = 0;
-    shape.rendering.antialias = false;
-    shape.style = ShapeStyle::Fill(Color::rgba(255, 0, 0, 255));
-    document.begin_shape(shape).unwrap();
-    document.commit_shape().unwrap();
-    document.set_layer_properties(2, false, 255).unwrap();
-    document
 }
 
 fn assert_pixels(
@@ -247,17 +187,29 @@ fn png_with_a_bad_crc_is_rejected() {
         png::BitDepth::Eight,
         &noise(64, 64),
     );
-    let (offset, _, _) = chunks(&bytes)
+    let idat: Vec<_> = chunks(&bytes)
         .into_iter()
-        .find(|(_, _, kind)| kind == b"IDAT")
-        .unwrap();
-    for index in [29, offset + 8] {
+        .filter(|(_, _, kind)| kind == b"IDAT")
+        .collect();
+    assert_eq!(idat.len(), 1);
+    let (offset, len, _) = idat[0];
+    // The last Adler-32 byte is ignored by png by default; only the chunk CRC rejects it.
+    let idat_last_byte = offset + 8 + len as usize - 1;
+    for index in [29, idat_last_byte] {
         let mut corrupted = bytes.clone();
         corrupted[index] ^= 1;
         assert!(matches!(
             load_bytes(&corrupted),
             Err(FileError::PngDecode(_))
         ));
+        if index == idat_last_byte {
+            let mut decoder = png::Decoder::new(std::io::Cursor::new(&corrupted));
+            decoder.ignore_checksums(true);
+            let mut reader = decoder.read_info().unwrap();
+            let mut output = vec![0; reader.output_buffer_size().unwrap()];
+            let info = reader.next_frame(&mut output).unwrap();
+            assert_eq!(&output[..info.buffer_size()], noise(64, 64));
+        }
     }
 }
 

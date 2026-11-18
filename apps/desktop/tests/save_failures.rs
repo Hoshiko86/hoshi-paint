@@ -1,37 +1,12 @@
+use crate::support::{layered, run_isolated};
 use hoshi_core::{
-    Color, Document, MemoryReservation, PixelStore, ProjectError, RenderOptions, Shape, ShapeKind,
-    ShapeStyle, memory_budget, memory_usage,
+    Color, Document, MemoryReservation, PixelStore, ProjectError, memory_budget, memory_usage,
 };
 use hoshi_desktop::{
     files::{self, FileError, FileFormat},
     workspace::{Workspace, WorkspaceError},
 };
-use std::{ffi::OsString, fs, path::Path, process::Command};
-
-/// Copied from crates/hoshi-controller/tests/support/mod.rs: isolate the global memory budget.
-fn run_isolated(test_name: &str, body: impl FnOnce()) {
-    const ISOLATED_TEST: &str = "HOSHI_ISOLATED_TEST";
-    if std::env::var(ISOLATED_TEST).as_deref() == Ok(test_name) {
-        body();
-        return;
-    }
-    let exe = std::env::current_exe().expect("test binary path");
-    let output = Command::new(exe)
-        .args(["--exact", test_name, "--test-threads=1"])
-        .env(ISOLATED_TEST, test_name)
-        .output()
-        .expect("spawn isolated test");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        output.status.success(),
-        "isolated test `{test_name}` failed:\n{stdout}\n{stderr}"
-    );
-    assert!(
-        stdout.lines().any(|line| line.trim() == "running 1 test"),
-        "isolated run of `{test_name}` ran no test; is the name wrong?\n{stdout}"
-    );
-}
+use std::{ffi::OsString, fs, path::Path};
 
 fn entries(dir: &Path) -> Vec<OsString> {
     let mut names: Vec<_> = fs::read_dir(dir)
@@ -40,47 +15,6 @@ fn entries(dir: &Path) -> Vec<OsString> {
         .collect();
     names.sort();
     names
-}
-
-fn layered() -> Document {
-    let pixels = (0..64 * 48)
-        .map(|i| {
-            Color::rgba(
-                (i % 251) as u8,
-                (i % 197) as u8,
-                83,
-                if i % 7 == 0 { 0 } else { 255 },
-            )
-        })
-        .collect();
-    let mut document =
-        Document::from_pixels(64, 48, 96., PixelStore::from_vec(64, 48, pixels).unwrap()).unwrap();
-    document.add_layer("Ellipse").unwrap();
-    let mut shape = Shape {
-        kind: ShapeKind::Ellipse,
-        x: 7,
-        y: 5,
-        width: 39,
-        height: 27,
-        rotation_degrees: 23,
-        flip_horizontal: false,
-        flip_vertical: false,
-        rendering: RenderOptions {
-            antialias: true,
-            ..Default::default()
-        },
-        style: ShapeStyle::Fill(Color::rgba(31, 173, 219, 200)),
-    };
-    document.begin_shape(shape).unwrap();
-    document.commit_shape().unwrap();
-    document.set_layer_properties(1, true, 128).unwrap();
-    document.add_layer("Hidden red").unwrap();
-    shape.kind = ShapeKind::Rectangle;
-    shape.style = ShapeStyle::Fill(Color::rgba(255, 0, 0, 255));
-    document.begin_shape(shape).unwrap();
-    document.commit_shape().unwrap();
-    document.set_layer_properties(2, false, 255).unwrap();
-    document
 }
 
 #[test]
