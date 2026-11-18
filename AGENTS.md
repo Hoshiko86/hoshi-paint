@@ -126,6 +126,15 @@ for one `cargo build`, then confirm the `--locked` commands pass.
 Do not `#[allow(...)]` a clippy lint, `#[ignore]` a test, or delete a test to
 get green. If something won't pass, stop and report the exact error.
 
+## 3a. Review rounds
+
+Before merge, the reviewer may list follow-up nits in files your PR already
+changes; the owner forwards them to you as a task on the PR branch. Fix them
+on that same branch (same scope rules: no new files, no behavior change unless
+the list says so), rerun the §3 commands, and report what you changed. Don't
+open a new issue or PR for them. If a nit would need a file outside the PR,
+say so and skip it.
+
 ## 4. Finish report (keep it short)
 
 1. Files changed (should match the task).

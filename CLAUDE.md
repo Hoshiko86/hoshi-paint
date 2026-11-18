@@ -88,7 +88,7 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
   #N merges" banner, and don't assign it to Codex. On every PR refresh: when
   #N has merged, re-check the issue's file refs, then drop the label and banner.
-- Workflow: Codex gets "Implement issue #N"; fixes via `@codex` on the PR.
+- Workflow: Codex gets "Implement issue #N"; fixes via a forwarded prompt (below).
 - Issues never quote coverage numbers: write "coverage floors pass
   (`cargo xtask test coverage`)"; floors live in `xtask/src/coverage.rs`.
 - Next (after #146): drop `Deref` caller file by file (`empty` carries
@@ -109,5 +109,15 @@ Blocking:
 - [ ] fmt / clippy `-D warnings` / tests green on CI (all 3 OSes).
 
 Follow-up (non-blocking): naming, fn length, missing doc comments, test gaps.
+
+Nits are fixed in the PR, not filed (owner, 2026-11-18):
+- Follow-ups in files the PR already changes → one paste-ready Codex prompt
+  (branch, `file:line`, fix) in the review reply; the owner forwards it; Codex
+  fixes on the same branch; re-check, then merge. One round per PR. Batch
+  several PRs' nits into one prompt.
+- Don't post `@codex` fix requests on PRs: anything but `@codex review` routes
+  to legacy Codex Cloud, which can't see our environment (2026-11-18).
+- Findings outside the PR's files → an issue only if it is a real defect or
+  blocks planned work; otherwise add a line to that area's open `Polish:` issue.
 
 Review output: findings only, `file:line`, scenario → fix, label blocking/follow-up.
