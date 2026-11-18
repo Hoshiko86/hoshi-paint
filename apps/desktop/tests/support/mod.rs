@@ -12,9 +12,10 @@ const ISOLATED_TEST: &str = "HOSHI_ISOLATED_TEST";
 ///
 /// Call it as the whole test body, with `test_name` equal to the test's full
 /// libtest name: its module (the file under `tests/`) and function, such as
-/// `save_failures::png_save_failing_after_the_temp_file_keeps_destination_tab_and_history`. The
-/// parent re-runs this test binary with `--exact test_name` and asserts the child ran exactly one test, so a renamed test
-/// or a typo fails instead of passing without running `body`.
+/// `save_failures::png_save_failing_after_the_temp_file_keeps_destination_tab_and_history`.
+/// The parent re-runs this test binary with `--exact test_name` and asserts the
+/// child ran exactly one test, so a renamed test or a typo fails instead of
+/// passing without running `body`.
 pub fn run_isolated(test_name: &str, body: impl FnOnce()) {
     if std::env::var(ISOLATED_TEST).as_deref() == Ok(test_name) {
         body();
