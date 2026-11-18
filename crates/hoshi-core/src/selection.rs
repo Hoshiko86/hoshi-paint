@@ -7,7 +7,7 @@
 use crate::geometry::{Affine, Frame};
 use crate::mask::MaskStore;
 use crate::polygon::{BoolOp, PolygonSet};
-use crate::{Error, MemoryReservation};
+use crate::{Error, MAX_DIMENSION, MemoryReservation};
 
 /// Boolean operation applied to the previous selection and a new shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +69,16 @@ pub(crate) struct Selection {
     _reservation: MemoryReservation,
 }
 
+/// An oriented non-horizontal contour edge and its active vertical interval.
+struct EdgeEntry {
+    a: (f64, f64),
+    b: (f64, f64),
+    min_y: f64,
+    max_y: f64,
+}
+
+type ActiveEntry<'a> = &'a EdgeEntry;
+
 impl Selection {
     /// Returns a new selection without mutating the borrowed previous value on failure.
     pub(crate) fn combine(
@@ -77,6 +87,9 @@ impl Selection {
         mode: CombineMode,
         canvas: (u32, u32),
     ) -> Result<Option<Self>, Error> {
+        if canvas.0 == 0 || canvas.1 == 0 || canvas.0 > MAX_DIMENSION || canvas.1 > MAX_DIMENSION {
+            return Err(Error::InvalidShape);
+        }
         if prev.is_some_and(|prev| prev.canvas != canvas) {
             return Err(Error::InvalidShape);
         }
@@ -169,23 +182,35 @@ impl Selection {
             ClipQuality::Aliased => 1,
             ClipQuality::Antialiased => 4,
         };
-        let mut crossings = Vec::new();
-        let edges = self.contours().try_fold(0_usize, |count, contour| {
-            count.checked_add(contour.len()).ok_or(Error::MemoryLimit)
+        let edges = self.edges().filter(|(a, b)| a.1 != b.1).count();
+        let width = (right - left) as usize;
+        let bytes = [
+            std::mem::size_of::<EdgeEntry>(),
+            std::mem::size_of::<ActiveEntry<'_>>(),
+            std::mem::size_of::<(f64, i64)>(),
+        ]
+        .into_iter()
+        .try_fold(width, |bytes, size| {
+            edges
+                .checked_mul(size)
+                .and_then(|size| bytes.checked_add(size))
+                .ok_or(Error::MemoryLimit)
         })?;
-        crossings
-            .try_reserve(edges)
-            .map_err(|_| Error::MemoryLimit)?;
-        let mut counts = Vec::new();
-        counts
-            .try_reserve_exact((right - left) as usize)
-            .map_err(|_| Error::MemoryLimit)?;
-        counts.resize((right - left) as usize, 0_u8);
+        let _scratch =
+            MemoryReservation::new(u64::try_from(bytes).map_err(|_| Error::MemoryLimit)?)?;
+        let table = self.edge_table(edges)?;
+        let mut pending = table.as_slice();
+        let mut active = scratch_vec(edges)?;
+        let mut crossings = scratch_vec(edges)?;
+        let mut counts = scratch_vec(width)?;
+        counts.resize(width, 0_u8);
         for y in top..bottom {
             counts.fill(0);
             for sy in 0..samples {
-                self.crossings(
+                Self::crossings(
                     f64::from(y) + (f64::from(sy) + 0.5) / f64::from(samples),
+                    &mut pending,
+                    &mut active,
                     &mut crossings,
                 );
                 count_spans(&crossings, samples, left, right, &mut counts);
@@ -200,24 +225,65 @@ impl Selection {
         Ok(mask)
     }
 
-    fn crossings(&self, y: f64, crossings: &mut Vec<(f64, i64)>) {
-        crossings.clear();
-        for contour in self.contours() {
-            for (&a, &b) in contour
+    /// Iterates every closed contour edge in its original traversal direction.
+    fn edges(&self) -> impl Iterator<Item = ((f64, f64), (f64, f64))> {
+        self.contours().flat_map(|contour| {
+            contour
                 .iter()
-                .zip(contour.iter().cycle().skip(1))
+                .copied()
+                .zip(contour.iter().copied().cycle().skip(1))
                 .take(contour.len())
-            {
-                if (a.1 <= y && b.1 > y) || (b.1 <= y && a.1 > y) {
-                    crossings.push((
-                        a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1),
-                        if b.1 > a.1 { 1 } else { -1 },
-                    ));
-                }
+        })
+    }
+
+    /// Reserves non-horizontal edges once and sorts them by their minimum height.
+    fn edge_table(&self, capacity: usize) -> Result<Vec<EdgeEntry>, Error> {
+        let mut table = scratch_vec(capacity)?;
+        for (a, b) in self.edges().filter(|(a, b)| a.1 != b.1) {
+            table.push(EdgeEntry {
+                a,
+                b,
+                min_y: a.1.min(b.1),
+                max_y: a.1.max(b.1),
+            });
+        }
+        table.sort_unstable_by(|l, r| l.min_y.total_cmp(&r.min_y));
+        Ok(table)
+    }
+
+    fn crossings<'a>(
+        y: f64,
+        pending: &mut &'a [EdgeEntry],
+        active: &mut Vec<ActiveEntry<'a>>,
+        crossings: &mut Vec<(f64, i64)>,
+    ) {
+        while let Some((edge, rest)) = pending.split_first() {
+            if edge.min_y > y {
+                break;
             }
+            active.push(edge);
+            *pending = rest;
+        }
+        active.retain(|edge| edge.max_y > y);
+        crossings.clear();
+        for edge in active {
+            let (a, b) = (edge.a, edge.b);
+            crossings.push((
+                a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1),
+                if b.1 > a.1 { 1 } else { -1 },
+            ));
         }
         crossings.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
     }
+}
+
+/// Allocates an empty scratch buffer with a fallible exact reservation.
+fn scratch_vec<T>(capacity: usize) -> Result<Vec<T>, Error> {
+    let mut buffer = Vec::new();
+    buffer
+        .try_reserve_exact(capacity)
+        .map_err(|_| Error::MemoryLimit)?;
+    Ok(buffer)
 }
 
 fn count_spans(crossings: &[(f64, i64)], samples: u32, left: u32, right: u32, counts: &mut [u8]) {
@@ -506,9 +572,9 @@ mod tests {
     fn antialiased_sample_indices_support_wide_canvases() {
         let selection = Selection::combine(
             None,
-            rect(f64::from(u32::MAX) - 1024.0, 2.0, 128.0, 8.0),
+            rect(f64::from(MAX_DIMENSION) - 1024.0, 2.0, 128.0, 8.0),
             CombineMode::Replace,
-            (u32::MAX, 16),
+            (MAX_DIMENSION, 16),
         )
         .unwrap()
         .unwrap();
@@ -644,5 +710,209 @@ mod tests {
             assert_eq!(original.bounds(), identity.bounds());
             assert!(original.contours().eq(identity.contours()));
         }
+    }
+
+    fn reference_mask(selection: &Selection, q: ClipQuality) -> MaskStore {
+        fn build(selection: &Selection, q: ClipQuality) -> Result<MaskStore, Error> {
+            let mut mask = MaskStore::new(selection.canvas.0, selection.canvas.1, 0);
+            let (left, top, right, bottom) = selection.bounds;
+            let samples = match q {
+                ClipQuality::Aliased => 1,
+                ClipQuality::Antialiased => 4,
+            };
+            let mut crossings = Vec::new();
+            let edges = selection.contours().try_fold(0_usize, |count, contour| {
+                count.checked_add(contour.len()).ok_or(Error::MemoryLimit)
+            })?;
+            crossings
+                .try_reserve(edges)
+                .map_err(|_| Error::MemoryLimit)?;
+            let mut counts = Vec::new();
+            counts
+                .try_reserve_exact((right - left) as usize)
+                .map_err(|_| Error::MemoryLimit)?;
+            counts.resize((right - left) as usize, 0_u8);
+            for y in top..bottom {
+                counts.fill(0);
+                for sy in 0..samples {
+                    reference_crossings(
+                        selection,
+                        f64::from(y) + (f64::from(sy) + 0.5) / f64::from(samples),
+                        &mut crossings,
+                    );
+                    count_spans(&crossings, samples, left, right, &mut counts);
+                }
+                for (x, &count) in (left..right).zip(&counts) {
+                    if count != 0 {
+                        let total = samples * samples;
+                        mask.set_max(x, y, ((u32::from(count) * 255 + total / 2) / total) as u8)?;
+                    }
+                }
+            }
+            Ok(mask)
+        }
+
+        build(selection, q).unwrap()
+    }
+
+    fn reference_crossings(selection: &Selection, y: f64, crossings: &mut Vec<(f64, i64)>) {
+        crossings.clear();
+        for contour in selection.contours() {
+            for (&a, &b) in contour
+                .iter()
+                .zip(contour.iter().cycle().skip(1))
+                .take(contour.len())
+            {
+                if (a.1 <= y && b.1 > y) || (b.1 <= y && a.1 > y) {
+                    crossings.push((
+                        a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1),
+                        if b.1 > a.1 { 1 } else { -1 },
+                    ));
+                }
+            }
+        }
+        crossings.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+    }
+
+    #[test]
+    fn active_edge_masks_match_the_original_scanline_for_every_pixel() {
+        let outer = select(SelectionShape::Lasso(&[
+            (1.1, 1.3),
+            (13.2, 2.1),
+            (12.4, 14.2),
+            (2.2, 12.7),
+        ]));
+        let hole = Selection::combine(
+            Some(&outer),
+            rect(4.1, 4.3, 4.7, 4.4),
+            CombineMode::Exclude,
+            CANVAS,
+        )
+        .unwrap()
+        .unwrap();
+        let bowtie = select(SelectionShape::Lasso(&[
+            (1.0, 1.0),
+            (9.0, 9.0),
+            (1.0, 9.0),
+            (9.0, 1.0),
+        ]));
+        for selection in [
+            select(SelectionShape::Ellipse(ellipse())),
+            select(rect(1.3, 2.2, 8.4, 7.7)),
+            hole,
+            bowtie,
+        ] {
+            for quality in [ClipQuality::Aliased, ClipQuality::Antialiased] {
+                let mask = selection.mask(quality).unwrap();
+                let reference = reference_mask(&selection, quality);
+                for y in 0..CANVAS.1 {
+                    for x in 0..CANVAS.0 {
+                        assert_eq!(
+                            mask.get(x, y),
+                            reference.get(x, y),
+                            "{quality:?} at {x},{y}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_canvas_sizes_fail_without_changing_the_previous_selection() {
+        let previous = select(rect(1.0, 1.0, 3.0, 3.0));
+        let contours: Vec<_> = previous.contours().map(<[_]>::to_vec).collect();
+        for canvas in [
+            (0, 16),
+            (16, 0),
+            (crate::MAX_DIMENSION + 1, 16),
+            (16, crate::MAX_DIMENSION + 1),
+        ] {
+            for prev in [None, Some(&previous)] {
+                assert!(matches!(
+                    Selection::combine(
+                        prev,
+                        rect(1.0, 1.0, 2.0, 2.0),
+                        CombineMode::Replace,
+                        canvas
+                    ),
+                    Err(Error::InvalidShape)
+                ));
+            }
+            assert_eq!(previous.bounds(), (1, 1, 4, 4));
+            assert!(previous.contours().eq(contours.iter().map(Vec::as_slice)));
+        }
+        let maximum = Selection::combine(
+            None,
+            rect(1.0, 1.0, 3.0, 3.0),
+            CombineMode::Replace,
+            (crate::MAX_DIMENSION, crate::MAX_DIMENSION),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(maximum.bounds(), (1, 1, 4, 4));
+        assert_eq!(maximum.mask(ClipQuality::Aliased).unwrap().get(2, 2), 255);
+    }
+
+    #[test]
+    fn mask_scratch_is_budgeted_and_released() {
+        const CHILD: &str = "HOSHI_SELECTION_SCRATCH_BUDGET_TEST";
+        if std::env::var_os(CHILD).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "selection::tests::mask_scratch_is_budgeted_and_released",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(output.status.success(), "{stdout}\n{stderr}");
+            assert!(
+                stdout.lines().any(|line| line.trim() == "running 1 test"),
+                "{stdout}"
+            );
+            return;
+        }
+        let mut points: Vec<_> = (0..=2048)
+            .map(|i| {
+                (
+                    1.0 + f64::from(i) * 0.05,
+                    if i % 2 == 0 { 1.0 } else { 1.05 },
+                )
+            })
+            .collect();
+        points.extend([(103.4, 100.0), (1.0, 100.0)]);
+        let selection = Selection::combine(
+            None,
+            SelectionShape::Lasso(&points),
+            CombineMode::Replace,
+            (128, 128),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(selection.contours().map(<[_]>::len).sum::<usize>() >= 2048);
+        let small = Selection::combine(
+            None,
+            rect(1.0, 1.0, 3.0, 3.0),
+            CombineMode::Replace,
+            (128, 128),
+        )
+        .unwrap()
+        .unwrap();
+        let baseline = crate::memory_usage();
+        crate::configure_memory_budget(baseline + 16_384 + 1_024).unwrap();
+        assert!(matches!(
+            selection.mask(ClipQuality::Aliased),
+            Err(Error::MemoryLimit)
+        ));
+        assert_eq!(crate::memory_usage(), baseline);
+        let mask = small.mask(ClipQuality::Aliased).unwrap();
+        assert_eq!(mask.get(2, 2), 255);
+        assert_eq!(crate::memory_usage(), baseline + 16_384);
+        drop(mask);
+        assert_eq!(crate::memory_usage(), baseline);
     }
 }
