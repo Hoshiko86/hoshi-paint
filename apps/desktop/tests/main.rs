@@ -31,4 +31,5 @@ mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
 mod shape_styles;
+mod support;
 mod tooltips;
