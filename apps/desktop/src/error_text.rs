@@ -171,17 +171,19 @@ pub(crate) fn workspace(text: &Localizer, error: &WorkspaceError) -> String {
     }
 }
 
+/// Formats a catalog message whose `{detail}` is developer text from the error source.
+fn with_detail(text: &Localizer, key: &str, detail: &dyn std::fmt::Display) -> String {
+    text.format(key, &[("detail", &detail.to_string())])
+}
+
 pub(crate) fn file(text: &Localizer, error: &FileError) -> String {
-    let detail = |key: &str, detail: &dyn std::fmt::Display| {
-        text.format(key, &[("detail", &detail.to_string())])
-    };
     let key = match error {
-        FileError::Io(error) => return detail("error_file_io", error),
-        FileError::Image(error) => return detail("error_file_image", error),
-        FileError::PngDecode(error) => return detail("error_file_png", error),
-        FileError::PngEncode(error) => return detail("error_file_png", error),
+        FileError::Io(error) => return with_detail(text, "error_file_io", error),
+        FileError::Image(error) => return with_detail(text, "error_file_image", error),
+        FileError::PngDecode(error) => return with_detail(text, "error_file_png", error),
+        FileError::PngEncode(error) => return with_detail(text, "error_file_png", error),
         FileError::InvalidProject(error) => {
-            return detail("error_file_invalid_project", &project(text, error));
+            return with_detail(text, "error_file_invalid_project", &project(text, error));
         }
         FileError::Project(error) => return project(text, error),
         FileError::InvalidDimensions => {
@@ -228,12 +230,7 @@ pub(crate) fn project(text: &Localizer, error: &ProjectError) -> String {
         ProjectError::ActiveShape => "error_commit_shape_before_save",
         ProjectError::Checksum => "error_project_checksum",
         ProjectError::MemoryLimit => "error_memory_limit",
-        ProjectError::Io(error) => {
-            let detail = |key: &str, detail: &dyn std::fmt::Display| {
-                text.format(key, &[("detail", &detail.to_string())])
-            };
-            return detail("error_file_io", error);
-        }
+        ProjectError::Io(error) => return with_detail(text, "error_file_io", error),
     };
     text.text(key).into()
 }
@@ -291,6 +288,22 @@ mod tests {
             super::palette(&spanish, &rollback),
             "El destino de la paleta es de solo lectura. Tampoco se pudo restaurar el archivo de paleta: Elige un archivo, no una carpeta."
         );
+    }
+
+    #[test]
+    fn project_and_file_io_errors_share_localized_detail() {
+        use crate::files::FileError;
+        use crate::localization::{Localizer, select_preferred};
+        use hoshi_core::ProjectError;
+        for locale in ["en-US", "es-ES"] {
+            let text = Localizer::new(&select_preferred([locale]));
+            let project =
+                super::project(&text, &ProjectError::Io(std::io::Error::other("disk gone")));
+            let file = super::file(&text, &FileError::Io(std::io::Error::other("disk gone")));
+            assert_eq!(project, file);
+            assert!(project.contains("disk gone"), "{locale}: {project}");
+            assert!(file.contains("disk gone"), "{locale}: {file}");
+        }
     }
 
     #[test]
