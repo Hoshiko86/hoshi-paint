@@ -24,7 +24,7 @@ fn pending_properties_are_saved_and_auxiliary_windows_close_for_modals_and_exit(
     ui.window().take_snapshot().unwrap();
     ui.invoke_show_shape_properties();
     assert!(properties.window().is_visible());
-    ui.invoke_show_image_settings(2);
+    ui.invoke_show_image_settings(hoshi_desktop::ImageDialog::CanvasSize);
     assert!(!properties.window().is_visible());
     assert!(ui.get_modal_visible());
     ui.invoke_close_image_settings();

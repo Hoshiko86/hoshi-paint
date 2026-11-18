@@ -958,7 +958,7 @@ mod tests {
             .window()
             .set_size(slint::LogicalSize::new(1120., 760.));
         window.show().unwrap();
-        window.set_image_dialog_kind(2);
+        window.set_image_dialog_kind(crate::ImageDialog::CanvasSize);
         for label in [
             "Aplicar la configuración de imagen",
             "Anclaje del lienzo Arriba a la izquierda",
