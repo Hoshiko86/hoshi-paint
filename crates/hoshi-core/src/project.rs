@@ -34,38 +34,31 @@ impl PartialEq for DocumentSnapshot {
     }
 }
 impl Eq for DocumentSnapshot {}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ProjectError {
-    InvalidData,
-    UnsupportedVersion(u32),
-    InvalidDocument,
-    ActiveShape,
-    Checksum,
-    MemoryLimit,
-    Io(String),
-}
 /// Developer-facing description for logs. Adapters map each variant to text
 /// in their locale catalogs.
-impl std::fmt::Display for ProjectError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidData => f.write_str("truncated or invalid project data"),
-            Self::UnsupportedVersion(v) => write!(f, "unsupported project version {v}"),
-            Self::InvalidDocument => f.write_str("document exceeds project limits"),
-            Self::ActiveShape => f.write_str("active shape"),
-            Self::Checksum => f.write_str("project checksum mismatch"),
-            Self::MemoryLimit => f.write_str("memory budget exceeded"),
-            Self::Io(e) => write!(f, "io: {e}"),
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum ProjectError {
+    #[error("truncated or invalid project data")]
+    InvalidData,
+    #[error("unsupported project version {0}")]
+    UnsupportedVersion(u32),
+    #[error("document exceeds project limits")]
+    InvalidDocument,
+    #[error("active shape")]
+    ActiveShape,
+    #[error("project checksum mismatch")]
+    Checksum,
+    #[error("memory budget exceeded")]
+    MemoryLimit,
+    #[error("io: {0}")]
+    Io(#[source] std::io::Error),
 }
-impl std::error::Error for ProjectError {}
 impl From<std::io::Error> for ProjectError {
     fn from(e: std::io::Error) -> Self {
         if e.kind() == std::io::ErrorKind::UnexpectedEof {
             Self::InvalidData
         } else {
-            Self::Io(e.to_string())
+            Self::Io(e)
         }
     }
 }
@@ -359,6 +352,35 @@ impl<R: Read> CheckedReader<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct FailingReader(std::io::ErrorKind);
+    impl Read for FailingReader {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(self.0, "reader failure"))
+        }
+    }
+    #[test]
+    fn reader_io_error_preserves_kind_and_source() {
+        let error = Document::read_project(FailingReader(std::io::ErrorKind::PermissionDenied))
+            .err()
+            .unwrap();
+        assert!(matches!(
+            &error,
+            ProjectError::Io(source) if source.kind() == std::io::ErrorKind::PermissionDenied
+        ));
+        let source = std::error::Error::source(&error).unwrap();
+        assert_eq!(
+            source.downcast_ref::<std::io::Error>().unwrap().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        assert_eq!(error.to_string(), "io: reader failure");
+    }
+    #[test]
+    fn reader_unexpected_eof_still_maps_to_invalid_data() {
+        assert!(matches!(
+            Document::read_project(FailingReader(std::io::ErrorKind::UnexpectedEof)),
+            Err(ProjectError::InvalidData)
+        ));
+    }
     fn checksum(bytes: &mut [u8]) {
         let end = bytes.len() - 4;
         let crc = crc32fast::hash(&bytes[..end]);
@@ -398,20 +420,20 @@ mod tests {
         let original = Document::new(2, 2).unwrap().encode_project().unwrap();
         let mut bytes = original.clone();
         bytes[38] ^= 1;
-        assert_eq!(
+        assert!(matches!(
             Document::decode_project(&bytes).err().unwrap(),
             ProjectError::Checksum
-        );
+        ));
         for length in [0, 8, 32, original.len() - 1] {
             assert!(Document::decode_project(&original[..length]).is_err());
         }
         let mut bytes = original.clone();
         bytes[8..12].copy_from_slice(&99u32.to_le_bytes());
         checksum(&mut bytes);
-        assert_eq!(
+        assert!(matches!(
             Document::decode_project(&bytes).err().unwrap(),
             ProjectError::UnsupportedVersion(99)
-        );
+        ));
         for (offset, value) in [(12, u32::MAX), (24, 32), (28, 33), (32, u32::MAX)] {
             let mut bytes = original.clone();
             bytes[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
@@ -495,9 +517,9 @@ mod streaming_tests {
         let end = bytes.len() - 4;
         let crc = crc32fast::hash(&bytes[..end]);
         bytes[end..].copy_from_slice(&crc.to_le_bytes());
-        assert_eq!(
+        assert!(matches!(
             Document::read_project(std::io::Cursor::new(bytes)).err(),
             Some(ProjectError::InvalidData)
-        );
+        ));
     }
 }
