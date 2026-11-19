@@ -397,3 +397,45 @@ fn shared_rendering_settings_keep_fractional_precision_when_switching_tabs() {
     assert_eq!(shape.rendering.line_style, LineStyle::DashDot);
     assert_eq!(shape.rendering.fill_pattern, FillPattern::DiagonalCross);
 }
+
+#[test]
+fn picker_settings_are_shared_across_new_active_and_empty_tabs() {
+    use hoshi_controller::{AfterClick, PickerSampling, PickerSettings, SampleSize, ToolSettings};
+    let mut w = Workspace::default();
+    let first = w.active_id().unwrap();
+    let initial = PickerSettings {
+        sampling: PickerSampling::Image,
+        size: SampleSize::Square5,
+        after_click: AfterClick::PreviousTool,
+    };
+    let settings = w.settings();
+    w.set_settings(ToolSettings {
+        picker: initial,
+        ..settings
+    })
+    .unwrap();
+    w.new_image(32, 32, 96., Color::TRANSPARENT).unwrap();
+    let second = w.active_id().unwrap();
+    assert_eq!(w.settings().picker, initial);
+    let changed = PickerSettings {
+        sampling: PickerSampling::Layer,
+        size: SampleSize::Square31,
+        after_click: AfterClick::DoNotSwitch,
+    };
+    let settings = w.settings();
+    w.set_settings(ToolSettings {
+        picker: changed,
+        ..settings
+    })
+    .unwrap();
+    w.activate(first).unwrap();
+    assert_eq!(w.settings().picker, changed);
+    w.close_discard(first).unwrap();
+    assert_eq!(w.settings().picker, changed);
+    w.close_discard(second).unwrap();
+    assert!(!w.has_document());
+    assert_eq!(w.settings().picker, changed);
+    w.new_image(16, 16, 96., Color::TRANSPARENT).unwrap();
+    assert_eq!(w.settings().picker, changed);
+    assert_eq!(w.document().undo_len(), 0);
+}

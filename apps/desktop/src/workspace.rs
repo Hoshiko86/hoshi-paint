@@ -2,7 +2,8 @@
 use crate::files::{self, FileError, FileFormat};
 use crate::localization::{self, Localizer};
 use hoshi_controller::{
-    Color, ColorSlot, Controller, ControllerError, FillPattern, LineStyle, ShapeMode,
+    Color, ColorSlot, Controller, ControllerError, FillPattern, LineStyle, PickerSettings,
+    ShapeMode, ToolSettings,
 };
 use hoshi_core::{Document, DocumentSnapshot};
 use std::{
@@ -58,6 +59,7 @@ struct Drawing {
     antialiasing: bool,
     line_style: LineStyle,
     fill_pattern: FillPattern,
+    picker: PickerSettings,
 }
 impl Drawing {
     fn apply(self, target: &mut Controller) -> Result<(), ControllerError> {
@@ -69,6 +71,10 @@ impl Drawing {
         target.set_antialiasing(self.antialiasing)?;
         target.set_line_style(self.line_style)?;
         target.set_fill_pattern(self.fill_pattern)?;
+        target.set_settings(ToolSettings {
+            picker: self.picker,
+            ..target.settings()
+        })?;
         Ok(())
     }
 }
@@ -273,12 +279,11 @@ impl Workspace {
             antialiasing: self.antialiasing(),
             line_style: self.line_style(),
             fill_pattern: self.fill_pattern(),
+            picker: self.settings().picker,
         }
     }
-    fn settings_to(&self, target: &mut Controller) {
-        self.drawing()
-            .apply(target)
-            .expect("valid drawing settings");
+    fn settings_to(&self, target: &mut Controller) -> Result<(), ControllerError> {
+        self.drawing().apply(target)
     }
     fn finish(&mut self) -> Result<(), ControllerError> {
         if self.has_document() {
@@ -336,7 +341,7 @@ impl Workspace {
         }
         self.finish()?;
         let mut c = Controller::default();
-        self.settings_to(&mut c);
+        self.settings_to(&mut c)?;
         c.replace_document(document);
         let name = if let Some(path) = &path {
             TabName::File(
