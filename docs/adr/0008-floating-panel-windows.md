@@ -1,6 +1,6 @@
 # 0008. Floating panels: owned tool windows (Windows/macOS), in-window panels (Linux/iPad)
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-19)
 - Date: 2026-11-19
 - Deciders: owner (approve), Claude (architect)
 - Related: ADR 0006 (Slint), ADR 0007 (theme), ADR 0005 (platform services)

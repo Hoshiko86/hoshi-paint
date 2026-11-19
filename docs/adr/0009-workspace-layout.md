@@ -1,6 +1,6 @@
 # 0009. Workspace layout: context bar, panel rail, four panels
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-19)
 - Date: 2026-11-19
 - Deciders: owner (approve), Claude (architect)
 - Related: ADR 0003 (tools), ADR 0007 (theme), ADR 0008 (floating panels),

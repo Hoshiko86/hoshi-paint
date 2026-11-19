@@ -1,6 +1,6 @@
 # 0007. Desktop UI theme: semantic tokens, built-in Light/Dark, theme files
 
-- Status: Proposed
+- Status: Accepted (owner, 2026-11-19)
 - Date: 2026-11-19
 - Deciders: owner (approve), Claude (architect)
 - Related: ADR 0006 (Slint), #236 (contrast bug, slice 1)
