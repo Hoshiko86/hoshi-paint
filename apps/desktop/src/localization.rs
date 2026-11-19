@@ -52,7 +52,6 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "clear_color_search",
     "clear_recent",
     "cli_usage",
-    "close",
     "close_document",
     "close_panel",
     "color_error_hex",
@@ -669,7 +668,6 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_hex_apply(text("hex_apply"));
     translations.set_picker_editing_shape(text("picker_editing_shape"));
     translations.set_picker_next_color(text("picker_next_color"));
-    translations.set_close(text("close"));
     translations.set_color_name_placeholder(text("color_name_placeholder"));
     translations.set_color_name(text("color_name"));
     translations.set_color_name_tooltip(text("color_name_tooltip"));

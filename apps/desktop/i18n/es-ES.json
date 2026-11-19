@@ -279,7 +279,6 @@
   "hex_apply": "Pulsa Intro para aplicar el valor hexadecimal",
   "picker_editing_shape": "Editando la forma activa · Los cambios de color se aplican al instante.",
   "picker_next_color": "Color del próximo dibujo · Los píxeles confirmados no cambiarán.",
-  "close": "Cerrar",
   "color_name_placeholder": "Nombre del color…",
   "color_name": "Nombre del color",
   "color_name_tooltip": "Escribe el nombre de un color. Usa Arriba/Abajo e Intro, o elige una sugerencia con muestra. Solo escribir no cambia el color.",

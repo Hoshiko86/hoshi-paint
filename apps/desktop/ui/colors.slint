@@ -322,9 +322,6 @@ export component ColorPanel inherits Rectangle {
             }
             Text { text: root.error != "" ? root.error : root.has-active-shape ? Translations.picker-editing-shape : Translations.picker-next-color;
                 color: root.error == "" ? DesktopTheme.muted-text : DesktopTheme.error-text; height: 36px; wrap: word-wrap; }
-            HorizontalLayout {
-                Button { text: Translations.close; clicked => { root.close-picker(); } }
-            }
         }
     }
 }

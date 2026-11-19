@@ -279,7 +279,6 @@
   "hex_apply": "Press Enter to apply the hex value",
   "picker_editing_shape": "Editing the active shape · Color changes apply immediately.",
   "picker_next_color": "Next drawing color · Committed pixels will not change.",
-  "close": "Close",
   "color_name_placeholder": "Color name…",
   "color_name": "Color name",
   "color_name_tooltip": "Type a color name. Use Up/Down and Enter, or select a swatch-prefixed suggestion. Typing alone does not change the color.",
