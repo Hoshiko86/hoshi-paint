@@ -28,7 +28,7 @@ pub const FLOORS: &[Floor] = &[
     Floor {
         package: "hoshi-desktop",
         path: "apps/desktop/",
-        // Local baseline 84.81% after entry-point exclusion (2026-11-17).
+        // CI baseline 84.76% (2026-11-17), with the entry point excluded.
         // Native-only screen picking is carried by smoke, keeping a 2-point margin.
         lines: 82,
     },
@@ -100,6 +100,10 @@ mod tests {
         assert_eq!(
             ignore_all_but(&FLOORS[1]),
             r"(crates[/\\]hoshi\-core[/\\]|apps[/\\]desktop[/\\]|xtask[/\\]|apps[/\\])"
+        );
+        assert_eq!(
+            ignore_all_but(&FLOORS[2]),
+            r"(crates[/\\]hoshi\-core[/\\]|crates[/\\]hoshi\-controller[/\\]|xtask[/\\]|(^|[/\\])apps[/\\]desktop[/\\]src[/\\]main\.rs$)"
         );
     }
 

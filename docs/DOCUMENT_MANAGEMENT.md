@@ -58,11 +58,13 @@ Command-line image paths open as separate tabs at startup.
 Saving a layered document to PNG/JPEG requires explicit flattening confirmation.
 Flattening is undoable. After accepting, a failed write keeps the image open and
 modified, including its undo history. Encoded bytes are written to a sibling temporary
-file, flushed and synced, then atomically replace the destination. On Linux and macOS the containing folder is also synced, so the rename survives a crash; on Windows NTFS journals it. A failed encode
-leaves an existing destination untouched. Read-only destinations report an error.
-Save As refuses a destination already owned by another open tab. Native file pickers
-provide overwrite confirmation. The filename extension determines the encoder; use
-.hoshi, .png or .jpg explicitly when switching formats in a picker.
+file, flushed and synced, then atomically replace the destination. On Linux and macOS
+the containing folder is also synced, so the rename survives a crash; on Windows NTFS
+journals it. A failed encode leaves an existing destination untouched. Read-only
+destinations report an error. Save As refuses a destination already owned by another
+open tab. Native file pickers provide overwrite confirmation. The filename extension
+determines the encoder; use .hoshi, .png or .jpg explicitly when switching formats in
+a picker.
 
 The canvas now supports 262,144 pixels per dimension with sparse tiles and a shared
 memory budget; see [large images](LARGE_IMAGES.md). The 32-layer and 32-tab limits
