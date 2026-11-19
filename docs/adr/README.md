@@ -13,6 +13,7 @@ those documents disagree, the quality gate wins and the ADR must be amended.
 | [0004](0004-pixel-precision-blend-modes.md) | Pixel precision and blend modes | Accepted | 0.5.0 blend modes, layer properties |
 | [0005](0005-platform-services.md) | Platform services | Accepted | 0.1.0 clipboard, 0.2.0 pressure, 0.6.0 text |
 | [0006](0006-desktop-ui-toolkit.md) | Desktop UI toolkit: Slint | Accepted | Production desktop adapter (all versions) |
+| [0007](0007-ui-theme.md) | Desktop UI theme: tokens, Light/Dark, theme files | Proposed | Contrast fix (#236), Light theme, community themes |
 
 Suggested order of work: 0003 (unblocks DRAW-1 cleanly) → 0001 → 0004 → 0002 →
 0005. 0001 and 0004 both touch `Layer`/`State`/history serialization; land
