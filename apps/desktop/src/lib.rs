@@ -21,6 +21,7 @@ pub mod screen_pick;
 mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
+mod theme;
 mod view_model;
 pub(crate) use view_model::refresh;
 pub mod workspace;
@@ -240,6 +241,7 @@ fn create_panels(
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
+    let scheme = theme::system_scheme(&ui);
     let locale = localization::system_selection();
     let text = localization::Localizer::new(&locale);
     localization::apply(&ui, &text);
@@ -347,6 +349,9 @@ fn create_panels(
     let history = history::bind_window(&ui, controller.clone(), &text)?;
     let shapes = shape_properties::create(&ui, controller.clone())?;
     localization::apply_shapes(&shapes, &text);
+    if let Ok(theme) = theme::builtin(scheme) {
+        theme::apply(&theme, &ui, &history, &picker, &shapes);
+    }
     documents::bind(&ui, controller.clone(), dialogs, text);
     let main = ui.as_weak();
     picker.on_file_action(move |action| {

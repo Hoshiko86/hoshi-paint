@@ -1,3 +1,5 @@
+export { DesktopTheme } from "theme.slint";
+export { Palette } from "std-widgets.slint";
 // Main window. Rust binds its callbacks and properties (`lib.rs`,
 // `refresh` and the per-panel modules); `build.rs` compiles this file.
 import { DrawingTools } from "drawing-tools.slint";
@@ -30,7 +32,6 @@ export component AppWindow inherits Window {
     background: DesktopTheme.window-background;
     default-font-family: "DejaVu Sans";
     default-font-size: 13px;
-    init => { Palette.color-scheme = ColorScheme.dark; }
     in property <image> canvas-image;
     in property <bool> viewport-preview;
     callback render-viewport();
