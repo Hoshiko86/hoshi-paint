@@ -1,22 +1,36 @@
-// Semantic desktop design tokens. Components depend on these roles instead of
-// repeating literal colors and dimensions.
+// Semantic desktop theme tokens (ADR 0007, docs/adr/0007-ui-theme.md).
+// Colors can be applied at runtime; lengths keep their compiled defaults.
 export global DesktopTheme {
-    out property <color> window-background: #202226;
-    out property <color> workspace-background: #36393d;
-    out property <color> pasteboard-background: #4a4d52;
-    out property <color> panel-background: #303338;
-    out property <color> raised-background: #3b4657;
-    out property <color> tab-background: #2a2d32;
-    out property <color> border: #555b65;
-    out property <color> strong-border: #191b1e;
-    out property <color> accent: #72a7f8;
-    out property <color> selected-tool: #315cae;
-    out property <color> text: #e8edf5;
-    out property <color> muted-text: #aeb8c8;
-    out property <color> subtle-text: #9fa9b8;
-    out property <color> status-text: #c3ccda;
-    out property <color> error-text: #f08c8c;
-    out property <color> panel-border: #69778c;
+    in-out property <color> window-background: #202226;
+    in-out property <color> workspace-background: #36393d;
+    in-out property <color> pasteboard-background: #4a4d52;
+    in-out property <color> panel-background: #303338;
+    in-out property <color> raised-background: #3b4657;
+    in-out property <color> tab-background: #2a2d32;
+    in-out property <color> border: #555b65;
+    in-out property <color> strong-border: #191b1e;
+    in-out property <color> accent: #72a7f8;
+    in-out property <color> selected-tool: #72a7f8;
+    in-out property <color> text: #e8edf5;
+    in-out property <color> muted-text: #aeb8c8;
+    in-out property <color> subtle-text: #9fa9b8;
+    in-out property <color> status-text: #c3ccda;
+    in-out property <color> error-text: #f08c8c;
+    in-out property <color> panel-border: #69778c;
+    in-out property <color> field-background: #25282d;
+    in-out property <color> field-hover: #2f3339;
+    in-out property <color> field-disabled: #2a2d32;
+    in-out property <color> field-border: #7b8798;
+    in-out property <color> focus-ring: #72a7f8;
+    in-out property <color> highlight-background: #2c4670;
+    in-out property <color> hover-background: #3a3f47;
+    in-out property <color> preview-ink: #c3ccda;
+    in-out property <color> checker-light: #e0e0e0;
+    in-out property <color> checker-dark: #c0c0c0;
+    in-out property <color> scrim: #00000088;
+    in-out property <color> handle-stroke: #315cae;
+    in-out property <color> handle-fill: #ffffff;
+    in-out property <color> handle-pivot-fill: #c8ddff;
     out property <length> compact-button-size: 34px;
     out property <length> small-button-size: 28px;
     out property <length> tool-rail-width: 64px;
