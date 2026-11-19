@@ -21,6 +21,7 @@ pub mod screen_pick;
 mod shape_bounds;
 mod shape_properties;
 mod shape_rendering;
+mod tool_options;
 mod view_model;
 pub(crate) use view_model::refresh;
 pub mod workspace;
@@ -259,6 +260,7 @@ fn create_panels(
     refresh(&ui, &controller.borrow());
     input::bind(&ui, controller.clone());
     shape_rendering::bind(&ui, controller.clone());
+    tool_options::bind(&ui, controller.clone());
     shape_bounds::bind(&ui, controller.clone());
     let (weak, state) = (ui.as_weak(), controller.clone());
     ui.on_choose_tool(move |tool| {
@@ -393,10 +395,6 @@ mod tests {
         for line in rail.lines() {
             if let Some(entry) = line.trim().strip_prefix("{ id: \"") {
                 let key = entry.split('"').next().unwrap();
-                if key.is_empty() {
-                    assert!(line.contains("action: \"screen-picker\""));
-                    continue;
-                }
                 let id = ToolId::from_key(key).expect("rail tool has a stable tool id");
                 assert!(tool_for(id).is_some());
                 tools.push(id);

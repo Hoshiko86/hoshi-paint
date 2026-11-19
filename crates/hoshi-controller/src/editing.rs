@@ -51,6 +51,10 @@ impl Controller {
         }
         Ok(())
     }
+    /// Shape kind selected for the next drawing gesture.
+    pub fn shape_kind(&self) -> ShapeKind {
+        self.shape_kind
+    }
     pub fn set_shape_kind(&mut self, kind: ShapeKind) -> Result<(), ControllerError> {
         if let Some(mut shape) = self.document.active_shape() {
             shape.kind = kind;

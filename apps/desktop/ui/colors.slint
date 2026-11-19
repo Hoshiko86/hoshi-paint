@@ -209,7 +209,6 @@ export component ColorPanel inherits Rectangle {
     callback set-hsv(float, float, float);
     callback set-hex(string);
     callback restore-original();
-    callback pick-screen();
     callback close-picker();
     callback toggle-dock();
     callback placement-selected(PanelPlacement);
@@ -248,11 +247,7 @@ export component ColorPanel inherits Rectangle {
                     Tooltip { text: Translations.styled(Translations.restore-original-color); }
                     clicked => { root.restore-original(); }
                 }
-                // Samples the screen, not the canvas: distinct from the canvas Color Picker tool.
-                Button { icon: @image-url("../icons/scan-eye.svg"); width: 40px; accessible-label: Translations.screen-picker; enabled: !root.screen-picking;
-                    Tooltip { Text { text: Translations.screen-picker; color: Palette.foreground; } }
-                    clicked => { root.pick-screen(); }
-                }
+
             }
             library := ColorLibrary {
                 color-name-query <=> root.color-name-query; color-name-suggestions: root.color-name-suggestions;
@@ -402,7 +397,6 @@ export component ColorPickerWindow inherits Window {
     callback set-hsv(float, float, float);
     callback set-hex(string);
     callback restore-original();
-    callback pick-screen();
     callback close-picker();
     callback toggle-dock();
     FileShortcuts {
@@ -429,7 +423,6 @@ export component ColorPickerWindow inherits Window {
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }
         set-hex(text) => { root.set-hex(text); }
         restore-original => { root.restore-original(); }
-        pick-screen => { root.pick-screen(); }
         close-picker => { root.close-picker(); }
         toggle-dock => { root.toggle-dock(); }
     }

@@ -1,3 +1,5 @@
+import { ToolOptionsBar, ShapeKindChoice, PickerSamplingChoice, PickerSizeChoice, PickerAfterClickChoice } from "tool-options-bar.slint";
+export { ShapeKindChoice, PickerSamplingChoice, PickerSizeChoice, PickerAfterClickChoice } from "tool-options-bar.slint";
 // Main window. Rust binds its callbacks and properties (`lib.rs`,
 // `refresh` and the per-panel modules); `build.rs` compiles this file.
 import { DrawingTools } from "drawing-tools.slint";
@@ -55,6 +57,15 @@ export component AppWindow inherits Window {
     in-out property <bool> shape-bounds-locked;
     callback bounds-lock-changed(bool);
     changed shape-bounds-locked => { root.bounds-lock-changed(root.shape-bounds-locked); }
+    in property <ShapeKindChoice> shape-kind;
+    callback select-shape-kind(ShapeKindChoice);
+    in property <PickerSamplingChoice> picker-sampling;
+    in property <PickerSizeChoice> picker-size;
+    in property <PickerAfterClickChoice> picker-after-click;
+    in-out property <bool> picker-screen-sampling;
+    callback select-picker-sampling(PickerSamplingChoice);
+    callback select-picker-size(PickerSizeChoice);
+    callback select-picker-after-click(PickerAfterClickChoice);
     in property <int> shape-mode;
     in property <float> stroke-width-pixels: 2;
     in property <bool> shape-antialiasing: true;
@@ -370,10 +381,8 @@ export component AppWindow inherits Window {
         DesktopCommandBars {
             has-document: root.has-document; has-shape: root.has-shape;
             can-undo: root.can-undo; can-redo: root.can-redo;
-            modal-visible: root.modal-visible; shape-mode: root.shape-mode;
-            stroke-width-pixels: root.stroke-width-pixels;
+            modal-visible: root.modal-visible;
             action(value) => { root.action(value); }
-            select-shapes => { root.choose-tool("shapes"); root.show-shape-properties(); }
             show-history => { root.show-history(); }
             show-shape-properties => { root.show-shape-properties(); }
             zoom(delta) => { root.zoom-at(root.canvas-width / 2, root.canvas-height / 2, delta); }
@@ -383,6 +392,25 @@ export component AppWindow inherits Window {
             tabs: root.document-tabs; modal-visible: root.modal-visible;
             activate(id) => { root.activate-document(id); }
             close(id) => { root.close-document(id); }
+        }
+        ToolOptionsBar {
+            selected-tool: root.selected-tool; has-document: root.has-document; has-shape: root.has-shape;
+            shape-kind: root.shape-kind; shape-mode: root.shape-mode;
+            stroke-width-pixels: root.stroke-width-pixels; antialiasing: root.shape-antialiasing;
+            line-style: root.line-style; fill-pattern: root.fill-pattern;
+            picker-sampling: root.picker-sampling; picker-size: root.picker-size; picker-after-click: root.picker-after-click;
+            edit-brush-width(value) => { root.edit-brush-width(value); }
+            select-shape-kind(value) => { root.select-shape-kind(value); }
+            select-shape-mode(value) => { root.select-shape-mode(value); }
+            edit-stroke-width-pixels(value) => { root.edit-stroke-width-pixels(value); }
+            select-line-style(value) => { root.select-line-style(value); }
+            select-fill-pattern(value) => { root.select-fill-pattern(value); }
+            toggle-shape-antialiasing(value) => { root.toggle-shape-antialiasing(value); }
+            action(value) => { root.action(value); }
+            select-picker-sampling(value) => { root.select-picker-sampling(value); }
+            select-picker-size(value) => { root.select-picker-size(value); }
+            select-picker-after-click(value) => { root.select-picker-after-click(value); }
+            pick-screen => { root.pick-screen(); }
         }
         workspace := Rectangle {
             vertical-stretch: 1;
@@ -401,10 +429,7 @@ export component AppWindow inherits Window {
                 DrawingTools {
                     selected-tool: root.selected-tool;
                     enabled: root.has-document;
-                    brush-width: root.stroke-width-pixels;
                     choose-tool(tool) => { root.choose-tool(tool); }
-                    edit-brush-width(width) => { root.edit-brush-width(width); }
-                    pick-screen => { root.pick-screen(); }
                 }
                 Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: Translations.colors;
                     Tooltip { text: Translations.styled(Translations.colors-tooltip); } clicked => { root.show-colors(); } }
@@ -583,7 +608,6 @@ export component AppWindow inherits Window {
                 set-rgba(r,g,b,a) => { root.edit-rgba(r,g,b,a); }
                 set-hsv(h,s,v) => { root.edit-hsv(h,s,v); }
                 set-hex(text) => { root.edit-hex(text); }
-                pick-screen => { root.pick-screen(); }
                 toggle-dock => { root.toggle-color-dock(); }
                 close-picker => { root.close-colors(); }
             }
