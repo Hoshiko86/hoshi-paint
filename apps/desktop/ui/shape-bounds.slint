@@ -47,7 +47,7 @@ export component ShapeBounds inherits Rectangle {
     in property <string> height-value;
     callback edit(int, string, bool);
     in-out property <bool> locked;
-    background: #f1f3f8;
+    background: DesktopTheme.panel-background;
     height: root.compact ? 118px : 62px;
     public function finish-edits() {
         x-entry.finish-edit(); y-entry.finish-edit();

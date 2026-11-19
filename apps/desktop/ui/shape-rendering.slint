@@ -1,24 +1,25 @@
 // Rendering settings are shared by every shape tool. The controller owns
 // validation, preview updates, and the defaults used for the next gesture.
 import { LineEdit, CheckBox } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
 component StyleSample inherits Rectangle {
     in property <bool> fill-preview;
     in property <int> option;
-    background: #ffffff;
+    background: DesktopTheme.field-background;
     border-width: 1px;
-    border-color: #aeb8c8;
+    border-color: DesktopTheme.field-border;
     border-radius: 2px;
     clip: true;
 
     if !root.fill-preview: Rectangle {
         x: 5px; y: parent.height / 2 - 1px;
         width: parent.width - 10px; height: 2px;
-        background: root.option == 0 ? #273650 : transparent;
+        background: root.option == 0 ? DesktopTheme.preview-ink : DesktopTheme.field-background.with-alpha(0);
         for stroke[index] in 48: Rectangle {
             x: index * 4px; width: 3px; height: 2px;
-            background: #273650;
+            background: DesktopTheme.preview-ink;
             visible: root.option == 1 ? mod(index,6) < 4
                 : root.option == 2 ? mod(index,3) == 0
                 : root.option == 3 ? mod(index,8) < 4 || mod(index,8) == 6
@@ -29,22 +30,22 @@ component StyleSample inherits Rectangle {
 
     if root.fill-preview && root.option == 0: Rectangle {
         x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
-        background: #526079;
+        background: DesktopTheme.preview-ink;
     }
     if root.fill-preview && (root.option == 1 || root.option == 5): Rectangle {
         x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
-        for line[index] in 6: Rectangle { y: index * 5px; width: parent.width; height: 1px; background: #526079; }
+        for line[index] in 6: Rectangle { y: index * 5px; width: parent.width; height: 1px; background: DesktopTheme.preview-ink; }
     }
     if root.fill-preview && (root.option == 2 || root.option == 5): Rectangle {
         x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
-        for line[index] in 20: Rectangle { x: index * 5px; width: 1px; height: parent.height; background: #526079; }
+        for line[index] in 20: Rectangle { x: index * 5px; width: 1px; height: parent.height; background: DesktopTheme.preview-ink; }
     }
     if root.fill-preview && (root.option == 3 || root.option == 6): Rectangle {
         x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
         Path {
             width: parent.width; height: parent.height; viewbox-width: 100; viewbox-height: 24;
             commands: "M-20 24L4 0 M-8 24L16 0 M4 24L28 0 M16 24L40 0 M28 24L52 0 M40 24L64 0 M52 24L76 0 M64 24L88 0 M76 24L100 0 M88 24L112 0";
-            stroke: #526079; stroke-width: 1px; clip: true;
+            stroke: DesktopTheme.preview-ink; stroke-width: 1px; clip: true;
         }
     }
     if root.fill-preview && (root.option == 4 || root.option == 6): Rectangle {
@@ -52,7 +53,7 @@ component StyleSample inherits Rectangle {
         Path {
             width: parent.width; height: parent.height; viewbox-width: 100; viewbox-height: 24;
             commands: "M-20 0L4 24 M-8 0L16 24 M4 0L28 24 M16 0L40 24 M28 0L52 24 M40 0L64 24 M52 0L76 24 M64 0L88 24 M76 0L100 24 M88 0L112 24";
-            stroke: #526079; stroke-width: 1px; clip: true;
+            stroke: DesktopTheme.preview-ink; stroke-width: 1px; clip: true;
         }
     }
     if root.fill-preview && root.option == 7: Rectangle {
@@ -60,7 +61,7 @@ component StyleSample inherits Rectangle {
         for square[index] in 56: Rectangle {
             x: mod(index,14) * 7px; y: floor(index / 14) * 7px;
             width: 7px; height: 7px;
-            background: mod(index + floor(index / 14),2) == 0 ? #526079 : #ffffff;
+            background: mod(index + floor(index / 14),2) == 0 ? DesktopTheme.preview-ink : DesktopTheme.field-background;
         }
     }
 }
@@ -91,14 +92,14 @@ component VisualStyleSelector inherits FocusScope {
         return reject;
     }
     Rectangle {
-        background: root.enabled ? (touch.has-hover ? #f8faff : #ffffff) : #e8ebf0;
+        background: root.enabled ? (touch.has-hover ? DesktopTheme.field-hover : DesktopTheme.field-background) : DesktopTheme.field-disabled;
         border-width: root.has-focus ? 2px : 1px;
-        border-color: root.has-focus ? #315cae : #aeb8c8;
+        border-color: root.has-focus ? DesktopTheme.focus-ring : DesktopTheme.field-border;
         border-radius: 3px;
         StyleSample { x: 8px; y: 5px; width: parent.width - 38px; height: parent.height - 10px;
             fill-preview: root.fill-preview; option: root.current-index; }
         Text { x: parent.width - 25px; width: 18px; height: parent.height;
-            text: popup.is-open ? "⌃" : "⌄"; color: #526079;
+            text: popup.is-open ? "⌃" : "⌄"; color: DesktopTheme.muted-text;
             horizontal-alignment: center; vertical-alignment: center; }
         touch := TouchArea {
             enabled: root.enabled;
@@ -111,7 +112,7 @@ component VisualStyleSelector inherits FocusScope {
         height: root.names.length * 36px + 8px;
         close-policy: close-on-click-outside;
         Rectangle {
-            background: #ffffff; border-width: 1px; border-color: #aeb8c8; border-radius: 3px;
+            background: DesktopTheme.field-background; border-width: 1px; border-color: DesktopTheme.field-border; border-radius: 3px;
             VerticalLayout {
                 padding: 4px; spacing: 0px;
                 for name[index] in root.names: Rectangle {
@@ -120,9 +121,9 @@ component VisualStyleSelector inherits FocusScope {
                     accessible-label: name;
                     accessible-description: (root.fill-preview ? Translations.fill-pattern : Translations.line-style) + ": " + name;
                     accessible-action-default => { root.selected(index); popup.close(); root.focus(); }
-                    background: index == root.current-index ? #dbe8ff : (row-touch.has-hover ? #edf3ff : #ffffff);
+                    background: index == root.current-index ? DesktopTheme.highlight-background : (row-touch.has-hover ? DesktopTheme.hover-background : DesktopTheme.field-background);
                     border-width: index == root.current-index ? 1px : 0px;
-                    border-color: #315cae;
+                    border-color: DesktopTheme.focus-ring;
                     StyleSample { x: 7px; y: 5px; width: parent.width - 14px; height: 26px;
                         fill-preview: root.fill-preview; option: index; }
                     row-touch := TouchArea {
@@ -151,7 +152,7 @@ export component ShapeRendering inherits VerticalLayout {
     changed outline-width => { if !width-edit.has-focus { width-edit.text = "" + root.outline-width; } }
     spacing: 5px;
     HorizontalLayout { spacing: 6px;
-        Text { text: Translations.outline-width-label; color: #526079; font-size: 12px; vertical-alignment: center; }
+        Text { text: Translations.outline-width-label; color: DesktopTheme.muted-text; font-size: 12px; vertical-alignment: center; }
         width-edit := LineEdit {
             enabled: root.outline-enabled;
             init => { self.text = "" + root.outline-width; }
