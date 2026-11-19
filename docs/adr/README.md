@@ -15,6 +15,7 @@ those documents disagree, the quality gate wins and the ADR must be amended.
 | [0006](0006-desktop-ui-toolkit.md) | Desktop UI toolkit: Slint | Accepted | Production desktop adapter (all versions) |
 | [0007](0007-ui-theme.md) | Desktop UI theme: tokens, Light/Dark, theme files | Proposed | Contrast fix (#236), Light theme, community themes |
 | [0008](0008-floating-panel-windows.md) | Floating panels: owned windows (Win/macOS), in-window (Linux/iPad) | Proposed | Panels stay with Hoshi, no taskbar entries, themed chrome |
+| [0009](0009-workspace-layout.md) | Workspace layout: context bar, panel rail, four panels | Proposed | Tool options bar, Tools and Layers panels |
 
 Suggested order of work: 0003 (unblocks DRAW-1 cleanly) → 0001 → 0004 → 0002 →
 0005. 0001 and 0004 both touch `Layer`/`State`/history serialization; land
