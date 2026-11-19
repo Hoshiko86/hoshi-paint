@@ -89,7 +89,29 @@ and winit 0.30.13 from `Cargo.lock`:
    - In this mode the floating OS windows (`ColorPickerWindow`, …) are never
      shown.
 
-5. **Tests.**
+5. **Translucent over the canvas** (owner, 2026-11-19). A floating panel that
+   overlaps any part of the canvas viewport becomes translucent so the image
+   shows through. It is fully opaque again while the pointer is over it or one
+   of its controls has keyboard focus, so it stays usable, as with Paint.NET's
+   translucent tool windows. A panel that doesn't overlap the canvas is always
+   opaque. Docked panels never overlap the canvas.
+   - **Opacity:** one compiled theme token, `floating-panel-opacity`
+     (default 0.6), not themeable for now (ADR 0007 §1). The change animates
+     over about 150 ms.
+   - **Overlap:** the panel's rectangle against the canvas viewport's rectangle,
+     both in screen coordinates. It is recomputed when the panel or the main
+     window moves or resizes, and when the canvas layout changes.
+   - **In-window mode (Linux, iPad):** Slint `opacity` on the floating host. It
+     needs no platform code.
+   - **Owned-window mode:** whole-window alpha through the OS, confined to
+     `panel_windows.rs`. Windows: `WS_EX_LAYERED` +
+     `SetLayeredWindowAttributes(LWA_ALPHA)` (`windows-sys` is already a
+     dependency). macOS: `NSWindow::setAlphaValue` (`objc2-app-kit` is already
+     a dependency; it adds the `NSWindow` feature). Rendering is unchanged.
+     *(Unverified until slice 4's spike: layered-window alpha with Slint's
+     software renderer on Windows.)*
+
+6. **Tests.**
    - The hook and thread-local are unit-tested with fake attributes: the main
      window is untouched, panels get the owner settings, and the pending value
      is cleared after one window, including on error.
@@ -99,6 +121,8 @@ and winit 0.30.13 from `Cargo.lock`:
      checked by native smoke on Windows and macOS CI where it can be observed;
      otherwise it is a manual checklist item in `docs/TESTING.md`.
    - The headless testing backend skips the hook.
+   - The overlap rule (rectangles, hover and focus → opaque) is a pure
+     function with unit tests. In-window opacity is tested headless.
 
 ## Consequences
 
@@ -122,3 +146,6 @@ and winit 0.30.13 from `Cargo.lock`:
 3. **In-window panels (Linux):** floating hosts in `main-window.slint`, drag,
    resize and clamping, `panel_layout` overlay handling, and the Linux
    `FloatingMode`.
+4. **Translucent over the canvas:** the overlap rule, in-window opacity, and
+   OS alpha on Windows/macOS (starting with a short spike on Windows
+   layered-window alpha with the software renderer).
