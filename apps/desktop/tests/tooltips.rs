@@ -24,14 +24,13 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
     assert!(swatch.description.starts_with("Black\n"));
     assert!(swatch.description.contains("RGB: 0, 0, 0"));
     assert!(swatch.description.contains("HSV:"));
-    // The panel's sampling button reads the screen, so it must not
-    // share the canvas Color Picker tool's name.
+    // Screen sampling is offered by the context bar, outside the Colors panel.
     let screen_picker = ui.global::<Translations>().get_screen_picker();
     assert!(!screen_picker.is_empty());
     assert_eq!(
         ElementHandle::find_by_accessible_label(picker.as_ref(), &screen_picker).count(),
-        1,
-        "the Colors panel must expose exactly one localized Screen Picker button"
+        0,
+        "the Colors panel must not expose the removed Screen Picker button"
     );
     assert_eq!(
         ElementHandle::find_by_accessible_label(picker.as_ref(), "Color Picker").count(),

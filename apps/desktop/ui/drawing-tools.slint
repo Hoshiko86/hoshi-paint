@@ -1,4 +1,4 @@
-import { Button, LineEdit } from "std-widgets.slint";
+import { Button } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
@@ -6,19 +6,15 @@ import { Translations } from "localization.slint";
 export component DrawingTools inherits VerticalLayout {
     in property <string> selected-tool;
     in property <bool> enabled;
-    in property <float> brush-width;
     callback choose-tool(string);
-    callback edit-brush-width(float);
-    callback pick-screen();
     spacing: 8px;
     for tool in [
-        { id: "paintbrush", action: "", label: Translations.brush, icon: @image-url("../icons/brush.svg") },
-        { id: "eraser", action: "", label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
-        { id: "color-picker", action: "", label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") },
-        { id: "", action: "screen-picker", label: Translations.screen-picker, icon: @image-url("../icons/scan-eye.svg") }
+        { id: "paintbrush", label: Translations.brush, icon: @image-url("../icons/brush.svg") },
+        { id: "eraser", label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
+        { id: "color-picker", label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") }
     ]: Rectangle {
         height: DesktopTheme.tool-rail-width - 20px;
-        border-width: tool.action == "" && root.selected-tool == tool.id ? 2px : 0px;
+        border-width: root.selected-tool == tool.id ? 2px : 0px;
         border-color: DesktopTheme.selected-tool;
         border-radius: 4px;
         background: transparent;
@@ -29,27 +25,7 @@ export component DrawingTools inherits VerticalLayout {
             enabled: root.enabled;
             opacity: self.enabled ? 1 : 0.4;
             Tooltip { text: @markdown("\{tool.label}"); }
-            clicked => {
-                if tool.action != "" { root.pick-screen(); }
-                else { root.choose-tool(tool.id); }
-            }
+            clicked => { root.choose-tool(tool.id); }
         }
-    }
-    if root.selected-tool == "paintbrush" || root.selected-tool == "eraser": LineEdit {
-        // Standard LineEdit's 160px minimum would overlap the 64px tool rail.
-        min-width: 0px;
-        init => { self.text = "" + root.brush-width; }
-        changed has-focus => { if !self.has-focus { self.text = "" + root.brush-width; } }
-        property <float> stored-width: root.brush-width;
-        changed stored-width => { if !self.has-focus { self.text = "" + root.brush-width; } }
-        input-type: decimal;
-        enabled: root.enabled;
-        accessible-label: Translations.brush-width;
-        edited(value) => {
-            if value.is-float() && value.to-float() >= 1 && value.to-float() <= 2000 {
-                root.edit-brush-width(value.to-float());
-            }
-        }
-        accepted => { self.text = "" + root.brush-width; }
     }
 }

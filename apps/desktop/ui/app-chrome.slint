@@ -18,10 +18,7 @@ export component DesktopCommandBars inherits Rectangle {
     in property <bool> can-undo;
     in property <bool> can-redo;
     in property <bool> modal-visible;
-    in property <int> shape-mode;
-    in property <float> stroke-width-pixels;
     callback action(int);
-    callback select-shapes();
     callback show-history();
     callback show-shape-properties();
     callback zoom(float);
@@ -29,19 +26,6 @@ export component DesktopCommandBars inherits Rectangle {
 
     VerticalLayout {
         spacing: 4px;
-        HorizontalLayout {
-            height: 24px; spacing: 6px;
-            Text { text: Translations.tool; font-size: 11px; color: DesktopTheme.muted-text; vertical-alignment: center; }
-            Button { icon: @image-url("../icons/shapes.svg"); width: DesktopTheme.small-button-size; accessible-label: Translations.shapes; enabled: root.has-document;
-                Tooltip { Text { text: Translations.shapes + " · " + Translations.rectangle; color: Palette.foreground; } } clicked => { root.select-shapes(); } }
-            Rectangle { width: 1px; background: DesktopTheme.border; }
-            Text { text: Translations.rectangle; color: DesktopTheme.text; vertical-alignment: center; }
-            Text { text: root.shape-mode == 0 ? Translations.fill : root.shape-mode == 1 ? Translations.outline : Translations.fill-and-outline; color: DesktopTheme.muted-text; vertical-alignment: center; }
-            Text { text: "· " + root.stroke-width-pixels + " " + Translations.unit-pixels; color: DesktopTheme.muted-text; vertical-alignment: center; }
-            Rectangle { horizontal-stretch: 1; }
-            Button { icon: @image-url("../icons/check.svg"); width: DesktopTheme.small-button-size; accessible-label: Translations.finish-shape; enabled: root.has-shape;
-                opacity: self.enabled ? 1 : 0.4; Tooltip { Text { text: Translations.finish-shape + " · " + Translations.key-commit; color: Palette.foreground; } } clicked => { root.action(2); } }
-        }
         HorizontalLayout {
             height: DesktopTheme.compact-button-size; spacing: 4px;
             Button { icon: @image-url("../icons/undo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.undo; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
