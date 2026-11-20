@@ -32,4 +32,5 @@ mod shape_properties;
 mod shape_rendering;
 mod shape_styles;
 mod support;
+mod tool_options_bar;
 mod tooltips;

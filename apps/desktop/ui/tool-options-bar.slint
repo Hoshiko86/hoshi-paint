@@ -1,0 +1,181 @@
+import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView } from "std-widgets.slint";
+import { DesktopTheme } from "theme.slint";
+import { Translations } from "localization.slint";
+
+export enum ShapeKindChoice { rectangle, ellipse }
+export enum PickerSamplingChoice { layer, image, screen }
+export enum PickerSizeChoice { single, square3, square5, square11, square31, square51 }
+export enum PickerAfterClickChoice { do-not-switch, previous-tool }
+
+component ChoiceField inherits HorizontalLayout {
+    in property <bool> enabled: true;
+    in property <string> label;
+    in property <string> input-label;
+    in property <[string]> choices;
+    in property <int> selected;
+    // Measure every localized choice, leaving room for padding and the arrow.
+    private property <length> control-width: choice-width.preferred-width + 48px;
+    callback selected-index(int);
+    horizontal-stretch: 0;
+    spacing: 4px;
+    changed selected => { choice.current-index = root.selected; }
+    Text { text: root.label; color: DesktopTheme.muted-text; vertical-alignment: center; }
+    Rectangle {
+        width: root.control-width; height: 32px;
+        choice-width := VerticalLayout {
+            visible: false;
+            width: 0px; height: 0px;
+            for value in root.choices: Text { text: value; }
+        }
+        choice := ComboBox {
+            width: parent.width; height: parent.height;
+            enabled: root.enabled;
+            model: root.choices; current-index: root.selected;
+            accessible-label: root.input-label;
+            selected(value) => { root.selected-index(self.current-index); }
+        }
+    }
+}
+component WidthField inherits HorizontalLayout {
+    in property <bool> enabled: true;
+    in property <string> input-label;
+    in property <float> value;
+    in property <float> minimum;
+    in property <float> maximum;
+    callback edited(float);
+    horizontal-stretch: 0;
+    spacing: 4px;
+    Text { text: Translations.outline-width-label; color: DesktopTheme.muted-text; vertical-alignment: center; }
+    LineEdit {
+        enabled: root.enabled;        min-width: 0px; preferred-width: 72px; max-width: 72px; horizontal-stretch: 0;
+        input-type: decimal; accessible-label: root.input-label;
+        init => { self.text = "" + root.value; }
+        changed has-focus => { if !self.has-focus { self.text = "" + root.value; } }
+        property <float> stored-value: root.value;
+        changed stored-value => { if !self.has-focus { self.text = "" + root.value; } }
+        edited(value) => {
+            if value.is-float() && value.to-float() >= root.minimum && value.to-float() <= root.maximum {
+                root.edited(value.to-float());
+            }
+        }
+        accepted => { self.text = "" + root.value; }
+    }
+}
+component AntialiasingOption inherits CheckBox {
+    in property <bool> value;
+    callback changed-value(bool);
+    text: Translations.antialiasing;
+    checked: root.value;
+    changed value => { root.checked = root.value; }
+    toggled => { root.changed-value(self.checked); }
+}
+component Separator inherits Rectangle {
+    width: 1px; height: 24px; vertical-stretch: 0;
+    background: DesktopTheme.border;
+}
+export component ToolOptionsBar inherits Rectangle {
+    in property <string> selected-tool;
+    in property <bool> has-document;
+    in property <bool> has-shape;
+    in property <ShapeKindChoice> shape-kind;
+    in property <int> shape-mode;
+    in property <float> stroke-width-pixels;
+    in property <bool> antialiasing;
+    in property <int> line-style;
+    in property <int> fill-pattern;
+    in property <PickerSamplingChoice> picker-sampling;
+    in property <PickerSizeChoice> picker-size;
+    in property <PickerAfterClickChoice> picker-after-click;
+    callback edit-brush-width(float);
+    callback select-shape-kind(ShapeKindChoice);
+    callback select-shape-mode(int);
+    callback edit-stroke-width-pixels(float);
+    callback select-line-style(int);
+    callback select-fill-pattern(int);
+    callback toggle-shape-antialiasing(bool);
+    callback action(int);
+    callback select-picker-sampling(PickerSamplingChoice);
+    callback select-picker-size(PickerSizeChoice);
+    callback select-picker-after-click(PickerAfterClickChoice);
+    callback pick-screen();
+    height: 36px;
+    background: DesktopTheme.panel-background;
+    pure function shape-index(value: ShapeKindChoice) -> int { return value == ShapeKindChoice.rectangle ? 0 : 1; }
+    pure function shape-at(index: int) -> ShapeKindChoice { return index == 0 ? ShapeKindChoice.rectangle : ShapeKindChoice.ellipse; }
+    pure function sampling-index(value: PickerSamplingChoice) -> int { return value == PickerSamplingChoice.layer ? 0 : value == PickerSamplingChoice.image ? 1 : 2; }
+    pure function sampling-at(index: int) -> PickerSamplingChoice { return index == 0 ? PickerSamplingChoice.layer : index == 1 ? PickerSamplingChoice.image : PickerSamplingChoice.screen; }
+    pure function size-index(value: PickerSizeChoice) -> int { return value == PickerSizeChoice.single ? 0 : value == PickerSizeChoice.square3 ? 1 : value == PickerSizeChoice.square5 ? 2 : value == PickerSizeChoice.square11 ? 3 : value == PickerSizeChoice.square31 ? 4 : 5; }
+    pure function size-at(index: int) -> PickerSizeChoice { return index == 0 ? PickerSizeChoice.single : index == 1 ? PickerSizeChoice.square3 : index == 2 ? PickerSizeChoice.square5 : index == 3 ? PickerSizeChoice.square11 : index == 4 ? PickerSizeChoice.square31 : PickerSizeChoice.square51; }
+    pure function after-index(value: PickerAfterClickChoice) -> int { return value == PickerAfterClickChoice.do-not-switch ? 0 : 1; }
+    pure function after-at(index: int) -> PickerAfterClickChoice { return index == 0 ? PickerAfterClickChoice.do-not-switch : PickerAfterClickChoice.previous-tool; }
+    if root.selected-tool == "paintbrush" || root.selected-tool == "eraser": HorizontalLayout {
+        x: 6px; y: 2px; width: parent.width - 12px; height: 32px; spacing: 6px; alignment: start;
+        WidthField { enabled: root.has-document; input-label: Translations.brush-width; value: root.stroke-width-pixels; minimum: 1; maximum: 2000; edited(value) => { root.edit-brush-width(value); } }
+        Separator { }
+        AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
+    }
+    // Keep Finish reachable while longer localized options scroll horizontally.
+    if root.selected-tool == "shapes": Button {
+        x: parent.width - self.width - 6px; y: 2px;
+        width: DesktopTheme.compact-button-size; height: 32px;
+        icon: @image-url("../icons/check.svg"); accessible-label: Translations.finish-shape;
+        enabled: root.has-shape;
+        Tooltip { Text { text: Translations.finish-shape + " · " + Translations.key-commit; color: Palette.foreground; } }
+        clicked => { root.action(2); }
+    }
+    if root.selected-tool == "shapes": shapes-scroll := ScrollView {
+        x: 0px;
+        width: parent.width - DesktopTheme.compact-button-size - 12px; height: parent.height;
+        vertical-scrollbar-policy: always-off;
+        content-width: max(self.visible-width, shapes-options.preferred-width + 12px);
+        content-height: self.visible-height;
+        shapes-options := HorizontalLayout {
+            x: 6px; y: 2px; width: shapes-scroll.content-width - 12px; height: 32px; spacing: 6px; alignment: start;
+            ChoiceField { enabled: root.has-document; label: Translations.shape-kind; input-label: Translations.shape-kind;
+                choices: [Translations.rectangle, Translations.ellipse]; selected: root.shape-index(root.shape-kind);
+                selected-index(index) => { root.select-shape-kind(root.shape-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.draw-mode; input-label: Translations.draw-mode;
+                choices: [Translations.fill, Translations.outline, Translations.fill-and-outline]; selected: root.shape-mode;
+                selected-index(index) => { root.select-shape-mode(index); } }
+            Separator { }
+            WidthField { enabled: root.has-document; input-label: Translations.outline-width; value: root.stroke-width-pixels; minimum: 0.01; maximum: 65536; edited(value) => { root.edit-stroke-width-pixels(value); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.line-style; input-label: Translations.line-style;
+                choices: [Translations.line-solid, Translations.line-dash, Translations.line-dot, Translations.line-dash-dot, Translations.line-dash-dot-dot]; selected: root.line-style;
+                selected-index(index) => { root.select-line-style(index); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.fill-pattern; input-label: Translations.fill-pattern;
+                choices: [Translations.pattern-solid, Translations.pattern-horizontal, Translations.pattern-vertical, Translations.pattern-forward-diagonal, Translations.pattern-backward-diagonal, Translations.pattern-cross, Translations.pattern-diagonal-cross, Translations.pattern-checkerboard]; selected: root.fill-pattern;
+                selected-index(index) => { root.select-fill-pattern(index); } }
+            Separator { }
+            AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
+        }
+    }
+    if root.selected-tool == "color-picker": picker-scroll := ScrollView {
+        width: parent.width; height: parent.height;
+        vertical-scrollbar-policy: always-off;
+        content-width: max(self.visible-width, picker-options.preferred-width + 12px);
+        content-height: self.visible-height;
+        picker-options := HorizontalLayout {
+            x: 6px; y: 2px; width: picker-scroll.content-width - 12px; height: 32px; spacing: 6px; alignment: start;
+            ChoiceField { enabled: root.has-document; label: Translations.picker-sampling; input-label: Translations.picker-sampling;
+                choices: [Translations.picker-sampling-layer, Translations.picker-sampling-image, Translations.picker-sampling-screen]; selected: root.sampling-index(root.picker-sampling);
+                selected-index(index) => { root.select-picker-sampling(root.sampling-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.picker-sample-size; input-label: Translations.picker-sample-size;
+                choices: [Translations.picker-size-single, Translations.picker-size-3, Translations.picker-size-5, Translations.picker-size-11, Translations.picker-size-31, Translations.picker-size-51]; selected: root.size-index(root.picker-size);
+                selected-index(index) => { root.select-picker-size(root.size-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.picker-after-click; input-label: Translations.picker-after-click;
+                choices: [Translations.picker-after-stay, Translations.picker-after-previous]; selected: root.after-index(root.picker-after-click);
+                selected-index(index) => { root.select-picker-after-click(root.after-at(index)); } }
+            if root.picker-sampling == PickerSamplingChoice.screen: Button {
+                enabled: root.has-document;
+                text: Translations.pick-from-screen; accessible-label: Translations.pick-from-screen;
+                // Samples the screen, not the canvas: distinct from canvas sampling.
+                clicked => { root.pick-screen(); }
+            }
+        }
+    }
+}

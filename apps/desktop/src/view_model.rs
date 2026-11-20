@@ -44,6 +44,7 @@ pub(crate) fn refresh(ui: &AppWindow, controller: &workspace::Workspace) {
         ShapeMode::Both => 2,
     });
     crate::shape_rendering::refresh(ui, controller);
+    crate::tool_options::refresh(ui, controller);
     crate::shape_bounds::refresh(ui, controller);
     ui.set_color_slot(if controller.color_slot() == ColorSlot::Primary {
         0

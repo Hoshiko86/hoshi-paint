@@ -76,8 +76,10 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "dock_location",
     "dock_panel",
     "dont_save",
+    "draw_mode",
     "editing_primary",
     "editing_secondary",
+    "ellipse",
     "eraser",
     "error_action_unavailable",
     "error_commit_shape_before_save",
@@ -270,8 +272,23 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "pattern_horizontal",
     "pattern_solid",
     "pattern_vertical",
+    "pick_from_screen",
+    "picker_after_click",
+    "picker_after_previous",
+    "picker_after_stay",
     "picker_editing_shape",
     "picker_next_color",
+    "picker_sample_size",
+    "picker_sampling",
+    "picker_sampling_image",
+    "picker_sampling_layer",
+    "picker_sampling_screen",
+    "picker_size_11",
+    "picker_size_3",
+    "picker_size_31",
+    "picker_size_5",
+    "picker_size_51",
+    "picker_size_single",
     "pixels_per_inch",
     "placement_bottom",
     "placement_float",
@@ -666,6 +683,23 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_hsv_range(text("hsv_range"));
     translations.set_hex_color(text("hex_color"));
     translations.set_hex_apply(text("hex_apply"));
+    translations.set_draw_mode(text("draw_mode"));
+    translations.set_ellipse(text("ellipse"));
+    translations.set_pick_from_screen(text("pick_from_screen"));
+    translations.set_picker_after_click(text("picker_after_click"));
+    translations.set_picker_after_previous(text("picker_after_previous"));
+    translations.set_picker_after_stay(text("picker_after_stay"));
+    translations.set_picker_sample_size(text("picker_sample_size"));
+    translations.set_picker_sampling(text("picker_sampling"));
+    translations.set_picker_sampling_image(text("picker_sampling_image"));
+    translations.set_picker_sampling_layer(text("picker_sampling_layer"));
+    translations.set_picker_sampling_screen(text("picker_sampling_screen"));
+    translations.set_picker_size_11(text("picker_size_11"));
+    translations.set_picker_size_3(text("picker_size_3"));
+    translations.set_picker_size_31(text("picker_size_31"));
+    translations.set_picker_size_5(text("picker_size_5"));
+    translations.set_picker_size_51(text("picker_size_51"));
+    translations.set_picker_size_single(text("picker_size_single"));
     translations.set_picker_editing_shape(text("picker_editing_shape"));
     translations.set_picker_next_color(text("picker_next_color"));
     translations.set_color_name_placeholder(text("color_name_placeholder"));

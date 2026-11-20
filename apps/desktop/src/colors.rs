@@ -182,12 +182,6 @@ pub(super) fn bind_picker(
         }
     });
     let weak = picker.as_weak();
-    ui.on_pick_screen(move || {
-        if let Some(p) = weak.upgrade() {
-            p.invoke_pick_screen();
-        }
-    });
-    let weak = picker.as_weak();
     ui.on_toggle_color_dock(move || {
         if let Some(p) = weak.upgrade() {
             p.invoke_toggle_dock();
@@ -436,7 +430,7 @@ pub(super) fn bind_picker(
     let (main, colors, state) = (ui.as_weak(), picker.as_weak(), controller.clone());
     let (pending, polling) = (request.clone(), timer.clone());
     let words = text.clone();
-    picker.on_pick_screen(move || {
+    ui.on_pick_screen(move || {
         if pending.borrow().is_some() {
             return;
         }

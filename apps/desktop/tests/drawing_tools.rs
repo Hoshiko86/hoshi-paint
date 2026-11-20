@@ -182,7 +182,7 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
 }
 
 #[test]
-fn rail_offers_canvas_color_picker_and_screen_picker_as_separate_buttons() {
+fn rail_offers_canvas_color_picker_without_screen_picker() {
     slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
         i_slint_backend_testing::TestingBackendOptions {
             mock_time: true,
@@ -200,7 +200,7 @@ fn rail_offers_canvas_color_picker_and_screen_picker_as_separate_buttons() {
     };
     // Icons are not exposed to ElementHandle; the smoke snapshots show them.
     assert_eq!(find("Color Picker"), 1);
-    assert!(find("Pick color from screen") >= 1);
+    assert_eq!(find("Pick color from screen"), 0);
     i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Color Picker")
         .next()
         .unwrap()
