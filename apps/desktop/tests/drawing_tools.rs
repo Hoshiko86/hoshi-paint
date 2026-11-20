@@ -182,7 +182,7 @@ fn brush_width_rail_preserves_fractional_shared_width_and_rejects_invalid_edits(
 }
 
 #[test]
-fn rail_offers_canvas_color_picker_and_screen_picker_as_separate_buttons() {
+fn rail_offers_canvas_color_picker_without_screen_picker() {
     slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
         i_slint_backend_testing::TestingBackendOptions {
             mock_time: true,

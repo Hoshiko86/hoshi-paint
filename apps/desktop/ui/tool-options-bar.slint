@@ -1,4 +1,4 @@
-import { Button, CheckBox, ComboBox, LineEdit } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
@@ -13,18 +13,27 @@ component ChoiceField inherits HorizontalLayout {
     in property <string> input-label;
     in property <[string]> choices;
     in property <int> selected;
-    in property <length> control-width: 100px;
+    // Measure every localized choice, leaving room for padding and the arrow.
+    private property <length> control-width: choice-width.preferred-width + 48px;
     callback selected-index(int);
     horizontal-stretch: 0;
     spacing: 4px;
     changed selected => { choice.current-index = root.selected; }
     Text { text: root.label; color: DesktopTheme.muted-text; vertical-alignment: center; }
-    choice := ComboBox {
-        enabled: root.enabled;
-        min-width: 0px; preferred-width: root.control-width; max-width: root.control-width; horizontal-stretch: 0;
-        model: root.choices; current-index: root.selected;
-        accessible-label: root.input-label;
-        selected(value) => { root.selected-index(self.current-index); }
+    Rectangle {
+        width: root.control-width; height: 32px;
+        choice-width := VerticalLayout {
+            visible: false;
+            width: 0px; height: 0px;
+            for value in root.choices: Text { text: value; }
+        }
+        choice := ComboBox {
+            width: parent.width; height: parent.height;
+            enabled: root.enabled;
+            model: root.choices; current-index: root.selected;
+            accessible-label: root.input-label;
+            selected(value) => { root.selected-index(self.current-index); }
+        }
     }
 }
 component WidthField inherits HorizontalLayout {
@@ -105,47 +114,68 @@ export component ToolOptionsBar inherits Rectangle {
         Separator { }
         AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
     }
-    if root.selected-tool == "shapes": HorizontalLayout {
-        x: 6px; y: 2px; width: parent.width - 12px; height: 32px; spacing: 6px; alignment: start;
-        ChoiceField { enabled: root.has-document; label: Translations.shape-kind; input-label: Translations.shape-kind; control-width: 90px;
-            choices: [Translations.rectangle, Translations.ellipse]; selected: root.shape-index(root.shape-kind);
-            selected-index(index) => { root.select-shape-kind(root.shape-at(index)); } }
-        Separator { }
-        ChoiceField { enabled: root.has-document; label: Translations.draw-mode; input-label: Translations.draw-mode; control-width: 105px;
-            choices: [Translations.fill, Translations.outline, Translations.fill-and-outline]; selected: root.shape-mode;
-            selected-index(index) => { root.select-shape-mode(index); } }
-        Separator { }
-        WidthField { enabled: root.has-document; input-label: Translations.outline-width; value: root.stroke-width-pixels; minimum: 0.01; maximum: 65536; edited(value) => { root.edit-stroke-width-pixels(value); } }
-        Separator { }
-        ChoiceField { enabled: root.has-document; label: Translations.line-style; input-label: Translations.line-style; control-width: 95px;
-            choices: [Translations.line-solid, Translations.line-dash, Translations.line-dot, Translations.line-dash-dot, Translations.line-dash-dot-dot]; selected: root.line-style;
-            selected-index(index) => { root.select-line-style(index); } }
-        Separator { }
-        ChoiceField { enabled: root.has-document; label: Translations.fill-pattern; input-label: Translations.fill-pattern; control-width: 95px;
-            choices: [Translations.pattern-solid, Translations.pattern-horizontal, Translations.pattern-vertical, Translations.pattern-forward-diagonal, Translations.pattern-backward-diagonal, Translations.pattern-cross, Translations.pattern-diagonal-cross, Translations.pattern-checkerboard]; selected: root.fill-pattern;
-            selected-index(index) => { root.select-fill-pattern(index); } }
-        Separator { }
-        AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
-        Button { width: DesktopTheme.compact-button-size; icon: @image-url("../icons/check.svg"); accessible-label: Translations.finish-shape; enabled: root.has-shape; clicked => { root.action(2); } }
+    // Keep Finish reachable while longer localized options scroll horizontally.
+    if root.selected-tool == "shapes": Button {
+        x: parent.width - self.width - 6px; y: 2px;
+        width: DesktopTheme.compact-button-size; height: 32px;
+        icon: @image-url("../icons/check.svg"); accessible-label: Translations.finish-shape;
+        enabled: root.has-shape;
+        Tooltip { Text { text: Translations.finish-shape + " · " + Translations.key-commit; color: Palette.foreground; } }
+        clicked => { root.action(2); }
     }
-    if root.selected-tool == "color-picker": HorizontalLayout {
-        x: 6px; y: 2px; width: parent.width - 12px; height: 32px; spacing: 6px; alignment: start;
-        ChoiceField { enabled: root.has-document; label: Translations.picker-sampling; input-label: Translations.picker-sampling; control-width: 95px;
-            choices: [Translations.picker-sampling-layer, Translations.picker-sampling-image, Translations.picker-sampling-screen]; selected: root.sampling-index(root.picker-sampling);
-            selected-index(index) => { root.select-picker-sampling(root.sampling-at(index)); } }
-        Separator { }
-        ChoiceField { enabled: root.has-document; label: Translations.picker-sample-size; input-label: Translations.picker-sample-size; control-width: 150px;
-            choices: [Translations.picker-size-single, Translations.picker-size-3, Translations.picker-size-5, Translations.picker-size-11, Translations.picker-size-31, Translations.picker-size-51]; selected: root.size-index(root.picker-size);
-            selected-index(index) => { root.select-picker-size(root.size-at(index)); } }
-        Separator { }
-        ChoiceField { enabled: root.has-document; label: Translations.picker-after-click; input-label: Translations.picker-after-click; control-width: 180px;
-            choices: [Translations.picker-after-stay, Translations.picker-after-previous]; selected: root.after-index(root.picker-after-click);
-            selected-index(index) => { root.select-picker-after-click(root.after-at(index)); } }
-        if root.picker-sampling == PickerSamplingChoice.screen: Button {
-            enabled: root.has-document;
-            text: Translations.pick-from-screen; accessible-label: Translations.pick-from-screen;
-            // Samples the screen, not the canvas: distinct from canvas sampling.
-            clicked => { root.pick-screen(); }
+    if root.selected-tool == "shapes": shapes-scroll := ScrollView {
+        x: 0px;
+        width: parent.width - DesktopTheme.compact-button-size - 12px; height: parent.height;
+        vertical-scrollbar-policy: always-off;
+        content-width: max(self.visible-width, shapes-options.preferred-width + 12px);
+        content-height: self.visible-height;
+        shapes-options := HorizontalLayout {
+            x: 6px; y: 2px; width: shapes-scroll.content-width - 12px; height: 32px; spacing: 6px; alignment: start;
+            ChoiceField { enabled: root.has-document; label: Translations.shape-kind; input-label: Translations.shape-kind;
+                choices: [Translations.rectangle, Translations.ellipse]; selected: root.shape-index(root.shape-kind);
+                selected-index(index) => { root.select-shape-kind(root.shape-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.draw-mode; input-label: Translations.draw-mode;
+                choices: [Translations.fill, Translations.outline, Translations.fill-and-outline]; selected: root.shape-mode;
+                selected-index(index) => { root.select-shape-mode(index); } }
+            Separator { }
+            WidthField { enabled: root.has-document; input-label: Translations.outline-width; value: root.stroke-width-pixels; minimum: 0.01; maximum: 65536; edited(value) => { root.edit-stroke-width-pixels(value); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.line-style; input-label: Translations.line-style;
+                choices: [Translations.line-solid, Translations.line-dash, Translations.line-dot, Translations.line-dash-dot, Translations.line-dash-dot-dot]; selected: root.line-style;
+                selected-index(index) => { root.select-line-style(index); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.fill-pattern; input-label: Translations.fill-pattern;
+                choices: [Translations.pattern-solid, Translations.pattern-horizontal, Translations.pattern-vertical, Translations.pattern-forward-diagonal, Translations.pattern-backward-diagonal, Translations.pattern-cross, Translations.pattern-diagonal-cross, Translations.pattern-checkerboard]; selected: root.fill-pattern;
+                selected-index(index) => { root.select-fill-pattern(index); } }
+            Separator { }
+            AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
+        }
+    }
+    if root.selected-tool == "color-picker": picker-scroll := ScrollView {
+        width: parent.width; height: parent.height;
+        vertical-scrollbar-policy: always-off;
+        content-width: max(self.visible-width, picker-options.preferred-width + 12px);
+        content-height: self.visible-height;
+        picker-options := HorizontalLayout {
+            x: 6px; y: 2px; width: picker-scroll.content-width - 12px; height: 32px; spacing: 6px; alignment: start;
+            ChoiceField { enabled: root.has-document; label: Translations.picker-sampling; input-label: Translations.picker-sampling;
+                choices: [Translations.picker-sampling-layer, Translations.picker-sampling-image, Translations.picker-sampling-screen]; selected: root.sampling-index(root.picker-sampling);
+                selected-index(index) => { root.select-picker-sampling(root.sampling-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.picker-sample-size; input-label: Translations.picker-sample-size;
+                choices: [Translations.picker-size-single, Translations.picker-size-3, Translations.picker-size-5, Translations.picker-size-11, Translations.picker-size-31, Translations.picker-size-51]; selected: root.size-index(root.picker-size);
+                selected-index(index) => { root.select-picker-size(root.size-at(index)); } }
+            Separator { }
+            ChoiceField { enabled: root.has-document; label: Translations.picker-after-click; input-label: Translations.picker-after-click;
+                choices: [Translations.picker-after-stay, Translations.picker-after-previous]; selected: root.after-index(root.picker-after-click);
+                selected-index(index) => { root.select-picker-after-click(root.after-at(index)); } }
+            if root.picker-sampling == PickerSamplingChoice.screen: Button {
+                enabled: root.has-document;
+                text: Translations.pick-from-screen; accessible-label: Translations.pick-from-screen;
+                // Samples the screen, not the canvas: distinct from canvas sampling.
+                clicked => { root.pick-screen(); }
+            }
         }
     }
 }
