@@ -241,7 +241,8 @@ fn create_panels(
 ) -> Result<AppPanels, slint::PlatformError> {
     resources::initialize();
     let ui = AppWindow::new()?;
-    let scheme = theme::system_scheme(&ui);
+    // Keep fixed-color icons legible until they follow the theme in #244.
+    let scheme = theme::Scheme::Dark;
     let locale = localization::system_selection();
     let text = localization::Localizer::new(&locale);
     localization::apply(&ui, &text);

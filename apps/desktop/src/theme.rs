@@ -254,6 +254,10 @@ pub(crate) fn apply(
     }
 }
 /// Read the untouched standard-widget palette before the first theme application.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "OS-following start returns with #244")
+)]
 pub(crate) fn system_scheme(ui: &AppWindow) -> Scheme {
     match ui.global::<Palette>().get_color_scheme() {
         ColorScheme::Light => Scheme::Light,
