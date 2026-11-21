@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 // Shared name search and palette controls for floating and docked Colors hosts.
 import { Button, ComboBox, LineEdit, Palette } from "std-widgets.slint";
 import { Translations } from "localization.slint";
@@ -76,7 +77,7 @@ component NameSearch inherits Rectangle {
             }
             Tooltip { text: Translations.styled(Translations.color-name-tooltip); }
         }
-        Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.clear-color-search;
+        IconButton { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.clear-color-search;
             clicked => { root.query = ""; editor.text = ""; root.open = false; root.search(""); }
             Tooltip { text: Translations.styled(Translations.clear-color-search); }
         }
@@ -139,24 +140,24 @@ export component ColorLibrary inherits Rectangle {
                 selected(value) => { root.select-palette(self.current-index); }
             }
             Text { text: root.palette-dirty ? "*" : ""; color: #526079; vertical-alignment: center; }
-            Button { text: root.palette-expanded ? "32" : "96"; width: 36px; accessible-label: root.palette-expanded ? Translations.show-first-32 : Translations.show-all-96;
+            Button { text: root.palette-expanded ? "32" : "96"; accessible-label: root.palette-expanded ? Translations.show-first-32 : Translations.show-all-96;
                 clicked => { root.set-palette-expanded(!root.palette-expanded); }
                 Tooltip { text: Translations.styled(Translations.palette-size-tooltip); }
             }
         }
         HorizontalLayout { height: 30px; spacing: 4px; alignment: start;
             Rectangle { width: 30px; height: 30px; background: root.palette-inserting ? #c8ddff : transparent; border-width: root.palette-inserting ? 2px : 0px; border-color: #315cae;
-                Button { width: parent.width; height: parent.height; icon: @image-url("../icons/plus.svg"); accessible-label: Translations.add-to-palette;
+                IconButton { width: parent.width; height: parent.height; icon: @image-url("../icons/plus.svg"); accessible-label: Translations.add-to-palette;
                     clicked => { root.toggle-palette-insert(); }
                     Tooltip { text: Translations.styled(Translations.add-to-palette-tooltip); }
                 }
                 Preview { x: 20px; y: 20px; width: 9px; height: 9px; value: root.current-color; }
             }
-            Button { width: 30px; icon: @image-url("../icons/save.svg"); accessible-label: Translations.save-palette-as; clicked => { root.save-palette-as(); } Tooltip { text: Translations.styled(Translations.save-palette-as-tooltip); } }
-            Button { width: 30px; icon: @image-url("../icons/file-input.svg"); accessible-label: Translations.import-palette; clicked => { root.import-palette(); } Tooltip { text: Translations.styled(Translations.import-palette-tooltip); } }
-            Button { width: 30px; icon: @image-url("../icons/file-output.svg"); accessible-label: Translations.export-palette; clicked => { root.export-palette(); } Tooltip { text: Translations.styled(Translations.export-palette-tooltip); } }
-            Button { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: Translations.open-palettes-folder; clicked => { root.open-palettes-folder(); } Tooltip { text: Translations.styled(Translations.open-palettes-folder-tooltip); } }
-            Button { width: 30px; icon: @image-url("../icons/rotate-ccw.svg"); accessible-label: Translations.reset-palette; clicked => { root.reset-palette(); } Tooltip { text: Translations.styled(Translations.reset-palette-tooltip); } }
+            IconButton { width: 30px; icon: @image-url("../icons/save.svg"); accessible-label: Translations.save-palette-as; clicked => { root.save-palette-as(); } Tooltip { text: Translations.styled(Translations.save-palette-as-tooltip); } }
+            IconButton { width: 30px; icon: @image-url("../icons/file-input.svg"); accessible-label: Translations.import-palette; clicked => { root.import-palette(); } Tooltip { text: Translations.styled(Translations.import-palette-tooltip); } }
+            IconButton { width: 30px; icon: @image-url("../icons/file-output.svg"); accessible-label: Translations.export-palette; clicked => { root.export-palette(); } Tooltip { text: Translations.styled(Translations.export-palette-tooltip); } }
+            IconButton { width: 30px; icon: @image-url("../icons/folder-open.svg"); accessible-label: Translations.open-palettes-folder; clicked => { root.open-palettes-folder(); } Tooltip { text: Translations.styled(Translations.open-palettes-folder-tooltip); } }
+            IconButton { width: 30px; icon: @image-url("../icons/rotate-ccw.svg"); accessible-label: Translations.reset-palette; clicked => { root.reset-palette(); } Tooltip { text: Translations.styled(Translations.reset-palette-tooltip); } }
         }
         Text { height: 18px; text: root.palette-inserting ? Translations.choose-palette-slot : root.palette-title; color: #526079; font-size: 11px; }
         swatch-grid := Rectangle {

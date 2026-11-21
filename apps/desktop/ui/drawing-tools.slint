@@ -1,4 +1,4 @@
-import { Button } from "std-widgets.slint";
+import { IconButton } from "icon-button.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 
@@ -12,20 +12,13 @@ export component DrawingTools inherits VerticalLayout {
         { id: "paintbrush", label: Translations.brush, icon: @image-url("../icons/brush.svg") },
         { id: "eraser", label: Translations.eraser, icon: @image-url("../icons/eraser.svg") },
         { id: "color-picker", label: Translations.eyedropper, icon: @image-url("../icons/pipette.svg") }
-    ]: Rectangle {
-        height: DesktopTheme.tool-rail-width - 20px;
-        border-width: root.selected-tool == tool.id ? 2px : 0px;
-        border-color: DesktopTheme.selected-tool;
-        border-radius: 4px;
-        background: transparent;
-        Button {
-            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
-            icon: tool.icon;
-            accessible-label: tool.label;
-            enabled: root.enabled;
-            opacity: self.enabled ? 1 : 0.4;
-            Tooltip { text: @markdown("\{tool.label}"); }
-            clicked => { root.choose-tool(tool.id); }
-        }
+    ]: IconButton {
+        height: DesktopTheme.tool-rail-width - 20px; width: parent.width;
+        checked: root.selected-tool == tool.id;
+        icon: tool.icon;
+        accessible-label: tool.label;
+        enabled: root.enabled;
+        Tooltip { text: @markdown("\{tool.label}"); }
+        clicked => { root.choose-tool(tool.id); }
     }
 }

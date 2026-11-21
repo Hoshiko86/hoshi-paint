@@ -90,6 +90,13 @@ fn cargo(args: &[&str]) -> Step {
 fn lint(workspace: &Workspace) -> Result<(), Error> {
     workspace.run(cargo(&["fmt", "--all", "--check"]))?;
     workspace.run(cargo(&[
+        "test",
+        "--locked",
+        "-p",
+        "xtask",
+        "english::tests::no_std_icon_buttons_in_slint_layouts",
+    ]))?;
+    workspace.run(cargo(&[
         "clippy",
         "--workspace",
         "--all-targets",

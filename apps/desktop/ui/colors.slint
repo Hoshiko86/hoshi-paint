@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 import { ColorLibrary, PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 export { PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 import { FileShortcuts, FileAction } from "file-shortcuts.slint";
@@ -66,11 +67,11 @@ export component WorkspaceColors inherits HorizontalLayout {
         selected: root.slot == 0; enabled: !root.picking; clicked => { root.select(0); } }
     ColorSwatch { value: root.secondary; label: Translations.secondary-color; description: root.secondary-description;
         selected: root.slot == 1; enabled: !root.picking; clicked => { root.select(1); } }
-    Button { width: 32px; icon: @image-url("../icons/swap-colors.svg"); enabled: !root.picking;
+    IconButton { width: 32px; icon: @image-url("../icons/swap-colors.svg"); enabled: !root.picking;
         accessible-label: Translations.swap-colors-label;
         Tooltip { text: Translations.styled(Translations.swap-colors-label + " · X"); }
         clicked => { root.swap(); } }
-    Button { width: 32px; icon: @image-url("../icons/reset-colors.svg"); enabled: !root.picking;
+    IconButton { width: 32px; icon: @image-url("../icons/reset-colors.svg"); enabled: !root.picking;
         accessible-label: Translations.reset-colors-label;
         Tooltip { text: Translations.styled(Translations.reset-colors-label + " · D"); }
         clicked => { root.reset(); } }
@@ -127,14 +128,14 @@ export component ToolPanelFrame inherits Rectangle {
                 accessible-label: root.title + " " + Translations.dock-location;
                 selected(value) => { root.placement-selected(root.placement-at(self.current-index)); }
             }
-            Button {
+            IconButton {
                 width: 32px;
                 icon: root.docked ? @image-url("../icons/panels-top-left.svg") : @image-url("../icons/pin.svg");
                 Tooltip { text: Translations.styled(Translations.toggle-dock-tooltip); }
                 accessible-label: (root.docked ? Translations.float-panel : Translations.dock-panel) + " " + root.title;
                 clicked => { root.placement-selected(root.placement == PanelPlacement.floating ? root.last-docked : PanelPlacement.floating); }
             }
-            Button { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.close-panel; Tooltip { text: Translations.styled(Translations.close-panel); } clicked => { root.close-panel(); } }
+            IconButton { width: 28px; icon: @image-url("../icons/x.svg"); accessible-label: Translations.close-panel; Tooltip { text: Translations.styled(Translations.close-panel); } clicked => { root.close-panel(); } }
         }
         ScrollView {
             content-width: self.width;

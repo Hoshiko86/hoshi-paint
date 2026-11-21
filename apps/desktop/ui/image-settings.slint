@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 import { Button, LineEdit, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
@@ -68,7 +69,7 @@ export component ImageSettings inherits Rectangle {
         if root.kind == ImageDialog.resize: HorizontalLayout {
             Text { text: Translations.resampling; width: 100px; color: DesktopTheme.text; vertical-alignment: center; }
             ComboBox { model: [Translations.resample-bicubic, Translations.resample-bicubic-smooth, Translations.resample-bilinear, Translations.resample-bilinear-low, Translations.resample-adaptive, Translations.resample-lanczos, Translations.resample-fant, Translations.resample-nearest]; current-index <=> root.resampling; accessible-label: Translations.resampling-label; }
-            Button { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: Translations.reset-resampling;
+            IconButton { icon: @image-url("../icons/undo-2.svg"); width: 32px; accessible-label: Translations.reset-resampling;
                 Tooltip { text: Translations.styled(Translations.reset-resampling); }
                 clicked => { root.resampling = 0; } }
         }

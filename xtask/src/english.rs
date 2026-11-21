@@ -351,6 +351,146 @@ mod tests {
         );
     }
 
+    type SlintChars<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
+
+    fn skip_slint_quote(chars: &mut SlintChars<'_>, line: &mut usize) {
+        while let Some((_, ch)) = chars.next() {
+            match ch {
+                '"' => break,
+                '\\' => {
+                    if chars.next().is_some_and(|(_, c)| c == '\n') {
+                        *line += 1;
+                    }
+                }
+                '\n' => *line += 1,
+                _ => {}
+            }
+        }
+    }
+
+    fn skip_slint_block(chars: &mut SlintChars<'_>, line: &mut usize) {
+        let mut depth = 1;
+        while let Some((_, ch)) = chars.next() {
+            match ch {
+                '\n' => *line += 1,
+                '/' if chars.next_if(|(_, c)| *c == '*').is_some() => depth += 1,
+                '*' if chars.next_if(|(_, c)| *c == '/').is_some() => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Comments and quoted braces never establish an element scope.
+    fn slint_element_tokens(source: &str) -> Vec<(&str, usize)> {
+        let mut tokens = Vec::new();
+        let mut chars = source.char_indices().peekable();
+        let mut line = 1;
+        while let Some((start, ch)) = chars.next() {
+            match ch {
+                '\n' => line += 1,
+                '/' if chars.next_if(|(_, c)| *c == '/').is_some() => {
+                    for (_, c) in chars.by_ref() {
+                        if c == '\n' {
+                            line += 1;
+                            break;
+                        }
+                    }
+                }
+                '/' if chars.next_if(|(_, c)| *c == '*').is_some() => {
+                    skip_slint_block(&mut chars, &mut line)
+                }
+                '"' => skip_slint_quote(&mut chars, &mut line),
+                c if c.is_ascii_alphabetic() || c == '_' => {
+                    let mut end = start + 1;
+                    while let Some((position, _)) =
+                        chars.next_if(|(_, c)| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+                    {
+                        end = position + 1;
+                    }
+                    tokens.push((&source[start..end], line));
+                }
+                '{' | '}' | ':' => tokens.push((&source[start..start + 1], line)),
+                _ => {}
+            }
+        }
+        tokens
+    }
+
+    fn icon_button_lines(source: &str) -> Vec<usize> {
+        let tokens = slint_element_tokens(source);
+        let mut stack = Vec::new();
+        let mut found = Vec::new();
+        for (i, &(token, _)) in tokens.iter().enumerate() {
+            match token {
+                "{" => stack.push(
+                    i.checked_sub(1)
+                        .and_then(|n| tokens.get(n))
+                        .filter(|(name, _)| *name == "Button")
+                        .map(|(_, line)| *line),
+                ),
+                "}" => {
+                    stack.pop();
+                }
+                "icon" if tokens.get(i + 1).is_some_and(|(t, _)| *t == ":") => {
+                    if let Some(Some(button_line)) = stack.last() {
+                        found.push(*button_line);
+                    }
+                }
+                _ => {}
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn no_std_icon_buttons_in_slint_layouts() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join(SLINT_UI);
+        let mut found = Vec::new();
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let file = entry.unwrap().path();
+            if file.extension().is_some_and(|e| e == "slint") {
+                for line in icon_button_lines(&std::fs::read_to_string(&file).unwrap()) {
+                    found.push(format!(
+                        "{}:{line}: use IconButton for an icon-only control",
+                        file.display()
+                    ));
+                }
+            }
+        }
+        assert!(
+            found.is_empty(),
+            "std Button with icon:; use IconButton:\n{}",
+            found.join("\n")
+        );
+    }
+
+    #[test]
+    fn icon_guard_tracks_element_scope_across_lines_and_nested_tooltips() {
+        assert_eq!(
+            icon_button_lines("Button {\n enabled: true;\n icon: image;\n}"),
+            [1]
+        );
+        assert!(
+            icon_button_lines("IconButton { icon: image; } Button { text: title; }").is_empty()
+        );
+        assert_eq!(
+            icon_button_lines(r#"Button { Tooltip { Text { text: "} icon: {"; } } icon: image; }"#),
+            [1]
+        );
+        assert!(icon_button_lines("Button { Tooltip { IconButton { icon: image; } } }").is_empty());
+        assert!(
+            icon_button_lines("// Button { icon: image; }\n/* Button { icon: image; } */")
+                .is_empty()
+        );
+    }
+
     #[test]
     fn slint_scan_skips_imports_images_interpolation_and_symbols() {
         assert_eq!(slint_copy(r#"    Text { text: "Units"; }"#), ["Units"]);

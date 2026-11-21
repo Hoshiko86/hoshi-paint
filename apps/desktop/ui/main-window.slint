@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 export { DesktopTheme } from "theme.slint";
 export { Palette } from "std-widgets.slint";
 import { ToolOptionsBar, ShapeKindChoice, PickerSamplingChoice, PickerSizeChoice, PickerAfterClickChoice } from "tool-options-bar.slint";
@@ -420,26 +421,25 @@ export component AppWindow inherits Window {
                 x: 0px; y: 0px; width: DesktopTheme.tool-rail-width; height: parent.height;
                 spacing: 8px; alignment: start;
                 Text { text: Translations.tools-heading; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; overflow: elide; }
-                Rectangle { height: 44px; border-width: root.selected-tool == "shapes" ? 2px : 0px; border-color: DesktopTheme.selected-tool; border-radius: 4px; background: transparent;
-                    rectangle-tool := Button { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
-                        icon: @image-url("../icons/shapes.svg"); accessible-label: Translations.shapes; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
-                        Tooltip { text: Translations.styled(Translations.shapes + " · " + Translations.rectangle); }
-                        clicked => { root.choose-tool("shapes"); root.show-shape-properties(); }
-                    }
+                rectangle-tool := IconButton { height: 44px; width: parent.width;
+                    checked: root.selected-tool == "shapes";
+                    icon: @image-url("../icons/shapes.svg"); accessible-label: Translations.shapes; enabled: root.has-document;
+                    Tooltip { text: Translations.styled(Translations.shapes + " · " + Translations.rectangle); }
+                    clicked => { root.choose-tool("shapes"); root.show-shape-properties(); }
                 }
                 DrawingTools {
                     selected-tool: root.selected-tool;
                     enabled: root.has-document;
                     choose-tool(tool) => { root.choose-tool(tool); }
                 }
-                Button { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: Translations.colors;
+                IconButton { icon: @image-url("../icons/palette.svg"); height: 40px; accessible-label: Translations.colors;
                     Tooltip { text: Translations.styled(Translations.colors-tooltip); } clicked => { root.show-colors(); } }
                 Text { text: Translations.colors-heading; color: DesktopTheme.muted-text; font-size: 11px; font-weight: 700; }
                 ColorSwatch { value: root.workspace-primary; label: Translations.primary-color; description: root.workspace-primary-description; selected: root.color-slot == 0; clicked => { root.select-color-slot(0); } }
                 ColorSwatch { value: root.workspace-secondary; label: Translations.secondary-color; description: root.workspace-secondary-description; selected: root.color-slot == 1; clicked => { root.select-color-slot(1); } }
                 HorizontalLayout { spacing: 4px;
-                    Button { icon: @image-url("../icons/swap-colors.svg"); width: 28px; accessible-label: Translations.swap-colors; Tooltip { text: Translations.styled(Translations.swap-colors + " · X"); } clicked => { root.swap-colors(); } }
-                    Button { icon: @image-url("../icons/reset-colors.svg"); width: 28px; accessible-label: Translations.reset-colors; Tooltip { text: Translations.styled(Translations.reset-colors + " · D"); } clicked => { root.reset-colors(); } }
+                    IconButton { icon: @image-url("../icons/swap-colors.svg"); width: 28px; accessible-label: Translations.swap-colors; Tooltip { text: Translations.styled(Translations.swap-colors + " · X"); } clicked => { root.swap-colors(); } }
+                    IconButton { icon: @image-url("../icons/reset-colors.svg"); width: 28px; accessible-label: Translations.reset-colors; Tooltip { text: Translations.styled(Translations.reset-colors + " · D"); } clicked => { root.reset-colors(); } }
                 }
                 Rectangle { vertical-stretch: 1; }
             }
