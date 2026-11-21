@@ -1,0 +1,80 @@
+import { DesktopTheme } from "theme.slint";
+
+// Channel tracks and their geometry are supplied by the Colors panel.
+export component GradientSlider inherits Rectangle {
+    in property <float> minimum;
+    in property <float> maximum;
+    in-out property <float> value;
+    in property <brush> track;
+    in property <bool> checkered;
+    in property <bool> enabled: true;
+    // accessible-label is inherited from Rectangle.
+    callback changed(float);
+    preferred-height: 20px;
+    min-width: 32px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    border-radius: 4px;
+    clip: true;
+    background: DesktopTheme.checker-light;
+    opacity: root.enabled ? 1 : 0.4;
+    forward-focus: keyboard;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: 1;
+    accessible-action-increment => { if root.enabled { root.change(root.value + 1); } }
+    accessible-action-decrement => { if root.enabled { root.change(root.value - 1); } }
+    private property <float> fraction: root.maximum > root.minimum ? clamp((root.value - root.minimum) / (root.maximum - root.minimum), 0, 1) : 0;
+    function change(value: float) {
+        let next = clamp(value, root.minimum, max(root.minimum, root.maximum));
+        if next != root.value { root.value = next; root.changed(next); }
+    }
+    function point(x: length) {
+        root.change(root.minimum + clamp(x / max(1px, root.width), 0, 1) * max(0, root.maximum - root.minimum));
+    }
+    if root.checkered: Rectangle {
+        for row in ceil(root.height / 4px): Rectangle {
+            y: row * 4px; height: 4px;
+            for column in ceil(root.width / 4px): Rectangle {
+                x: column * 4px; width: 4px; height: 4px;
+                background: mod(row + column, 2) == 0 ? DesktopTheme.checker-light : DesktopTheme.checker-dark;
+            }
+        }
+    }
+    Rectangle { background: root.track; border-radius: 4px; }
+    Rectangle {
+        width: 4px; height: parent.height;
+        x: clamp(root.fraction * parent.width - self.width / 2, 0px, max(0px, parent.width - self.width));
+        background: DesktopTheme.panel-background;
+        border-width: 1px; border-color: DesktopTheme.text;
+    }
+    Rectangle {
+        border-radius: 4px; border-width: keyboard.has-focus ? 2px : 1px;
+        border-color: keyboard.has-focus ? DesktopTheme.focus-ring : DesktopTheme.field-border;
+        background: transparent;
+    }
+    keyboard := FocusScope {
+        width: parent.width; height: parent.height;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if !root.enabled { return reject; }
+            if event.text == Key.LeftArrow { root.change(root.value - 1); return accept; }
+            if event.text == Key.RightArrow { root.change(root.value + 1); return accept; }
+            if event.text == Key.PageUp { root.change(root.value + 10); return accept; }
+            if event.text == Key.PageDown { root.change(root.value - 10); return accept; }
+            if event.text == Key.Home { root.change(root.minimum); return accept; }
+            if event.text == Key.End { root.change(root.maximum); return accept; }
+            reject
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left { keyboard.focus(); root.point(self.mouse-x); }
+        }
+        moved => { if self.pressed { root.point(self.mouse-x); } }
+    }
+}
