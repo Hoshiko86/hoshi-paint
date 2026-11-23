@@ -1,0 +1,88 @@
+name: Codex PR Agent
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  codex:
+    if: |
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'Hoshiko86' &&
+      contains(github.event.comment.body, '@codex')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Get PR branch info
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('repo', pr.data.head.repo.full_name);
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pr.outputs.repo }}
+          ref: ${{ steps.pr.outputs.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Slint Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libfontconfig1-dev libfreetype6-dev \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libwayland-dev libx11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Read AGENTS.md first and strictly follow all project rules.
+            Address the following request on this Pull Request:
+            ${{ github.event.comment.body }}
+
+            Before finishing, ensure these checks pass:
+            - cargo fmt --all --check
+            - cargo clippy --workspace --all-targets --locked -- -D warnings
+            - cargo test --workspace --locked
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "codex-bot[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "Apply @codex PR feedback"
+            git push
+          fi
+
+      - name: Reply on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "✅ **Codex** finished running on this branch. Check the latest commit or workflow run logs for details."
+            });
