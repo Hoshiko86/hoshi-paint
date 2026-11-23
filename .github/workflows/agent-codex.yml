@@ -1,41 +1,67 @@
-name: Codex PR Agent
+# Codex's role (AGENTS.md): implementation and PR fixes. The owner dispatches
+# it by commenting on a PR with a line starting `@codex-fix`, usually the
+# paste-ready block from Claude's review (agent-claude.yml). `@codex-fix` is
+# used instead of `@codex` so ChatGPT's own Codex connector does not answer too.
+name: Codex (PR fixes)
 
 on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: codex-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
-  codex:
+  fix:
     if: |
       github.event.issue.pull_request &&
       github.event.comment.user.login == 'Hoshiko86' &&
-      contains(github.event.comment.body, '@codex')
+      startsWith(github.event.comment.body, '@codex-fix')
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
       issues: write
 
     steps:
-      - name: Get PR branch info
+      - name: Get PR branch
         id: pr
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = await github.rest.pulls.get({
+            const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number
+              pull_number: context.issue.number,
             });
-            core.setOutput('ref', pr.data.head.ref);
-            core.setOutput('repo', pr.data.head.repo.full_name);
+            if (pr.head.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+              core.setFailed('Fork PRs are not supported.');
+            }
+            if (pr.state !== 'open') {
+              core.setFailed('The PR is not open.');
+            }
+            core.setOutput('ref', pr.head.ref);
+
+      # CODEX_PUSH_TOKEN: a fine-grained token (Contents: read and write on this
+      # repo). Pushes made with the default GITHUB_TOKEN do not start CI, so the
+      # fix commits would never be tested on Linux/Windows/macOS.
+      - name: Check push token
+        env:
+          TOKEN: ${{ secrets.CODEX_PUSH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Add the CODEX_PUSH_TOKEN secret so fix commits trigger CI."
+            exit 1
+          fi
 
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.pr.outputs.repo }}
           ref: ${{ steps.pr.outputs.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CODEX_PUSH_TOKEN }}
+          fetch-depth: 1
 
       - name: Install Slint Linux dependencies
         run: |
@@ -46,43 +72,73 @@ jobs:
             libgl1-mesa-dev libglu1-mesa-dev \
             libwayland-dev libx11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      # rustup reads rust-toolchain.toml (pinned 1.99.1 with rustfmt and clippy).
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
 
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Run Codex
+        id: codex
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          output-file: codex-final-message.md
           prompt: |
-            Read AGENTS.md first and strictly follow all project rules.
-            Address the following request on this Pull Request:
+            You are the implementer for Hoshi Paint, working on the branch of PR #${{ github.event.issue.number }}.
+            Read AGENTS.md first and follow it strictly, especially §3a "Review rounds":
+            fix only what the request lists, only in files this PR already changes, with no
+            behavior change unless the request says so. If a fix needs a file outside the PR,
+            or conflicts with the issue's binding scope, skip it and say so (AGENTS.md §0).
+            Do not edit anything under .github/. Do not commit or push: the workflow does that.
+
+            The owner's request:
             ${{ github.event.comment.body }}
 
-            Before finishing, ensure these checks pass:
-            - cargo fmt --all --check
-            - cargo clippy --workspace --all-targets --locked -- -D warnings
-            - cargo test --workspace --locked
+            Before finishing, make sure these pass (see docs/TESTING.md):
+            - cargo xtask test lint
+            - cargo xtask test unit
 
-      - name: Commit and push changes
+            Finish with a short report: each requested fix → done or skipped (and why), and the
+            command results.
+
+      - name: Commit and push
+        id: push
         run: |
-          git config user.name "codex-bot[bot]"
+          if git status --porcelain | cut -c4- | grep -q '^\.github/'; then
+            echo "::error::Codex changed files under .github/; refusing to push."
+            exit 1
+          fi
+          git config user.name "codex-fix[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ -n $(git status --porcelain) ]]; then
-            git add -A
-            git commit -m "Apply @codex PR feedback"
+          if [ -n "$(git status --porcelain -- . ':!codex-final-message.md')" ]; then
+            git add -A -- . ':!codex-final-message.md'
+            git commit -m "Apply review fixes (@codex-fix on #${{ github.event.issue.number }})"
             git push
+            echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Reply on PR
+        if: always()
         uses: actions/github-script@v7
+        env:
+          STATUS: ${{ job.status }}
+          SHA: ${{ steps.push.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
+            const fs = require('fs');
+            let report = '';
+            try { report = fs.readFileSync('codex-final-message.md', 'utf8').slice(0, 60000); } catch {}
+            const head = process.env.STATUS === 'success'
+              ? (process.env.SHA ? `✅ **Codex** pushed ${process.env.SHA}. CI will run on it.`
+                                 : '✅ **Codex** finished with no changes to push.')
+              : `❌ **Codex** run ${process.env.STATUS}. See the [workflow run](${process.env.RUN_URL}).`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: "✅ **Codex** finished running on this branch. Check the latest commit or workflow run logs for details."
+              body: `${head}\n\n${report}`.trim(),
             });
