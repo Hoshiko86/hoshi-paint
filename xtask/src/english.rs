@@ -427,18 +427,26 @@ mod tests {
         let mut found = Vec::new();
         for (i, &(token, _)) in tokens.iter().enumerate() {
             match token {
-                "{" => stack.push(
-                    i.checked_sub(1)
+                "{" => {
+                    let button = i
+                        .checked_sub(1)
                         .and_then(|n| tokens.get(n))
                         .filter(|(name, _)| *name == "Button")
-                        .map(|(_, line)| *line),
-                ),
-                "}" => {
-                    stack.pop();
+                        .map(|(_, line)| *line);
+                    stack.push((button, false, false));
                 }
-                "icon" if tokens.get(i + 1).is_some_and(|(t, _)| *t == ":") => {
-                    if let Some(Some(button_line)) = stack.last() {
-                        found.push(*button_line);
+                "}" => {
+                    if let Some((Some(line), true, false)) = stack.pop() {
+                        found.push(line);
+                    }
+                }
+                "icon" | "text" if tokens.get(i + 1).is_some_and(|(t, _)| *t == ":") => {
+                    if let Some((_, icon, text)) = stack.last_mut() {
+                        if token == "icon" {
+                            *icon = true;
+                        } else {
+                            *text = true;
+                        }
                     }
                 }
                 _ => {}
@@ -466,7 +474,7 @@ mod tests {
         }
         assert!(
             found.is_empty(),
-            "std Button with icon:; use IconButton:\n{}",
+            "icon-only std Button; use IconButton:\n{}",
             found.join("\n")
         );
     }
@@ -488,6 +496,16 @@ mod tests {
         assert!(
             icon_button_lines("// Button { icon: image; }\n/* Button { icon: image; } */")
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn icon_guard_preserves_text_buttons_without_counting_nested_tooltip_text() {
+        assert!(icon_button_lines("Button { text: title; icon: thumbnail; }").is_empty());
+        assert!(icon_button_lines("Button { icon: thumbnail; text: title; }").is_empty());
+        assert_eq!(
+            icon_button_lines("Button { icon: image; Tooltip { Text { text: title; } } }"),
+            [1]
         );
     }
 
