@@ -1,6 +1,14 @@
 # Claude's role (CLAUDE.md): architecture, task breakdown and PR review.
-# Claude never writes product code here: implementation and PR fixes belong to
-# Codex (agent-codex.yml), dispatched by the owner with `@codex-fix`.
+# Claude never writes product code here. The review loop is automatic:
+#
+#   PR opened / ready for review, or "@claude review" from the owner or Codex
+#     -> review: Claude posts one review comment and returns a verdict
+#     -> fix: if there are in-scope fixes, Codex applies them on the PR branch
+#        (agent-codex.yml, called directly: no copy and paste)
+#     -> recheck: Claude checks the fix commit and posts the result.
+#
+# One round per request: the re-check never dispatches Codex again, and new
+# pushes do not start a review. Ask again with "@claude review".
 name: Claude (architect and reviewer)
 
 on:
@@ -12,19 +20,18 @@ on:
     types: [created]
 
 concurrency:
-  group: claude-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: agents-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
-  # Automatic review when a PR opens or leaves draft, or on demand when the
-  # owner comments "@claude review" on a PR.
   review:
     if: |
       (github.event_name == 'pull_request' && !github.event.pull_request.draft &&
        github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
-       github.event.comment.user.login == 'Hoshiko86' &&
-       startsWith(github.event.comment.body, '@claude review'))
+       (github.event.comment.user.login == 'Hoshiko86' ||
+        github.event.comment.user.login == 'chatgpt-codex-connector[bot]') &&
+       contains(github.event.comment.body, '@claude review'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -32,22 +39,33 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    outputs:
+      pr: ${{ steps.pr.outputs.number }}
+      verdict: ${{ fromJSON(steps.review.outputs.structured_output || '{}').verdict }}
+      fixes: ${{ fromJSON(steps.review.outputs.structured_output || '{}').fixes }}
     steps:
+      - name: PR number
+        id: pr
+        env:
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/head
+          ref: refs/pull/${{ steps.pr.outputs.number }}/head
           fetch-depth: 1
 
       - name: Review
-        uses: anthropics/claude-code-action@v1
+        id: review
+        uses: anthropics/claude-code-action@4a461cbbb72e467c61b1e47547fc0d7dacece34a # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          track_progress: true
+          allowed_bots: chatgpt-codex-connector
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+            PR NUMBER: ${{ steps.pr.outputs.number }}
 
             You are the reviewer for Hoshi Paint. Codex implemented this PR; you do not edit files.
 
@@ -61,17 +79,78 @@ jobs:
                theme.slint, atomicity and one history entry per edit, and tests unchanged or
                strengthened.
             3. Post exactly ONE comment with `gh pr comment`:
-               - First line: **Verdict:** Ready / Ready after nits / Blocking.
+               - First line: **Verdict:** Ready / Fixes queued for Codex / Needs the owner.
                - Findings only: `file:line`, scenario → fix, each labelled blocking or follow-up.
-               - If there are fixes in files this PR already changes, end with one fenced block
-                 whose first line is `@codex-fix` and which lists each fix (file:line → change),
-                 ready for the owner to post as-is.
                - Findings outside this PR's files go under "Out of scope"; the owner decides
                  whether each becomes an issue or a Polish line.
+               - If fixes are queued, say that Codex will apply them automatically.
+            4. Return structured output:
+               - verdict "ready": nothing to fix.
+               - verdict "fixes": every needed fix is in files this PR already changes and
+                 needs no decision from the owner. `fixes` lists each one as
+                 "file:line → change", precise enough for Codex to apply without this
+                 conversation.
+               - verdict "needs_owner": anything needs a scope exception, a design decision
+                 or files outside the PR. `fixes` is empty; explain in the comment.
             Never approve, merge, push, edit files, or open issues.
           claude_args: |
             --max-turns 40
             --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh pr comment:*)"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
+
+  fix:
+    needs: review
+    if: needs.review.outputs.verdict == 'fixes' && needs.review.outputs.fixes != ''
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    uses: ./.github/workflows/agent-codex.yml
+    with:
+      pr: ${{ needs.review.outputs.pr }}
+      request: ${{ needs.review.outputs.fixes }}
+    secrets: inherit
+
+  recheck:
+    needs: [review, fix]
+    if: needs.fix.outputs.pushed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: refs/pull/${{ needs.review.outputs.pr }}/head
+          fetch-depth: 2
+
+      - name: Re-check
+        uses: anthropics/claude-code-action@4a461cbbb72e467c61b1e47547fc0d7dacece34a # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: chatgpt-codex-connector
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ needs.review.outputs.pr }}
+            FIX COMMIT: ${{ needs.fix.outputs.sha }}
+
+            You reviewed this PR and Codex applied these fixes in the commit above:
+            ${{ needs.review.outputs.fixes }}
+
+            Check that commit (`git show HEAD`) against each fix: done correctly, missing, or
+            wrong. Check that it changed nothing else. Post exactly ONE comment with
+            `gh pr comment`: first line **Re-check:** Ready to merge once CI is green /
+            Still open. Then one line per fix. Do not edit files, push, approve or merge,
+            and do not ask Codex for another round: the owner decides.
+          claude_args: |
+            --max-turns 20
+            --allowedTools "Read,Glob,Grep,Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
 
   # Everything else the owner asks with "@claude": architecture questions, ADRs,
   # task breakdown into codex-task issues. Edits are limited to docs and the
@@ -81,7 +160,7 @@ jobs:
       (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
       github.event.comment.user.login == 'Hoshiko86' &&
       contains(github.event.comment.body, '@claude') &&
-      !startsWith(github.event.comment.body, '@claude review')
+      !contains(github.event.comment.body, '@claude review')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -91,12 +170,12 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 1
 
       - name: Architect
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@4a461cbbb72e467c61b1e47547fc0d7dacece34a # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

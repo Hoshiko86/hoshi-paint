@@ -88,8 +88,8 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
   #N merges" banner, and don't assign it to Codex. On every PR refresh: when
   #N has merged, re-check the issue's file refs, then drop the label and banner.
-- Workflow: Codex gets "Implement issue #N"; fixes via `@codex-fix` on the PR
-  (below; `.github/workflows/agent-codex.yml`).
+- Workflow: Codex gets "Implement issue #N"; review and fixes run
+  automatically on the PR (below; `.github/workflows/agent-*.yml`).
 - Issues never quote coverage numbers: write "coverage floors pass
   (`cargo xtask test coverage`)"; floors live in `xtask/src/coverage.rs`.
 - Next (after #146): drop `Deref` caller file by file (`empty` carries
@@ -112,16 +112,17 @@ Blocking:
 Follow-up (non-blocking): naming, fn length, missing doc comments, test gaps.
 
 Nits are fixed in the PR, not filed (owner, 2026-11-18):
-- Follow-ups in files the PR already changes → the review ends with one
-  fenced block starting `@codex-fix` (`file:line` → fix). The owner posts it
-  as a PR comment; the Codex workflow (`agent-codex.yml`) fixes on the PR
-  branch, pushes, and replies; CI reruns; re-check, then merge. One round per
-  PR. (A paste-ready prompt for the Codex app still works as a fallback.)
+- Review loop (`agent-claude.yml`, no copy and paste): when a PR opens or
+  leaves draft, or the owner or Codex comments `@claude review`, Claude posts
+  one review and returns a verdict. In-scope fixes (files the PR already
+  changes, no owner decision) go straight to Codex (`agent-codex.yml`), which
+  pushes to the PR branch and starts CI; Claude then posts a re-check. One
+  round per request; scope exceptions and design questions stop at
+  "Needs the owner". Manual fix requests: a PR comment starting `@codex-fix`.
 - Never `@codex` alone: ChatGPT's connector answers anything but
   `@codex review` from legacy Codex Cloud, which can't see our environment.
-- Claude's PR reviews also run automatically (`agent-claude.yml`) when a PR
-  opens or leaves draft, or on the owner's `@claude review`; other `@claude`
-  comments are architecture work (docs, ADRs, issues only; no product code).
+- Other owner `@claude` comments are architecture work (docs, ADRs, issues
+  only; no product code).
 - Findings outside the PR's files → an issue only if it is a real defect or
   blocks planned work; otherwise add a line to that area's open `Polish:` issue.
 
