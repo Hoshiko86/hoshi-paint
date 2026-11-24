@@ -120,7 +120,7 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   anything still open goes back to Codex (`agent-round.yml`). At most three
   rounds per request; after that, and for scope exceptions or design
   questions, it stops at "Needs the owner". Manual fix requests: a PR comment
-  starting `@codex-fix`.
+  starting `/codex-fix`.
 - Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
   (squash) once Claude's review or re-check says ready (`agent-ready` label)
   and CI succeeded on that same commit with no failed checks. Any new push
@@ -131,8 +131,9 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   @-mention, on "Needs the owner", a failed Codex run or merge conflicts;
   "ready" removes it. Claude adds it to any issue waiting on an owner
   decision. Saved search: `is:open label:needs-owner`.
-- Never `@codex` alone: ChatGPT's connector answers anything but
-  `@codex review` from legacy Codex Cloud, which can't see our environment.
+- Never write `@codex…` in PR text or comments: ChatGPT's connector answers
+  any such mention except `@codex review` from legacy Codex Cloud, which
+  can't see our environment.
 - Other owner `@claude` comments are architecture work (docs, ADRs, issues
   only; no product code).
 - Findings outside the PR's files → an issue only if it is a real defect or

@@ -3,8 +3,8 @@
 # Two ways in:
 # - workflow_call from agent-claude.yml: Claude's review found in-scope fixes,
 #   and Codex applies them automatically (the normal path).
-# - An owner PR comment starting with "@codex-fix": a manual request. ("@codex"
-#   alone is answered by ChatGPT's own connector, so it is not used.)
+# - An owner PR comment starting with "/codex-fix": a manual request. (Any
+#   "@codex..." text wakes ChatGPT's own Codex connector, so no @ is used.)
 #
 # Fix commits are pushed with GITHUB_TOKEN, which does not start other
 # workflows, so this workflow starts CI itself (ci.yml's workflow_dispatch runs
@@ -36,7 +36,7 @@ jobs:
       inputs.request != '' ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
        github.event.comment.user.login == 'Hoshiko86' &&
-       startsWith(github.event.comment.body, '@codex-fix'))
+       startsWith(github.event.comment.body, '/codex-fix'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:

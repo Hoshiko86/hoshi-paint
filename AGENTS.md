@@ -131,7 +131,7 @@ get green. If something won't pass, stop and report the exact error.
 Before merge, the reviewer may list follow-up nits in files your PR already
 changes. They reach you automatically from the review workflow
 (`.github/workflows/agent-codex.yml`), from an owner PR comment starting
-`@codex-fix`, or as a task on the PR branch. To ask for a review yourself,
+`/codex-fix`, or as a task on the PR branch. To ask for a review yourself,
 comment `@claude review` on the PR. Fix them
 on that same branch (same scope rules: no new files, no behavior change unless
 the list says so), rerun the §3 commands, and report what you changed. Don't
