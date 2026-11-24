@@ -51,10 +51,18 @@ jobs:
       verdict: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').verdict }}
       fixes: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').fixes }}
     steps:
-      - name: Checkout PR head
+      # The workspace root is main (trusted); the PR is only read, from pr/.
+      - name: Checkout main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Checkout PR head (read only)
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/pull/${{ inputs.pr }}/head
+          path: pr
+          persist-credentials: false
           fetch-depth: 2
 
       - name: Re-check
@@ -73,7 +81,8 @@ jobs:
             You reviewed this PR and Codex applied these requested fixes in the commit above:
             ${{ inputs.request }}
 
-            Check that commit (`git show HEAD`) against each requested fix: done correctly,
+            Check that commit (`git -C pr show HEAD`; the PR's files are under pr/, never run
+            anything from there) against each requested fix: done correctly,
             missing, or wrong. Check that it changed nothing else. Do not start a new review
             of the whole PR: judge only the requested fixes and anything the commit broke.
 
@@ -94,7 +103,7 @@ jobs:
             Never edit files, push, approve or merge.
           claude_args: |
             --max-turns 25
-            --allowedTools "Read,Glob,Grep,Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --allowedTools "Read,Glob,Grep,Bash(git -C pr show:*),Bash(git -C pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
 
 

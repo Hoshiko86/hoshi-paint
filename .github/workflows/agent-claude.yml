@@ -31,7 +31,7 @@ jobs:
        !github.event.pull_request.draft &&
        github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
-       (github.event.comment.user.login == 'Hoshiko86' ||
+       (github.event.comment.author_association == 'OWNER' ||
         github.event.comment.user.login == 'chatgpt-codex-connector[bot]') &&
        contains(github.event.comment.body, '@claude review'))
     runs-on: ubuntu-latest
@@ -52,10 +52,32 @@ jobs:
           NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout PR head
+      - name: Refuse fork PRs
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: Number(process.env.PR),
+            });
+            if (pr.head.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+              core.setFailed('Fork PRs are not reviewed by the agents.');
+            }
+
+      # The workspace root is main (trusted: CLAUDE.md, settings); the PR's
+      # files are only read, from pr/, and never executed.
+      - name: Checkout main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Checkout PR head (read only)
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/pull/${{ steps.pr.outputs.number }}/head
+          path: pr
+          persist-credentials: false
           fetch-depth: 1
 
       - name: Review
@@ -70,6 +92,8 @@ jobs:
             PR NUMBER: ${{ steps.pr.outputs.number }}
 
             You are the reviewer for Hoshi Paint. Codex implemented this PR; you do not edit files.
+            The repository root is main. The PR's version of every file is under pr/ (read it
+            there); never run anything from pr/.
 
             1. Read CLAUDE.md (especially "PR review checklist" and "Nits are fixed in the PR")
                and AGENTS.md. Then read the issue this PR closes (`Closes #N` in the PR body):
@@ -211,7 +235,7 @@ jobs:
   architect:
     if: |
       (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-      github.event.comment.user.login == 'Hoshiko86' &&
+      github.event.comment.author_association == 'OWNER' &&
       contains(github.event.comment.body, '@claude') &&
       !contains(github.event.comment.body, '@claude review')
     runs-on: ubuntu-latest
