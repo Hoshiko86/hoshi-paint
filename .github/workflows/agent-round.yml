@@ -96,3 +96,18 @@ jobs:
             --max-turns 25
             --allowedTools "Read,Glob,Grep,Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
+
+  merge:
+    needs: recheck
+    if: needs.recheck.outputs.verdict == 'ready'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      checks: read
+    uses: ./.github/workflows/agent-merge.yml
+    with:
+      pr: ${{ inputs.pr }}
+      mark_ready: true
+    secrets: inherit

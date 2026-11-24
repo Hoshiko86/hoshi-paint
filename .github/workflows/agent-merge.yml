@@ -1,0 +1,115 @@
+# Auto-merge (owner, 2026-11-24): a Codex PR merges by itself once Claude has
+# said it is ready AND CI is green on the same commit. Owner-only work stays
+# manual: only codex/* branches merge here, and never PRs that touch
+# .github/ or docs/adr/.
+#
+# Ready signal: the `agent-ready` label, added by the review or re-check when
+# its verdict is "ready" (agent-claude.yml / agent-round.yml call this with
+# mark_ready) and removed by any later push to the PR (agent-claude.yml).
+# Green signal: the CI workflow ("Desktop canvas and core") succeeded on the
+# PR's head commit and no check run on it failed. Either signal can arrive
+# second, so this runs on both: when Claude marks ready, and when CI finishes.
+#
+# Merges made with GITHUB_TOKEN start no workflows, so after merging this
+# dispatches the full CI run on main itself.
+name: Agent auto-merge
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: string
+        required: true
+      mark_ready:
+        type: boolean
+        required: true
+  workflow_run:
+    workflows: ["Desktop canvas and core"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  merge:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: agent-merge-${{ inputs.pr || github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      checks: read
+    steps:
+      - name: Mark ready and merge when green
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_INPUT: ${{ inputs.pr }}
+          MARK_READY: ${{ inputs.mark_ready }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const LABEL = 'agent-ready';
+            const CI = 'Desktop canvas and core';
+
+            // Find the PR: given by the caller, or the open PR whose head is the
+            // commit CI just finished on.
+            let number = Number(process.env.PR_INPUT || 0);
+            if (!number) {
+              const { data: prs } = await github.rest.pulls.list({
+                owner, repo, state: 'open', head: `${owner}:${process.env.RUN_BRANCH}`,
+              });
+              const match = prs.find(p => p.head.sha === process.env.RUN_SHA);
+              if (!match) return core.info('No open PR at this commit.');
+              number = match.number;
+            }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const sha = pr.head.sha;
+
+            if (process.env.MARK_READY === 'true') {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: [LABEL] });
+            }
+
+            const skip = (why) => core.info(`#${number} not merged: ${why}`);
+            if (pr.state !== 'open') return skip('not open');
+            if (pr.draft) return skip('draft');
+            if (pr.head.repo.full_name !== `${owner}/${repo}`) return skip('fork');
+            if (!pr.head.ref.startsWith('codex/')) return skip('not a codex/ branch');
+            const labels = pr.labels.map(l => l.name);
+            if (process.env.MARK_READY !== 'true' && !labels.includes(LABEL)) {
+              return skip('Claude has not marked it ready');
+            }
+            if (labels.includes('hold')) return skip('held by the owner');
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
+            const owned = files.map(f => f.filename).filter(f => f.startsWith('.github/') || f.startsWith('docs/adr/'));
+            if (owned.length) return skip(`touches owner-only files: ${owned.join(', ')}`);
+
+            // CI must have succeeded on this exact commit.
+            const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, head_sha: sha, per_page: 100 });
+            const ci = runs.workflow_runs.filter(r => r.name === CI).sort((a, b) => b.run_number - a.run_number);
+            if (!ci.length || ci[0].status !== 'completed') return skip('CI not finished on the head commit');
+            if (ci[0].conclusion !== 'success') return skip(`CI ${ci[0].conclusion}`);
+
+            // No check on this commit may have failed (pending ones from other
+            // apps, such as code scanning, do not block).
+            const checks = await github.paginate(github.rest.checks.listForRef, { owner, repo, ref: sha, per_page: 100 });
+            const bad = checks.filter(c => ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion));
+            if (bad.length) return skip(`failed checks: ${bad.map(c => c.name).join(', ')}`);
+
+            if (pr.mergeable === false) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: number,
+                body: '⚠️ Ready and green, but it has merge conflicts with main. Needs the owner.' });
+              return skip('conflicts');
+            }
+
+            await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash', sha });
+            await github.rest.issues.createComment({ owner, repo, issue_number: number,
+              body: `✅ Auto-merged: Claude marked it ready and CI is green on ${sha.slice(0, 7)}.` });
+            // GITHUB_TOKEN merges start no workflows: run the full CI on main.
+            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'ci.yml', ref: 'main' });

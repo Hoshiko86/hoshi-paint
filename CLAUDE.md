@@ -121,6 +121,12 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   rounds per request; after that, and for scope exceptions or design
   questions, it stops at "Needs the owner". Manual fix requests: a PR comment
   starting `@codex-fix`.
+- Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
+  (squash) once Claude's review or re-check says ready (`agent-ready` label)
+  and CI succeeded on that same commit with no failed checks. Any new push
+  removes the label. Never auto-merged: other branches, PRs touching
+  `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
+  else still merges only on the owner's ask.
 - Never `@codex` alone: ChatGPT's connector answers anything but
   `@codex review` from legacy Codex Cloud, which can't see our environment.
 - Other owner `@claude` comments are architecture work (docs, ADRs, issues
