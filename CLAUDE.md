@@ -88,7 +88,8 @@ Status lives in GitHub issues (`codex-task` label); this list is the plan.
   If one must be filed early, add the `blocked` label plus a "⛔ Blocked until
   #N merges" banner, and don't assign it to Codex. On every PR refresh: when
   #N has merged, re-check the issue's file refs, then drop the label and banner.
-- Workflow: Codex gets "Implement issue #N"; fixes via a forwarded prompt (below).
+- Workflow: Codex gets "Implement issue #N"; review and fixes run
+  automatically on the PR (below; `.github/workflows/agent-*.yml`).
 - Issues never quote coverage numbers: write "coverage floors pass
   (`cargo xtask test coverage`)"; floors live in `xtask/src/coverage.rs`.
 - Next (after #146): drop `Deref` caller file by file (`empty` carries
@@ -111,12 +112,31 @@ Blocking:
 Follow-up (non-blocking): naming, fn length, missing doc comments, test gaps.
 
 Nits are fixed in the PR, not filed (owner, 2026-11-18):
-- Follow-ups in files the PR already changes → one paste-ready Codex prompt
-  (branch, `file:line`, fix) in the review reply; the owner forwards it; Codex
-  fixes on the same branch; re-check, then merge. One round per PR. Batch
-  several PRs' nits into one prompt.
-- Don't post `@codex` fix requests on PRs: anything but `@codex review` routes
-  to legacy Codex Cloud, which can't see our environment (2026-11-18).
+- Review loop (`agent-claude.yml`, no copy and paste): when a PR opens or
+  leaves draft, or the owner or Codex comments `@claude review`, Claude posts
+  one review and returns a verdict. In-scope fixes (files the PR already
+  changes, no owner decision) go straight to Codex (`agent-codex.yml`), which
+  pushes to the PR branch and starts CI; Claude then posts a re-check, and
+  anything still open goes back to Codex (`agent-round.yml`). At most three
+  rounds per request; after that, and for scope exceptions or design
+  questions, it stops at "Needs the owner". Manual fix requests: a PR comment
+  starting `/codex-fix`.
+- Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
+  (squash) once Claude's review or re-check says ready (an `agent-review`
+  commit status on that exact commit; the `agent-ready` label mirrors it) and
+  CI succeeded on the same commit with no failed checks. A new push has no
+  status, so it needs a new review. Never auto-merged: other branches, PRs touching
+  `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
+  else still merges only on the owner's ask.
+- Owner inbox: the `needs-owner` label (issues and PRs). Bots add it, with an
+  @-mention, on "Needs the owner", a failed Codex run or merge conflicts;
+  "ready" removes it. Claude adds it to any issue waiting on an owner
+  decision. Saved search: `is:open label:needs-owner`.
+- Never write `@codex…` in PR text or comments: ChatGPT's connector answers
+  any such mention except `@codex review` from legacy Codex Cloud, which
+  can't see our environment.
+- Other owner `@claude` comments are architecture work (docs, ADRs, issues
+  only; no product code).
 - Findings outside the PR's files → an issue only if it is a real defect or
   blocks planned work; otherwise add a line to that area's open `Polish:` issue.
 
