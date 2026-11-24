@@ -102,6 +102,19 @@ jobs:
 
   # Any new push (by a person or Codex Cloud) withdraws Claude's "ready":
   # the new commit needs a new review before it can auto-merge.
+
+      - name: Flag for the owner
+        if: fromJSON(steps.review.outputs.structured_output || '{}').verdict == 'needs_owner'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: '@Hoshiko86 this PR needs your decision: see the review above.' });
   unready:
     if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
     runs-on: ubuntu-latest

@@ -127,6 +127,10 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   removes the label. Never auto-merged: other branches, PRs touching
   `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
   else still merges only on the owner's ask.
+- Owner inbox: the `needs-owner` label (issues and PRs). Bots add it, with an
+  @-mention, on "Needs the owner", a failed Codex run or merge conflicts;
+  "ready" removes it. Claude adds it to any issue waiting on an owner
+  decision. Saved search: `is:open label:needs-owner`.
 - Never `@codex` alone: ChatGPT's connector answers anything but
   `@codex review` from legacy Codex Cloud, which can't see our environment.
 - Other owner `@claude` comments are architecture work (docs, ADRs, issues

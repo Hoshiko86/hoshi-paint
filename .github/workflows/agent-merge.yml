@@ -73,6 +73,9 @@ jobs:
 
             if (process.env.MARK_READY === 'true') {
               await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: [LABEL] });
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: number, name: 'needs-owner' });
+              } catch (e) { if (e.status !== 404) throw e; }
             }
 
             const skip = (why) => core.info(`#${number} not merged: ${why}`);
@@ -104,7 +107,8 @@ jobs:
 
             if (pr.mergeable === false) {
               await github.rest.issues.createComment({ owner, repo, issue_number: number,
-                body: '⚠️ Ready and green, but it has merge conflicts with main. Needs the owner.' });
+                body: '⚠️ @Hoshiko86 ready and green, but it has merge conflicts with main.' });
+              await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: ['needs-owner'] });
               return skip('conflicts');
             }
 

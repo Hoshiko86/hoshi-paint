@@ -165,7 +165,9 @@ jobs:
             try { report = fs.readFileSync(process.env.REPORT, 'utf8').slice(0, 60000); } catch {}
             let head;
             if (process.env.STATUS !== 'success') {
-              head = `❌ **Codex** run ${process.env.STATUS}. See the [workflow run](${process.env.RUN_URL}).`;
+              head = `❌ **Codex** run ${process.env.STATUS}. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: Number(process.env.PR), labels: ['needs-owner'] });
             } else if (process.env.PUSHED === 'true') {
               const next = process.env.CHAINED === 'true'
                 ? 'Claude will re-check it.'

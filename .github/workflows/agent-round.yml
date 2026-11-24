@@ -97,6 +97,20 @@ jobs:
             --allowedTools "Read,Glob,Grep,Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
 
+
+      - name: Flag for the owner
+        if: fromJSON(steps.recheck.outputs.structured_output || '{}').verdict == 'needs_owner'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR: ${{ inputs.pr }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: '@Hoshiko86 this PR needs your decision: see the review above.' });
+
   merge:
     needs: recheck
     if: needs.recheck.outputs.verdict == 'ready'
