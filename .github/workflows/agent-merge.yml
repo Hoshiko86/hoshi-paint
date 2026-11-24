@@ -3,9 +3,11 @@
 # manual: only codex/* branches merge here, and never PRs that touch
 # .github/ or docs/adr/.
 #
-# Ready signal: the `agent-ready` label, added by the review or re-check when
-# its verdict is "ready" (agent-claude.yml / agent-round.yml call this with
-# mark_ready) and removed by any later push to the PR (agent-claude.yml).
+# Ready signal: an `agent-review` commit status (success) on the exact commit
+# Claude judged ready, set when the review or re-check verdict is "ready"
+# (agent-claude.yml / agent-round.yml call this with mark_ready and that SHA).
+# A status belongs to one commit, so any later push is unreviewed by
+# construction. The `agent-ready` label mirrors it for people.
 # Green signal: the CI workflow ("Desktop canvas and core") succeeded on the
 # PR's head commit and no check run on it failed. Either signal can arrive
 # second, so this runs on both: when Claude marks ready, and when CI finishes.
@@ -18,6 +20,10 @@ on:
   workflow_call:
     inputs:
       pr:
+        type: string
+        required: true
+      sha:
+        description: The full commit SHA Claude judged ready.
         type: string
         required: true
       mark_ready:
@@ -43,11 +49,13 @@ jobs:
       issues: write
       actions: write
       checks: read
+      statuses: write
     steps:
       - name: Mark ready and merge when green
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR_INPUT: ${{ inputs.pr }}
+          READY_SHA: ${{ inputs.sha }}
           MARK_READY: ${{ inputs.mark_ready }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -72,6 +80,11 @@ jobs:
             const sha = pr.head.sha;
 
             if (process.env.MARK_READY === 'true') {
+              if (process.env.READY_SHA !== sha) {
+                return core.info(`#${number}: reviewed ${process.env.READY_SHA} but head is ${sha}; not marking ready.`);
+              }
+              await github.rest.repos.createCommitStatus({ owner, repo, sha, state: 'success',
+                context: 'agent-review', description: 'Claude: ready to merge' });
               await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: [LABEL] });
               try {
                 await github.rest.issues.removeLabel({ owner, repo, issue_number: number, name: 'needs-owner' });
@@ -84,10 +97,10 @@ jobs:
             if (pr.head.repo.full_name !== `${owner}/${repo}`) return skip('fork');
             if (!pr.head.ref.startsWith('codex/')) return skip('not a codex/ branch');
             const labels = pr.labels.map(l => l.name);
-            if (process.env.MARK_READY !== 'true' && !labels.includes(LABEL)) {
-              return skip('Claude has not marked it ready');
-            }
             if (labels.includes('hold')) return skip('held by the owner');
+            const { data: combined } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: sha });
+            const review = combined.statuses.find(s => s.context === 'agent-review');
+            if (!review || review.state !== 'success') return skip('Claude has not marked this commit ready');
 
             const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
             const owned = files.map(f => f.filename).filter(f => f.startsWith('.github/') || f.startsWith('docs/adr/'));
@@ -101,8 +114,15 @@ jobs:
 
             // No check on this commit may have failed (pending ones from other
             // apps, such as code scanning, do not block).
+            // Judge only the latest run of each check: a dispatched CI run can
+            // replace (cancel) an earlier pull_request run on the same commit.
             const checks = await github.paginate(github.rest.checks.listForRef, { owner, repo, ref: sha, per_page: 100 });
-            const bad = checks.filter(c => ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion));
+            const latest = new Map();
+            for (const c of checks) {
+              const prev = latest.get(c.name);
+              if (!prev || new Date(c.started_at) > new Date(prev.started_at)) latest.set(c.name, c);
+            }
+            const bad = [...latest.values()].filter(c => ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion));
             if (bad.length) return skip(`failed checks: ${bad.map(c => c.name).join(', ')}`);
 
             if (pr.mergeable === false) {

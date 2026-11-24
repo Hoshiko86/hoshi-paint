@@ -20,10 +20,6 @@ on:
   pull_request_review_comment:
     types: [created]
 
-concurrency:
-  group: agents-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-
 jobs:
   review:
     if: |
@@ -36,6 +32,10 @@ jobs:
        contains(github.event.comment.body, '@claude review'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Per job, so comment events that skip every job never displace a queued review.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
     permissions:
       contents: read
       pull-requests: write
@@ -43,6 +43,7 @@ jobs:
       id-token: write
     outputs:
       pr: ${{ steps.pr.outputs.number }}
+      sha: ${{ steps.sha.outputs.sha }}
       verdict: ${{ fromJSON(steps.review.outputs.structured_output || '{}').verdict }}
       fixes: ${{ fromJSON(steps.review.outputs.structured_output || '{}').fixes }}
     steps:
@@ -53,6 +54,7 @@ jobs:
         run: echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Refuse fork PRs
+        id: fork
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR: ${{ steps.pr.outputs.number }}
@@ -79,6 +81,10 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+
+      - name: Reviewed commit
+        id: sha
+        run: echo "sha=$(git -C pr rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
@@ -128,17 +134,24 @@ jobs:
   # the new commit needs a new review before it can auto-merge.
 
       - name: Flag for the owner
-        if: fromJSON(steps.review.outputs.structured_output || '{}').verdict == 'needs_owner'
+        # Also when the review crashed or returned no usable verdict, so nothing stalls silently.
+        if: |
+          always() && steps.fork.outcome == 'success' &&
+          (fromJSON(steps.review.outputs.structured_output || '{}').verdict == 'needs_owner' ||
+           fromJSON(steps.review.outputs.structured_output || '{}').verdict == null ||
+           (fromJSON(steps.review.outputs.structured_output || '{}').verdict == 'fixes' &&
+            fromJSON(steps.review.outputs.structured_output || '{}').fixes == ''))
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR: ${{ steps.pr.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const { owner, repo } = context.repo;
             const issue_number = Number(process.env.PR);
             await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
             await github.rest.issues.createComment({ owner, repo, issue_number,
-              body: '@Hoshiko86 this PR needs your decision: see the review above.' });
+              body: `@Hoshiko86 this PR needs you: see the review above, or the [workflow run](${process.env.RUN_URL}) if none was posted.` });
   unready:
     if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
     runs-on: ubuntu-latest
@@ -167,9 +180,11 @@ jobs:
       issues: write
       actions: write
       checks: read
+      statuses: write
     uses: ./.github/workflows/agent-merge.yml
     with:
       pr: ${{ needs.review.outputs.pr }}
+      sha: ${{ needs.review.outputs.sha }}
       mark_ready: true
     secrets: inherit
 
@@ -184,6 +199,7 @@ jobs:
       issues: write
       actions: write
       checks: read
+      statuses: write
       id-token: write
     uses: ./.github/workflows/agent-round.yml
     with:
@@ -202,6 +218,7 @@ jobs:
       issues: write
       actions: write
       checks: read
+      statuses: write
       id-token: write
     uses: ./.github/workflows/agent-round.yml
     with:
@@ -220,6 +237,7 @@ jobs:
       issues: write
       actions: write
       checks: read
+      statuses: write
       id-token: write
     uses: ./.github/workflows/agent-round.yml
     with:
@@ -240,6 +258,9 @@ jobs:
       !contains(github.event.comment.body, '@claude review')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    concurrency:
+      group: claude-architect-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -259,4 +280,4 @@ jobs:
           claude_args: |
             --max-turns 60
             --append-system-prompt "You are the architect for Hoshi Paint (see CLAUDE.md and docs/adr). Your job is architecture, ADRs, type design and breaking work into Codex tasks (codex-task issues: 1-2 files, Files / Do not touch / Tests / Stop condition, per CLAUDE.md). You do not write or change product code (Rust, Slint, build files): describe it in an issue for Codex instead. You may edit only docs/, CLAUDE.md and AGENTS.md, on a claude/ branch. Keep replies short and scannable: the owner reads on a phone."
-            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Edit(CLAUDE.md),Edit(AGENTS.md),Bash(gh issue:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git checkout:*)"
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Edit(CLAUDE.md),Edit(AGENTS.md),Bash(gh issue:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push origin claude/:*),Bash(git checkout -b claude/:*)"

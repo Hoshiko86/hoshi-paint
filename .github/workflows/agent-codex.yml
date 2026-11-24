@@ -144,7 +144,7 @@ jobs:
           git commit -m "Apply review fixes (#$PR)"
           git push
           echo "pushed=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           # A GITHUB_TOKEN push starts no workflows: run CI on the branch explicitly.
           gh workflow run ci.yml --ref "$BRANCH"
 
@@ -172,7 +172,7 @@ jobs:
               const next = process.env.CHAINED === 'true'
                 ? 'Claude will re-check it.'
                 : 'Comment `@claude review` for a new review.';
-              head = `✅ **Codex** pushed ${process.env.SHA}; CI started. ${next}`;
+              head = `✅ **Codex** pushed ${process.env.SHA.slice(0, 7)}; CI started. ${next}`;
             } else {
               head = '✅ **Codex** finished with no changes to push.';
             }

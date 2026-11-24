@@ -122,9 +122,10 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   questions, it stops at "Needs the owner". Manual fix requests: a PR comment
   starting `/codex-fix`.
 - Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
-  (squash) once Claude's review or re-check says ready (`agent-ready` label)
-  and CI succeeded on that same commit with no failed checks. Any new push
-  removes the label. Never auto-merged: other branches, PRs touching
+  (squash) once Claude's review or re-check says ready (an `agent-review`
+  commit status on that exact commit; the `agent-ready` label mirrors it) and
+  CI succeeded on the same commit with no failed checks. A new push has no
+  status, so it needs a new review. Never auto-merged: other branches, PRs touching
   `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
   else still merges only on the owner's ask.
 - Owner inbox: the `needs-owner` label (issues and PRs). Bots add it, with an
