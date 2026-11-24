@@ -5,10 +5,11 @@
 #     -> review: Claude posts one review comment and returns a verdict
 #     -> fix: if there are in-scope fixes, Codex applies them on the PR branch
 #        (agent-codex.yml, called directly: no copy and paste)
-#     -> recheck: Claude checks the fix commit and posts the result.
+#     -> recheck: Claude checks the fix commit and posts the result
+#        (agent-round.yml); if fixes are still open, Codex tries again.
 #
-# One round per request: the re-check never dispatches Codex again, and new
-# pushes do not start a review. Ask again with "@claude review".
+# At most three rounds per review request; after round 3 anything still open
+# goes to the owner. New pushes do not start a review: ask with "@claude review".
 name: Claude (architect and reviewer)
 
 on:
@@ -98,7 +99,9 @@ jobs:
             --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh pr comment:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
 
-  fix:
+  # Up to three fix rounds per review request. Each round: Codex fixes, then
+  # Claude re-checks and returns the next verdict. Round 3 never asks for more.
+  round1:
     needs: review
     if: needs.review.outputs.verdict == 'fixes' && needs.review.outputs.fixes != ''
     permissions:
@@ -106,51 +109,48 @@ jobs:
       pull-requests: write
       issues: write
       actions: write
-    uses: ./.github/workflows/agent-codex.yml
+      id-token: write
+    uses: ./.github/workflows/agent-round.yml
     with:
       pr: ${{ needs.review.outputs.pr }}
       request: ${{ needs.review.outputs.fixes }}
+      round: 1
+      final: false
     secrets: inherit
 
-  recheck:
-    needs: [review, fix]
-    if: needs.fix.outputs.pushed == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  round2:
+    needs: [review, round1]
+    if: needs.round1.outputs.verdict == 'fixes' && needs.round1.outputs.fixes != ''
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
+      actions: write
       id-token: write
-    steps:
-      - name: Checkout PR head
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: refs/pull/${{ needs.review.outputs.pr }}/head
-          fetch-depth: 2
+    uses: ./.github/workflows/agent-round.yml
+    with:
+      pr: ${{ needs.review.outputs.pr }}
+      request: ${{ needs.round1.outputs.fixes }}
+      round: 2
+      final: false
+    secrets: inherit
 
-      - name: Re-check
-        uses: anthropics/claude-code-action@4a461cbbb72e467c61b1e47547fc0d7dacece34a # v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_bots: chatgpt-codex-connector
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ needs.review.outputs.pr }}
-            FIX COMMIT: ${{ needs.fix.outputs.sha }}
-
-            You reviewed this PR and Codex applied these fixes in the commit above:
-            ${{ needs.review.outputs.fixes }}
-
-            Check that commit (`git show HEAD`) against each fix: done correctly, missing, or
-            wrong. Check that it changed nothing else. Post exactly ONE comment with
-            `gh pr comment`: first line **Re-check:** Ready to merge once CI is green /
-            Still open. Then one line per fix. Do not edit files, push, approve or merge,
-            and do not ask Codex for another round: the owner decides.
-          claude_args: |
-            --max-turns 20
-            --allowedTools "Read,Glob,Grep,Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+  round3:
+    needs: [review, round2]
+    if: needs.round2.outputs.verdict == 'fixes' && needs.round2.outputs.fixes != ''
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      id-token: write
+    uses: ./.github/workflows/agent-round.yml
+    with:
+      pr: ${{ needs.review.outputs.pr }}
+      request: ${{ needs.round2.outputs.fixes }}
+      round: 3
+      final: true
+    secrets: inherit
 
   # Everything else the owner asks with "@claude": architecture questions, ADRs,
   # task breakdown into codex-task issues. Edits are limited to docs and the

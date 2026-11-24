@@ -116,9 +116,11 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   leaves draft, or the owner or Codex comments `@claude review`, Claude posts
   one review and returns a verdict. In-scope fixes (files the PR already
   changes, no owner decision) go straight to Codex (`agent-codex.yml`), which
-  pushes to the PR branch and starts CI; Claude then posts a re-check. One
-  round per request; scope exceptions and design questions stop at
-  "Needs the owner". Manual fix requests: a PR comment starting `@codex-fix`.
+  pushes to the PR branch and starts CI; Claude then posts a re-check, and
+  anything still open goes back to Codex (`agent-round.yml`). At most three
+  rounds per request; after that, and for scope exceptions or design
+  questions, it stops at "Needs the owner". Manual fix requests: a PR comment
+  starting `@codex-fix`.
 - Never `@codex` alone: ChatGPT's connector answers anything but
   `@codex review` from legacy Codex Cloud, which can't see our environment.
 - Other owner `@claude` comments are architecture work (docs, ADRs, issues
