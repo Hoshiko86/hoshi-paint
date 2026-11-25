@@ -101,7 +101,7 @@ jobs:
             libgl1-mesa-dev libglu1-mesa-dev \
             libwayland-dev libx11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      # rustup reads rust-toolchain.toml (pinned 1.99.1 with rustfmt and clippy).
+      # rustup reads rust-toolchain.toml (the pinned toolchain with rustfmt and clippy).
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
