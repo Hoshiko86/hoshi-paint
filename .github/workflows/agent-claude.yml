@@ -41,6 +41,10 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+      # Read CI results and failing logs for the reviewed commit.
+      actions: read
+      checks: read
+      statuses: read
     outputs:
       pr: ${{ steps.pr.outputs.number }}
       sha: ${{ steps.sha.outputs.sha }}
@@ -107,6 +111,10 @@ jobs:
                tests, no new user-facing text outside both catalogs, no color literals outside
                theme.slint, atomicity and one history entry per edit, and tests unchanged or
                strengthened.
+               CI: check `gh pr checks ${{ steps.pr.outputs.number }}`. If a check failed on the
+               reviewed commit, read its log (`gh run view RUN_ID --log-failed`) and treat the
+               failure as a finding: a fix if the cause is in this PR's files, otherwise
+               needs_owner. If CI is still running, say so; the merge step waits for it.
             3. Post exactly ONE comment with `gh pr comment`:
                - First line: **Verdict:** Ready / Fixes queued for Codex / Needs the owner.
                - Findings only: `file:line`, scenario → fix, each labelled blocking or follow-up.
@@ -124,7 +132,7 @@ jobs:
             Never approve, merge, push, edit files, or open issues.
           claude_args: |
             --max-turns 40
-            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/:*)"
+            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh pr comment:*),Bash(gh pr checks:*),Bash(gh run view:*),Bash(gh api repos/${{ github.repository }}/:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
 
   # Any new push (by a person or Codex Cloud) withdraws Claude's "ready":
