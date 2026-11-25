@@ -128,7 +128,8 @@ jobs:
                  "file:line → change", precise enough for Codex to apply without this
                  conversation.
                - verdict "needs_owner": anything needs a scope exception, a design decision
-                 or files outside the PR. `fixes` is empty; explain in the comment.
+                 or files outside the PR, or any fix is under `.github/` (Codex may not edit
+                 workflows). `fixes` is empty; explain in the comment.
             Never approve, merge, push, edit files, or open issues.
           claude_args: |
             --max-turns 40

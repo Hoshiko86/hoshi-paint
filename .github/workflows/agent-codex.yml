@@ -191,11 +191,14 @@ jobs:
             echo "::error::The PR branch moved while Codex was working; not pushing."
             exit 1
           fi
-          if git apply --numstat "$patch" | cut -f3- | grep -qE '^(\.github/|.* => \.github/)'; then
+          git apply --index --binary "$patch"
+          # Judge the staged result, not the patch text: NUL-separated real
+          # paths, renames split, so no rename form or quoting can hide one.
+          if git diff --cached --name-only --no-renames -z | grep -zq '^\.github/'; then
+            git reset -q --hard "$BASE"
             echo "::error::Codex changed files under .github/; refusing to push."
             exit 1
           fi
-          git apply --index --binary "$patch"
           git config user.name "codex-fix[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Apply review fixes (#$PR)"
