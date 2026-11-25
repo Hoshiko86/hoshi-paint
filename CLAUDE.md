@@ -120,7 +120,9 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   anything still open goes back to Codex (`agent-round.yml`). At most three
   rounds per request; after that, and for scope exceptions or design
   questions, it stops at "Needs the owner". Manual fix requests: a PR comment
-  starting `/codex-fix`.
+  starting `/codex-fix`. If Codex fails (e.g. out of OpenAI quota), Gemini
+  (`GEMINI_API_KEY`) runs the same prompt in the same read-only job; the
+  reply names which agent pushed.
 - Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
   (squash) once Claude's review or re-check says ready (an `agent-review`
   commit status on that exact commit; the `agent-ready` label mirrors it) and

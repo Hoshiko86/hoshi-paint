@@ -11,6 +11,8 @@
 #   Codex (which builds and tests PR code) and uploads the changed files.
 # - publish: write token, checks nothing out. Refuses .github/ changes and
 #   builds the commit through the Git Data API (fast-forward only).
+# If Codex fails (for example, out of OpenAI quota), Gemini runs the same
+# prompt in the same read-only job (owner, 2026-11-25).
 # Fix commits are pushed with GITHUB_TOKEN, which starts no other workflows,
 # so publish also dispatches ci.yml on the PR branch; its checks attach to the
 # fix commit.
@@ -54,6 +56,7 @@ jobs:
       ref: ${{ steps.pr.outputs.ref }}
       base: ${{ steps.pr.outputs.base }}
       changed: ${{ steps.patch.outputs.changed }}
+      agent: ${{ steps.agent.outputs.name }}
     env:
       PR: ${{ inputs.pr || github.event.issue.number }}
       REQUEST: ${{ inputs.request || github.event.comment.body }}
@@ -102,6 +105,7 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       - name: Write prompt
+        id: prompt
         run: |
           mkdir -p "$RUNNER_TEMP/out"
           {
@@ -122,8 +126,15 @@ jobs:
             echo "Finish with a short report: each requested fix -> done or skipped (and why), and"
             echo "the command results."
           } > "$RUNNER_TEMP/codex-prompt.md"
+          {
+            echo "text<<PROMPT_EOF_${GITHUB_RUN_ID}"
+            cat "$RUNNER_TEMP/codex-prompt.md"
+            echo "PROMPT_EOF_${GITHUB_RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Codex
+        id: codex
+        continue-on-error: true
         uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -132,20 +143,63 @@ jobs:
           output-file: ${{ runner.temp }}/out/codex-report.md
           allow-bot-users: chatgpt-codex-connector[bot]
 
+      # Fallback (owner, 2026-11-25): if Codex fails (for example, out of API
+      # quota), Gemini gets the same prompt in the same read-only job. Throw
+      # away anything a failed Codex run left behind first.
+      - name: Reset after a failed Codex run
+        if: steps.codex.outcome == 'failure'
+        run: |
+          git reset -q --hard HEAD
+          git clean -qfd -e target/
+
+      - name: Run Gemini (fallback)
+        id: gemini
+        if: steps.codex.outcome == 'failure'
+        continue-on-error: true
+        uses: google-github-actions/run-gemini-cli@e061df3d60a224aed843cdac838189d1f6bff576 # v0.1.9
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          github_pr_number: ${{ inputs.pr || github.event.issue.number }}
+
+      - name: Record which agent ran
+        id: agent
+        if: always()
+        env:
+          CODEX: ${{ steps.codex.outcome }}
+          GEMINI: ${{ steps.gemini.outcome }}
+          SUMMARY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          if [ "$CODEX" = "success" ]; then
+            echo "name=Codex" >> "$GITHUB_OUTPUT"
+          elif [ "$GEMINI" = "success" ]; then
+            echo "name=Gemini (fallback: Codex failed)" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
+          else
+            echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
+            echo "::error::Codex failed and the Gemini fallback did not succeed."
+            exit 1
+          fi
+
       # Hand over the changed files themselves (not a patch), so publish can
       # build the commit through the API without checking anything out.
       - name: Collect changes
         id: patch
+        env:
+          BASE: ${{ steps.pr.outputs.base }}
         run: |
           git add -A
           python3 -I - "$RUNNER_TEMP/out" <<'PY'
           import json, os, shutil, subprocess, sys
           out = sys.argv[1]
-          names = subprocess.run(["git", "diff", "--cached", "--name-only", "--no-renames", "-z"],
+          # Against the exact base commit, so even a local commit by the agent is caught.
+          names = subprocess.run(["git", "diff", "--cached", "--name-only", "--no-renames", "-z", os.environ["BASE"]],
                                  check=True, capture_output=True).stdout.split(b"\0")
           changes = []
           for raw in filter(None, names):
               path = raw.decode()
+              if path.startswith((".gemini/", ".codex/")):
+                  continue  # agent tool settings, not part of the fix
               staged = subprocess.run(["git", "ls-files", "-s", "--", path],
                                       check=True, capture_output=True, text=True).stdout.split()
               if staged:
@@ -257,6 +311,7 @@ jobs:
         env:
           PR: ${{ inputs.pr || github.event.issue.number }}
           IMPLEMENT: ${{ needs.implement.result }}
+          AGENT: ${{ needs.implement.outputs.agent || 'Codex' }}
           PUBLISH: ${{ needs.publish.result }}
           PUSHED: ${{ needs.publish.outputs.pushed }}
           SHA: ${{ needs.publish.outputs.sha }}
@@ -274,15 +329,15 @@ jobs:
               (process.env.PUBLISH !== 'success' && process.env.PUBLISH !== 'skipped');
             let head;
             if (failed) {
-              head = `❌ **Codex** run failed. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
+              head = `❌ **${process.env.AGENT}** run failed. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
               await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
             } else if (process.env.PUSHED === 'true') {
               const next = process.env.CHAINED === 'true'
                 ? 'Claude will re-check it.'
                 : 'Comment `@claude review` for a new review.';
-              head = `✅ **Codex** pushed ${process.env.SHA.slice(0, 7)}; CI started. ${next}`;
+              head = `✅ **${process.env.AGENT}** pushed ${process.env.SHA.slice(0, 7)}; CI started. ${next}`;
             } else {
-              head = '✅ **Codex** finished with no changes to push.';
+              head = `✅ **${process.env.AGENT}** finished with no changes to push.`;
             }
             await github.rest.issues.createComment({ owner, repo, issue_number,
               body: `${head}\n\n${report}`.trim() });
