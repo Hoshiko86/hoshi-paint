@@ -1,0 +1,80 @@
+# Code scanning (owner, 2026-11-25). Replaces GitHub's default CodeQL setup,
+# which scans every language on every PR. Here the Rust analysis (~10 min)
+# runs on a PR only when it changes Rust sources or manifests; Actions and
+# Python (under a minute each) always run. Pushes to main and the weekly
+# schedule scan everything. Categories match the default setup's, so existing
+# alerts carry over. Default setup must be off (Settings → Code security), or
+# GitHub rejects these uploads.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  # Not named "plan": agent-merge.yml keeps the latest check per name, and
+  # CI already has a "plan" job.
+  codeql-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      languages: ${{ steps.pick.outputs.languages }}
+    steps:
+      - name: Pick languages
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          rust=true
+          if [ -n "$PR" ]; then
+            files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+            if ! printf '%s\n' "$files" | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|^rust-toolchain\.toml$|^\.cargo/|^\.github/workflows/codeql\.yml$'; then
+              rust=false
+            fi
+          fi
+          if [ "$rust" = true ]; then
+            echo 'languages=["actions","python","rust"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'languages=["actions","python"]' >> "$GITHUB_OUTPUT"
+          fi
+          echo "Rust analysis: $rust"
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: codeql-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.codeql-plan.outputs.languages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          category: /language:${{ matrix.language }}
