@@ -9,6 +9,7 @@ pub use bounds::BoundsField;
 pub mod color;
 mod editing;
 mod input;
+mod layers;
 pub mod named_colors;
 mod painting;
 pub mod palette;
@@ -644,19 +645,6 @@ impl Controller {
         self.pointer_up()?;
         self.commit()?;
         self.document.flatten()?;
-        Ok(())
-    }
-
-    pub fn rename_layer(&mut self, name: &str) -> Result<(), ControllerError> {
-        // Validate before committing an active shape or allocating a new name.
-        if name.trim().is_empty()
-            || name.chars().take(MAX_LAYER_NAME_CHARS + 1).count() > MAX_LAYER_NAME_CHARS
-        {
-            return Err(ControllerError::InvalidLayerName);
-        }
-        self.commit()?;
-        self.document
-            .rename_layer(self.document.selected_layer(), name)?;
         Ok(())
     }
 }
