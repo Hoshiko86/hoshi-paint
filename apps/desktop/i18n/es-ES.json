@@ -270,7 +270,7 @@
   "current_color": "Color actual",
   "restore": "Restaurar",
   "restore_original_color": "Restaurar el color original",
-  "saturation_value_area": "Saturación y valor. Los controles numéricos de abajo permiten usar el teclado.",
+  "hue_saturation_wheel": "Rueda de tono y saturación",
   "hue": "Tono",
   "alpha": "Alfa",
   "rgb_range": "RGB · 0–255",

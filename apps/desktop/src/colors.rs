@@ -24,24 +24,17 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
             hsv.saturation = picker.get_saturation().into();
         }
     }
-    if ((f64::from(picker.get_hue()) - hsv.hue).abs() > 0.0001
-        || picker.get_sv_image().size().width == 0)
-        && let Ok(base) = color::color_from_hsv(hsv.hue, 100.0, 100.0, 255)
-    {
-        let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(256, 180);
-        for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
-            let s = (index % 256) as f64 / 255.0;
-            let v = 1.0 - (index / 256) as f64 / 179.0;
-            let channel = |c: u8| (((1.0 - s) * 255.0 + s * f64::from(c)) * v).round() as u8;
-            *pixel = slint::Rgba8Pixel {
-                r: channel(base.r),
-                g: channel(base.g),
-                b: channel(base.b),
-                a: 255,
-            };
-        }
-        picker.set_sv_image(slint::Image::from_rgba8(pixels));
+    if let Some(image) = wheel_image(
+        &picker.get_wheel_image(),
+        picker.get_brightness(),
+        hsv.value as f32,
+        picker.get_wheel_size(),
+    ) {
+        picker.set_wheel_image(image);
     }
+    let (x, y) = crate::color_wheel::marker(hsv.hue, hsv.saturation, 1.0);
+    picker.set_wheel_marker_x(x as f32);
+    picker.set_wheel_marker_y(y as f32);
     picker.set_red(value.r.into());
     picker.set_green(value.g.into());
     picker.set_blue(value.b.into());
@@ -56,6 +49,72 @@ fn synchronize(picker: &ColorPickerWindow, value: Color, override_hsv: Option<Hs
     ));
 }
 
+// Each host caches its own image at min(displayed size, 256). Color and alpha
+// changes that preserve V do not invalidate the wheel.
+fn wheel_image(
+    previous: &slint::Image,
+    old_value: f32,
+    value: f32,
+    displayed: f32,
+) -> Option<slint::Image> {
+    let size = displayed.clamp(0.0, 256.0).ceil() as u32;
+    if size == 0 || (previous.size().width == size && old_value == value) {
+        return None;
+    }
+    Some(slint::Image::from_rgba8(crate::color_wheel::render(
+        size,
+        value.into(),
+    )))
+}
+
+fn bind_wheel(ui: &AppWindow, picker: &ColorPickerWindow) {
+    let weak = picker.as_weak();
+    picker.on_pick_wheel(move |x, y, size| {
+        if !x.is_finite() || !y.is_finite() || !size.is_finite() || size <= 0.0 {
+            return;
+        }
+        if let Some(p) = weak.upgrade() {
+            let (hue, saturation) =
+                crate::color_wheel::hue_saturation_at(x.into(), y.into(), size.into());
+            // Hue is undefined at the center: preserve the editor's hue there.
+            let hue = if saturation == 0.0 {
+                p.get_hue()
+            } else {
+                hue as f32
+            };
+            p.invoke_set_hsv(hue, saturation as f32, p.get_brightness());
+        }
+    });
+    let weak = picker.as_weak();
+    ui.on_pick_color_wheel(move |x, y, size| {
+        if let Some(p) = weak.upgrade() {
+            p.invoke_pick_wheel(x, y, size);
+        }
+    });
+    let (weak, main) = (picker.as_weak(), ui.as_weak());
+    picker.on_wheel_size_changed(move |_| {
+        if let Some(p) = weak.upgrade() {
+            if let Some(image) = wheel_image(
+                &p.get_wheel_image(),
+                p.get_brightness(),
+                p.get_brightness(),
+                p.get_wheel_size(),
+            ) {
+                p.set_wheel_image(image);
+            }
+            if let Some(ui) = main.upgrade() {
+                sync_docked(&ui, &p);
+            }
+        }
+    });
+    let (weak, main) = (picker.as_weak(), ui.as_weak());
+    ui.on_color_wheel_size_changed(move |_| {
+        if let (Some(p), Some(ui)) = (weak.upgrade(), main.upgrade()) {
+            sync_docked(&ui, &p);
+        }
+    });
+}
+
 pub(super) fn bind_picker(
     ui: &AppWindow,
     controller: SharedController,
@@ -63,6 +122,7 @@ pub(super) fn bind_picker(
     text: &Localizer,
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
+    bind_wheel(ui, &picker);
     let original = Rc::new(Cell::new(controller.borrow().selected_color()));
     let originals = Rc::new(Cell::new([
         controller.borrow().primary_color(),
@@ -289,14 +349,21 @@ pub(super) fn bind_picker(
                 picker.get_blue(),
                 picker.get_alpha(),
             ) == (r, g, b, a)
-                && picker.get_sv_image().size().width != 0
+                && picker.get_wheel_image().size().width != 0
             {
                 return;
             }
+            // Alpha-only edits leave the wheel and exact HSV controls unchanged.
+            let same_rgb = (picker.get_red(), picker.get_green(), picker.get_blue()) == (r, g, b);
+            let hsv = same_rgb.then(|| Hsv {
+                hue: picker.get_hue().into(),
+                saturation: picker.get_saturation().into(),
+                value: picker.get_brightness().into(),
+            });
             synchronize(
                 &picker,
                 Color::rgba(r as u8, g as u8, b as u8, a as u8),
-                None,
+                hsv,
             );
             if let Some(ui) = main.upgrade() {
                 sync_docked(&ui, &picker);
@@ -381,6 +448,11 @@ pub(super) fn bind_picker(
         };
         let alpha = state.borrow().selected_color().a;
         if let Ok(value) = color::color_from_hsv(hsv.hue, hsv.saturation, hsv.value, alpha) {
+            // Keep exact HSV through the RGB-based refresh: hue/saturation edits
+            // must not redraw the wheel merely because RGB quantizes the value.
+            if let Some(picker) = colors.upgrade() {
+                synchronize(&picker, value, Some(hsv));
+            }
             update(&main, &state, |c| {
                 c.pointer_up()?;
                 c.set_selected_color(value)
@@ -600,10 +672,19 @@ fn sync_docked(ui: &AppWindow, picker: &ColorPickerWindow) {
     ui.set_color_a(picker.get_alpha());
     ui.set_color_h(picker.get_hue());
     ui.set_color_s(picker.get_saturation());
-    ui.set_color_v(picker.get_brightness());
     ui.set_color_hex(picker.get_hex_value());
     ui.set_color_error(picker.get_error());
-    ui.set_color_sv(picker.get_sv_image());
+    if let Some(image) = wheel_image(
+        &ui.get_color_wheel_image(),
+        ui.get_color_v(),
+        picker.get_brightness(),
+        ui.get_color_wheel_size(),
+    ) {
+        ui.set_color_wheel_image(image);
+    }
+    ui.set_color_v(picker.get_brightness());
+    ui.set_color_wheel_marker_x(picker.get_wheel_marker_x());
+    ui.set_color_wheel_marker_y(picker.get_wheel_marker_y());
     ui.set_screen_picking(picker.get_screen_picking());
 }
 
@@ -617,12 +698,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn non_finite_hue_preserves_previous_saturation_value_image() {
+    fn wheel_cache_changes_only_for_value_or_raster_size() {
+        let empty = slint::Image::default();
+        let initial = wheel_image(&empty, 100.0, 100.0, 50.2).unwrap();
+        assert_eq!(initial.size().width, 51);
+        assert!(wheel_image(&initial, 100.0, 100.0, 50.9).is_none());
+        assert!(wheel_image(&initial, 100.0, 50.0, 50.2).is_some());
+        assert!(wheel_image(&initial, 100.0, 100.0, 100.0).is_some());
+        let capped = wheel_image(&initial, 100.0, 100.0, 300.0).unwrap();
+        assert_eq!(capped.size().width, 256);
+        assert!(wheel_image(&capped, 100.0, 100.0, 400.0).is_none());
+        assert!(wheel_image(&initial, 100.0, 100.0, 0.0).is_none());
+        assert!(wheel_image(&initial, 100.0, 100.0, f32::NAN).is_none());
+    }
+
+    #[test]
+    fn non_finite_hue_preserves_previous_wheel_image() {
         i_slint_backend_testing::init_no_event_loop();
         let picker = ColorPickerWindow::new().unwrap();
         let value = Color::rgba(255, 0, 0, 255);
         synchronize(&picker, value, None);
-        let previous = picker.get_sv_image();
+        let previous = picker.get_wheel_image();
         for hue in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
             synchronize(
                 &picker,
@@ -633,7 +729,7 @@ mod tests {
                     value: 100.0,
                 }),
             );
-            assert_eq!(picker.get_sv_image(), previous);
+            assert_eq!(picker.get_wheel_image(), previous);
         }
     }
 

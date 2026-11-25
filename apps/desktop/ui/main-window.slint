@@ -235,7 +235,14 @@ export component AppWindow inherits Window {
     callback restore-original-color();
     in property <string> color-hex;
     in property <string> color-error;
-    in property <image> color-sv;
+    in property <image> color-wheel-image;
+    in property <float> color-wheel-marker-x;
+    in property <float> color-wheel-marker-y;
+    out property <float> color-wheel-left: docked-colors.wheel-left;
+    out property <float> color-wheel-top: docked-colors.wheel-top;
+    out property <float> color-wheel-size: docked-colors.wheel-size;
+    callback pick-color-wheel(float, float, float);
+    callback color-wheel-size-changed(float);
     // Screen picking is temporary; the selected drawing tool stays active.
     in property <bool> screen-picking;
     callback edit-rgba(int, int, int, int);
@@ -600,7 +607,7 @@ export component AppWindow inherits Window {
                 red: root.color-r; green: root.color-g; blue: root.color-b; alpha: root.color-a;
                 hue: root.color-h; saturation: root.color-s; brightness: root.color-v;
                 hex-value: root.color-hex; error: root.color-error;
-                sv-image: root.color-sv; current-color: root.selected-color;
+                wheel-image: root.color-wheel-image; wheel-marker-x: root.color-wheel-marker-x; wheel-marker-y: root.color-wheel-marker-y; current-color: root.selected-color;
                 original-color: root.color-original;
                 original-description: root.color-original-description;
                 current-description: root.color-current-description;
@@ -608,6 +615,8 @@ export component AppWindow inherits Window {
                 has-active-shape: root.has-shape; screen-picking: root.screen-picking;
                 set-rgba(r,g,b,a) => { root.edit-rgba(r,g,b,a); }
                 set-hsv(h,s,v) => { root.edit-hsv(h,s,v); }
+                pick-wheel(x,y,size) => { root.pick-color-wheel(x,y,size); }
+                wheel-size-changed(size) => { root.color-wheel-size-changed(size); }
                 set-hex(text) => { root.edit-hex(text); }
                 toggle-dock => { root.toggle-color-dock(); }
                 close-picker => { root.close-colors(); }

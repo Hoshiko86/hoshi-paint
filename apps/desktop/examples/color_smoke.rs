@@ -31,8 +31,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert!(picker.get_has_active_shape());
         picker.window().take_snapshot().unwrap();
         let position = slint::LogicalPosition::new(
-            picker.get_sv_left() + picker.get_sv_width() * 0.8,
-            picker.get_sv_top() + picker.get_sv_height() * 0.2,
+            picker.get_wheel_left() + picker.get_wheel_size() * 0.8,
+            picker.get_wheel_top() + picker.get_wheel_size() * 0.2,
         );
         picker
             .window()
