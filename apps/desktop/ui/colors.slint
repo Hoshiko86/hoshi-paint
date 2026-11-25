@@ -1,15 +1,18 @@
 import { IconButton } from "icon-button.slint";
+import { GradientSlider } from "gradient-slider.slint";
 import { ColorLibrary, PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 export { PaletteSwatch, NamedColorSuggestion } from "color-library.slint";
 import { FileShortcuts, FileAction } from "file-shortcuts.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
-import { Button, Slider, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
+import { Button, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
 component Channel inherits Rectangle {
     preferred-height: 34px;
     in property <string> label;
     in property <float> value;
     in property <int> maximum: 255;
+    in property <brush> track;
+    in property <bool> checkered;
     out property <float> slider-left: slider.absolute-position.x / 1px;
     out property <float> slider-top: slider.absolute-position.y / 1px;
     out property <float> slider-width: slider.width / 1px;
@@ -19,7 +22,8 @@ component Channel inherits Rectangle {
     HorizontalLayout {
         spacing: 4px;
         Text { text: root.label; width: 40px; color: DesktopTheme.text; vertical-alignment: center; }
-        slider := Slider { minimum: 0; maximum: root.maximum; value: root.value; accessible-label: root.label;
+        slider := GradientSlider { minimum: 0; maximum: root.maximum; value: root.value; accessible-label: root.label;
+            track: root.track; checkered: root.checkered;
             changed(v) => { root.edited(v); }
         }
         spin := SpinBox { minimum: 0; maximum: root.maximum; value: round(root.value); width: 112px; accessible-label: root.label;
@@ -288,7 +292,7 @@ export component ColorPanel inherits Rectangle {
                 accessible-role: image;
                 accessible-label: Translations.saturation-value-area;
             }
-            Channel { label: Translations.hue; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
+            Channel { label: Translations.hue; track: @linear-gradient(90deg, hsv(0, root.saturation / 100, root.brightness / 100) 0%, hsv(60, root.saturation / 100, root.brightness / 100) 16.6667%, hsv(120, root.saturation / 100, root.brightness / 100) 33.3333%, hsv(180, root.saturation / 100, root.brightness / 100) 50%, hsv(240, root.saturation / 100, root.brightness / 100) 66.6667%, hsv(300, root.saturation / 100, root.brightness / 100) 83.3333%, hsv(360, root.saturation / 100, root.brightness / 100) 100%); maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
             Rectangle {
                 height: root.width < 560px ? 288px : 136px;
                 VerticalLayout {
@@ -296,9 +300,9 @@ export component ColorPanel inherits Rectangle {
                     width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
                     height: 136px;
                     Text { text: Translations.rgb-range; color: DesktopTheme.muted-text; }
-                    red-channel := Channel { label: "R"; value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
-                    green-channel := Channel { label: "G"; value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
-                    blue-channel := Channel { label: "B"; value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
+                    red-channel := Channel { label: "R"; track: @linear-gradient(90deg, rgb(0, root.green, root.blue) 0%, rgb(255, root.green, root.blue) 100%); value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
+                    green-channel := Channel { label: "G"; track: @linear-gradient(90deg, rgb(root.red, 0, root.blue) 0%, rgb(root.red, 255, root.blue) 100%); value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
+                    blue-channel := Channel { label: "B"; track: @linear-gradient(90deg, rgb(root.red, root.green, 0) 0%, rgb(root.red, root.green, 255) 100%); value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
                 }
                 VerticalLayout {
                     x: root.width < 560px ? 0px : (parent.width + 16px) / 2;
@@ -306,12 +310,12 @@ export component ColorPanel inherits Rectangle {
                     width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
                     height: 136px;
                     Text { text: Translations.hsv-range; color: DesktopTheme.muted-text; }
-                    Channel { label: "H"; maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
-                    Channel { label: "S"; maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
-                    Channel { label: "V"; maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
+                    Channel { label: "H"; track: @linear-gradient(90deg, hsv(0, root.saturation / 100, root.brightness / 100) 0%, hsv(60, root.saturation / 100, root.brightness / 100) 16.6667%, hsv(120, root.saturation / 100, root.brightness / 100) 33.3333%, hsv(180, root.saturation / 100, root.brightness / 100) 50%, hsv(240, root.saturation / 100, root.brightness / 100) 66.6667%, hsv(300, root.saturation / 100, root.brightness / 100) 83.3333%, hsv(360, root.saturation / 100, root.brightness / 100) 100%); maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
+                    Channel { label: "S"; track: @linear-gradient(90deg, hsv(root.hue, 0, root.brightness / 100) 0%, hsv(root.hue, 1, root.brightness / 100) 100%); maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
+                    Channel { label: "V"; track: @linear-gradient(90deg, hsv(root.hue, root.saturation / 100, 0) 0%, hsv(root.hue, root.saturation / 100, 1) 100%); maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
                 }
             }
-            Channel { label: Translations.alpha; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
+            Channel { label: Translations.alpha; track: @linear-gradient(90deg, rgba(root.red, root.green, root.blue, 0) 0%, rgba(root.red, root.green, root.blue, 1) 100%); checkered: true; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
             HorizontalLayout {
                 Text { text: "Hex"; width: 32px; vertical-alignment: center; color: DesktopTheme.text; }
                 hex-entry := LineEdit { text <=> root.hex-value; accessible-label: Translations.hex-color; accessible-description: Translations.hex-apply; Tooltip { text: Translations.styled(Translations.hex-apply); } accepted(text) => { root.set-hex(text); } }

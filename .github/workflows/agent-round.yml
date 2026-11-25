@@ -1,0 +1,159 @@
+# One fix round of the review loop (called by agent-claude.yml, at most three
+# times per review request): Codex applies the fixes on the PR branch, then
+# Claude re-checks the fix commit and returns a verdict for the next round.
+name: Agent fix round
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: string
+        required: true
+      request:
+        type: string
+        required: true
+      round:
+        type: number
+        required: true
+      final:
+        type: boolean
+        required: true
+    outputs:
+      verdict:
+        value: ${{ jobs.recheck.outputs.verdict }}
+      fixes:
+        value: ${{ jobs.recheck.outputs.fixes }}
+
+jobs:
+  fix:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    uses: ./.github/workflows/agent-codex.yml
+    with:
+      pr: ${{ inputs.pr }}
+      request: ${{ inputs.request }}
+    secrets: inherit
+
+  recheck:
+    needs: fix
+    if: needs.fix.outputs.pushed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    outputs:
+      verdict: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').verdict }}
+      fixes: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').fixes }}
+    steps:
+      # Only main is checked out (trusted); the fix commit is read through the
+      # GitHub API at its exact SHA and never checked out.
+      - name: Checkout main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Re-check
+        id: recheck
+        uses: anthropics/claude-code-action@4a461cbbb72e467c61b1e47547fc0d7dacece34a # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: chatgpt-codex-connector
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ inputs.pr }}
+            ROUND: ${{ inputs.round }} of 3
+            FIX COMMIT: ${{ needs.fix.outputs.sha }}
+
+            You reviewed this PR and Codex applied these requested fixes in the commit above:
+            ${{ inputs.request }}
+
+            Check that commit (`gh api repos/${{ github.repository }}/commits/${{ needs.fix.outputs.sha }} -H "Accept: application/vnd.github.diff"`;
+            read a whole file with `gh api repos/${{ github.repository }}/contents/PATH?ref=${{ needs.fix.outputs.sha }} -H "Accept: application/vnd.github.raw"`)
+            against each requested fix: done correctly,
+            missing, or wrong. Check that it changed nothing else. Do not start a new review
+            of the whole PR: judge only the requested fixes and anything the commit broke.
+
+            Post exactly ONE comment with `gh pr comment`. First line:
+            - **Re-check (round ${{ inputs.round }}/3):** Ready to merge once CI is green, or
+            - **Re-check (round ${{ inputs.round }}/3):** Still open, sending to Codex, or
+            - **Re-check (round ${{ inputs.round }}/3):** Needs the owner.
+            Then one line per requested fix.
+
+            Return structured output:
+            - verdict "ready": every requested fix is done and nothing broke.
+            - verdict "fixes": some fixes are missing or wrong, all still in files this PR
+              already changes and needing no owner decision. `fixes` lists only what is still
+              open, as "file:line → change", precise enough for Codex to apply on its own.
+              ${{ inputs.final && 'This is the last round: never return "fixes". Return "needs_owner" instead and say in the comment that three rounds were used.' || '' }}
+            - verdict "needs_owner": anything else (scope, design, or a fix that cannot work).
+              `fixes` is empty.
+            Never edit files, push, approve or merge.
+          claude_args: |
+            --max-turns 25
+            --allowedTools "Read,Glob,Grep,Bash(gh api repos/${{ github.repository }}/:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
+
+      - name: Flag for the owner
+        if: |
+          always() &&
+          (fromJSON(steps.recheck.outputs.structured_output || '{}').verdict == 'needs_owner' ||
+           fromJSON(steps.recheck.outputs.structured_output || '{}').verdict == null ||
+           (fromJSON(steps.recheck.outputs.structured_output || '{}').verdict == 'fixes' &&
+            fromJSON(steps.recheck.outputs.structured_output || '{}').fixes == ''))
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR: ${{ inputs.pr }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: '@Hoshiko86 this PR needs you: see the re-check above, or the workflow run if none was posted.' });
+
+  # Codex finished but pushed nothing (every fix skipped): stop and tell the owner.
+  stalled:
+    needs: fix
+    if: needs.fix.result == 'success' && needs.fix.outputs.pushed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Flag for the owner
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR: ${{ inputs.pr }}
+          ROUND: ${{ inputs.round }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: `@Hoshiko86 round ${process.env.ROUND}: Codex pushed no changes (see its report above), so the loop stopped.` });
+
+  merge:
+    needs: [fix, recheck]
+    if: needs.recheck.outputs.verdict == 'ready'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      checks: read
+      statuses: write
+    uses: ./.github/workflows/agent-merge.yml
+    with:
+      pr: ${{ inputs.pr }}
+      sha: ${{ needs.fix.outputs.sha }}
+      mark_ready: true
+    secrets: inherit
