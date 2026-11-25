@@ -168,6 +168,11 @@ jobs:
           GEMINI_CLI_TRUST_WORKSPACE: "true"
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          # Free-tier key (owner, 2026-11-25): flagship Pro models are not
+          # included, and the default "auto" routing tries them first and
+          # stalls on 503s. Hydrogen is the free-tier model for coding and
+          # agentic work; gemini-3.8-flash is the fallback choice.
+          gemini_model: gemini-4-hydrogen
           prompt: ${{ steps.prompt.outputs.text }}
           github_pr_number: ${{ inputs.pr || github.event.issue.number }}
 
