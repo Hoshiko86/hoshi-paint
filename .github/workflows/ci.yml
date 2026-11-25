@@ -19,7 +19,7 @@ jobs:
       scripts: ${{ steps.plan.outputs.scripts }}
       coverage: ${{ steps.plan.outputs.coverage }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0  # merge-base with the PR's base branch
       - name: Install pinned Rust
@@ -34,7 +34,7 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - if: needs.plan.outputs.scripts == 'true'
         run: python3 -m unittest discover -s scripts -v  # = cargo xtask test scripts, without a Rust toolchain
   core:
@@ -46,7 +46,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux' && needs.plan.outputs.rust == 'true'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libxkbcommon-x11-0 libxfixes3 dbus xvfb
@@ -80,7 +80,7 @@ jobs:
         run: cargo xtask test unit ${{ needs.plan.outputs.packages }}
       - name: Upload test results (JUnit)
         if: always() && needs.plan.outputs.rust == 'true'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7, Node 24
         with:
           name: junit-${{ matrix.os }}
           path: target/nextest/ci/junit.xml
@@ -110,7 +110,7 @@ jobs:
         if: needs.plan.outputs.smoke == 'true'
         run: python3 scripts/package_source.py target/spike-package/hoshi-paint-source.tar.gz
       - if: needs.plan.outputs.smoke == 'true'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7, Node 24
         with:
           name: desktop-${{ matrix.os }}
           path: target/spike-package/
@@ -123,7 +123,7 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Linux desktop prerequisites
         # Fontconfig headers/libraries build Slint; tests use the headless testing backend.
         # X11 cursor libraries, Xvfb and D-Bus sessions are needed only by native smoke.
@@ -147,7 +147,7 @@ jobs:
         run: |
           { echo '### Line coverage (hoshi-core, hoshi-controller, hoshi-desktop)'; echo '```';
             cargo llvm-cov report --summary-only; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node 24
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7, Node 24
         if: always()
         with:
           name: coverage

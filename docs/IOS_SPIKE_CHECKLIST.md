@@ -4,7 +4,7 @@ Status: **pending, not executed**. This task runs on Linux. A desktop software
 renderer build or screenshot does not validate iOS compilation, launch, touch,
 Pencil, signing, accessibility, or lifecycle behavior.
 
-Reference version: Slint **1.18.1**, Rust **1.99.1**. The official Slint iOS path
+Reference version: Slint **1.18.1**, Rust **1.100.0**. The official Slint iOS path
 uses the **winit backend and Skia renderer**. The current desktop spike enables
 the software renderer; its manifest must be adapted before the commands below
 can serve as an iOS build procedure.
@@ -36,11 +36,11 @@ In a checkout of Hoshi Paint on the Mac:
 xcodebuild -version
 xcrun --sdk iphonesimulator --show-sdk-path
 xcrun --sdk iphoneos --show-sdk-path
-rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
-rustup target add --toolchain 1.99.1 aarch64-apple-ios-sim aarch64-apple-ios
-cargo +1.99.1 test -p hoshi-core -p hoshi-controller --locked
-cargo +1.99.1 build -p hoshi-desktop --target aarch64-apple-ios-sim --locked
-cargo +1.99.1 build -p hoshi-desktop --target aarch64-apple-ios --locked
+rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
+rustup target add --toolchain 1.100.0 aarch64-apple-ios-sim aarch64-apple-ios
+cargo +1.100.0 test -p hoshi-core -p hoshi-controller --locked
+cargo +1.100.0 build -p hoshi-desktop --target aarch64-apple-ios-sim --locked
+cargo +1.100.0 build -p hoshi-desktop --target aarch64-apple-ios --locked
 ```
 
 Record the exact Mac, macOS/Xcode versions, installed SDK/runtime versions,

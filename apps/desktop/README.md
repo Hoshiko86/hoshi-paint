@@ -7,7 +7,7 @@ Slint adapter.
 ## Build and run
 
 Install rustup and the platform's native linker/toolchain. The repository pins
-Rust **1.99.1** and Slint **1.18.1**, with resolved dependencies in Cargo.lock.
+Rust **1.100.0** and Slint **1.18.1**, with resolved dependencies in Cargo.lock.
 Linux needs pkg-config and fontconfig development files plus the X11/Wayland,
 fontconfig and xkbcommon runtime libraries. On Ubuntu, start with:
 
