@@ -15,7 +15,7 @@ apps/desktop (Slint 1.18.1 desktop app, production — ADR 0006)
           └─> hoshi-core (document, sparse COW tiles, history-on-disk, .hoshi I/O)
 ```
 
-- Toolchain pinned 1.99.1, edition 2024. `--locked` everywhere. CI runs on
+- Toolchain pinned 1.100.0, edition 2024. `--locked` everywhere. CI runs on
   Linux/Windows/macOS via `cargo xtask test <suite>` (`docs/TESTING.md`;
   smoke table in `xtask/src/smoke.rs`; coverage floors in
   `xtask/src/coverage.rs`: core 96%, controller 97%, desktop 82%). Test epic #63.
