@@ -11,6 +11,7 @@ mod eyedropper;
 mod history;
 mod input;
 mod large_preview;
+mod layers;
 mod named_colors;
 mod painting;
 mod palette;
