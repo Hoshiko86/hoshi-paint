@@ -47,6 +47,9 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+      actions: read
+      checks: read
+      statuses: read
     outputs:
       verdict: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').verdict }}
       fixes: ${{ fromJSON(steps.recheck.outputs.structured_output || '{}').fixes }}
@@ -77,7 +80,9 @@ jobs:
             Check that commit (`gh api repos/${{ github.repository }}/commits/${{ needs.fix.outputs.sha }} -H "Accept: application/vnd.github.diff"`;
             read a whole file with `gh api repos/${{ github.repository }}/contents/PATH?ref=${{ needs.fix.outputs.sha }} -H "Accept: application/vnd.github.raw"`)
             against each requested fix: done correctly,
-            missing, or wrong. Check that it changed nothing else. Do not start a new review
+            missing, or wrong. Check that it changed nothing else. Check CI with `gh pr checks ${{ inputs.pr }}`
+            (`gh run view RUN_ID --log-failed` for a failure): a failure the fix commit caused
+            counts as still open; if CI is still running, say so. Do not start a new review
             of the whole PR: judge only the requested fixes and anything the commit broke.
 
             Post exactly ONE comment with `gh pr comment`. First line:
@@ -97,7 +102,7 @@ jobs:
             Never edit files, push, approve or merge.
           claude_args: |
             --max-turns 25
-            --allowedTools "Read,Glob,Grep,Bash(gh api repos/${{ github.repository }}/:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --allowedTools "Read,Glob,Grep,Bash(gh api repos/${{ github.repository }}/:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr checks:*),Bash(gh run view:*)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["ready","fixes","needs_owner"]},"fixes":{"type":"string"}},"required":["verdict","fixes"]}'
 
       - name: Flag for the owner

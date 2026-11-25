@@ -98,9 +98,13 @@ jobs:
             if (!pr.head.ref.startsWith('codex/')) return skip('not a codex/ branch');
             const labels = pr.labels.map(l => l.name);
             if (labels.includes('hold')) return skip('held by the owner');
-            const { data: combined } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: sha });
-            const review = combined.statuses.find(s => s.context === 'agent-review');
-            if (!review || review.state !== 'success') return skip('Claude has not marked this commit ready');
+            // Just marked above: GitHub can return the status list before the
+            // new status shows up, so trust our own write in that case.
+            if (process.env.MARK_READY !== 'true') {
+              const { data: combined } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: sha });
+              const review = combined.statuses.find(s => s.context === 'agent-review');
+              if (!review || review.state !== 'success') return skip('Claude has not marked this commit ready');
+            }
 
             const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
             const owned = files.map(f => f.filename).filter(f => f.startsWith('.github/') || f.startsWith('docs/adr/'));
