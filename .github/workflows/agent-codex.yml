@@ -244,8 +244,10 @@ jobs:
           changes = []
           for raw in filter(None, names):
               path = raw.decode()
-              if path.startswith((".gemini/", ".codex/")):
-                  continue  # agent tool settings, not part of the fix
+              # Agent tool settings and the Gemini action's run logs
+              # (gemini-artifacts/), not part of the fix.
+              if path.startswith((".gemini/", ".codex/", "gemini-artifacts/")):
+                  continue
               staged = subprocess.run(["git", "ls-files", "-s", "--", path],
                                       check=True, capture_output=True, text=True).stdout.split()
               if staged:
