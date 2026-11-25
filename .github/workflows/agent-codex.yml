@@ -3,7 +3,8 @@
 # Two ways in:
 # - workflow_call from agent-round.yml: Claude's review found in-scope fixes,
 #   and Codex applies them automatically (the normal path).
-# - An owner PR comment starting with "/codex-fix": a manual request. (Any
+# - An owner PR comment starting with "/codex-fix" (or "/gemini-fix" to use
+#   Gemini directly): a manual request. (Any
 #   "@codex..." text wakes ChatGPT's own Codex connector, so no @ is used.)
 #
 # Split in two jobs so PR code never runs next to a write token:
@@ -43,7 +44,8 @@ jobs:
       inputs.request != '' ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
        github.event.comment.author_association == 'OWNER' &&
-       startsWith(github.event.comment.body, '/codex-fix'))
+       (startsWith(github.event.comment.body, '/codex-fix') ||
+        startsWith(github.event.comment.body, '/gemini-fix')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
@@ -60,6 +62,8 @@ jobs:
     env:
       PR: ${{ inputs.pr || github.event.issue.number }}
       REQUEST: ${{ inputs.request || github.event.comment.body }}
+      # "/gemini-fix" skips Codex and runs Gemini directly.
+      FORCE_GEMINI: ${{ inputs.request == '' && startsWith(github.event.comment.body, '/gemini-fix') }}
     steps:
       - name: Get PR branch
         id: pr
@@ -134,6 +138,7 @@ jobs:
 
       - name: Run Codex
         id: codex
+        if: env.FORCE_GEMINI != 'true'
         continue-on-error: true
         uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1
         with:
@@ -152,9 +157,9 @@ jobs:
           git reset -q --hard HEAD
           git clean -qfd -e target/
 
-      - name: Run Gemini (fallback)
+      - name: Run Gemini (fallback, or forced by /gemini-fix)
         id: gemini
-        if: steps.codex.outcome == 'failure'
+        if: steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true'
         continue-on-error: true
         uses: google-github-actions/run-gemini-cli@e061df3d60a224aed843cdac838189d1f6bff576 # v0.1.9
         with:
@@ -172,6 +177,9 @@ jobs:
         run: |
           if [ "$CODEX" = "success" ]; then
             echo "name=Codex" >> "$GITHUB_OUTPUT"
+          elif [ "$GEMINI" = "success" ] && [ "$CODEX" = "skipped" ]; then
+            echo "name=Gemini" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
           elif [ "$GEMINI" = "success" ]; then
             echo "name=Gemini (fallback: Codex failed)" >> "$GITHUB_OUTPUT"
             printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"

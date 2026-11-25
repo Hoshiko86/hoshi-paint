@@ -122,7 +122,7 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   questions, it stops at "Needs the owner". Manual fix requests: a PR comment
   starting `/codex-fix`. If Codex fails (e.g. out of OpenAI quota), Gemini
   (`GEMINI_API_KEY`) runs the same prompt in the same read-only job; the
-  reply names which agent pushed.
+  reply names which agent pushed. `/gemini-fix` runs Gemini directly.
 - Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
   (squash) once Claude's review or re-check says ready (an `agent-review`
   commit status on that exact commit; the `agent-ready` label mirrors it) and
