@@ -1,14 +1,22 @@
 # Codex's role (AGENTS.md): implementation and PR fixes.
 #
 # Two ways in:
-# - workflow_call from agent-claude.yml: Claude's review found in-scope fixes,
+# - workflow_call from agent-round.yml: Claude's review found in-scope fixes,
 #   and Codex applies them automatically (the normal path).
-# - An owner PR comment starting with "/codex-fix": a manual request. (Any
+# - An owner PR comment starting with "/codex-fix" (or "/gemini-fix" to use
+#   Gemini directly): a manual request. (Any
 #   "@codex..." text wakes ChatGPT's own Codex connector, so no @ is used.)
 #
-# Fix commits are pushed with GITHUB_TOKEN, which does not start other
-# workflows, so this workflow starts CI itself (ci.yml's workflow_dispatch runs
-# the full suite on the PR branch, and its checks attach to the fix commit).
+# Split in two jobs so PR code never runs next to a write token:
+# - implement: read-only token, no git credentials. Checks out the PR, runs
+#   Codex (which builds and tests PR code) and uploads the changed files.
+# - publish: write token, checks nothing out. Refuses .github/ changes and
+#   builds the commit through the Git Data API (fast-forward only).
+# If Codex fails (for example, out of OpenAI quota), Gemini runs the same
+# prompt in the same read-only job (owner, 2026-11-25).
+# Fix commits are pushed with GITHUB_TOKEN, which starts no other workflows,
+# so publish also dispatches ci.yml on the PR branch; its checks attach to the
+# fix commit.
 name: Codex (PR fixes)
 
 on:
@@ -22,41 +30,44 @@ on:
         required: true
     outputs:
       pushed:
-        value: ${{ jobs.fix.outputs.pushed }}
+        value: ${{ jobs.publish.outputs.pushed }}
       sha:
-        value: ${{ jobs.fix.outputs.sha }}
+        value: ${{ jobs.publish.outputs.sha }}
   issue_comment:
     types: [created]
 
 jobs:
-  fix:
+  implement:
     # In a called workflow, github.event is the caller's, so a non-empty
     # `inputs.request` is what marks the workflow_call path.
     if: |
       inputs.request != '' ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
        github.event.comment.author_association == 'OWNER' &&
-       startsWith(github.event.comment.body, '/codex-fix'))
+       (startsWith(github.event.comment.body, '/codex-fix') ||
+        startsWith(github.event.comment.body, '/gemini-fix')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
       group: codex-fix-${{ inputs.pr || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      actions: write
+      contents: read
+      pull-requests: read
     outputs:
-      pushed: ${{ steps.push.outputs.pushed }}
-      sha: ${{ steps.push.outputs.sha }}
+      ref: ${{ steps.pr.outputs.ref }}
+      base: ${{ steps.pr.outputs.base }}
+      changed: ${{ steps.patch.outputs.changed }}
+      agent: ${{ steps.agent.outputs.name }}
     env:
       PR: ${{ inputs.pr || github.event.issue.number }}
       REQUEST: ${{ inputs.request || github.event.comment.body }}
+      # "/gemini-fix" skips Codex and runs Gemini directly.
+      FORCE_GEMINI: ${{ inputs.request == '' && startsWith(github.event.comment.body, '/gemini-fix') }}
     steps:
       - name: Get PR branch
         id: pr
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -71,11 +82,14 @@ jobs:
               core.setFailed('The PR is not open.');
             }
             core.setOutput('ref', pr.head.ref);
+            core.setOutput('base', pr.head.sha);
 
-      - name: Checkout PR branch
+      # Pinned to the head commit read above, with no stored credentials.
+      - name: Checkout PR head (read only)
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ steps.pr.outputs.ref }}
+          ref: ${{ steps.pr.outputs.base }}
+          persist-credentials: false
           fetch-depth: 1
 
       - name: Install Slint Linux dependencies
@@ -87,7 +101,7 @@ jobs:
             libgl1-mesa-dev libglu1-mesa-dev \
             libwayland-dev libx11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      # rustup reads rust-toolchain.toml (pinned 1.99.1 with rustfmt and clippy).
+      # rustup reads rust-toolchain.toml (the pinned toolchain with rustfmt and clippy).
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
@@ -95,7 +109,9 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       - name: Write prompt
+        id: prompt
         run: |
+          mkdir -p "$RUNNER_TEMP/out"
           {
             echo "You are the implementer for Hoshi Paint, working on the branch of PR #$PR."
             echo "Read AGENTS.md first and follow it strictly, especially §3a \"Review rounds\":"
@@ -114,71 +130,222 @@ jobs:
             echo "Finish with a short report: each requested fix -> done or skipped (and why), and"
             echo "the command results."
           } > "$RUNNER_TEMP/codex-prompt.md"
+          {
+            echo "text<<PROMPT_EOF_${GITHUB_RUN_ID}"
+            cat "$RUNNER_TEMP/codex-prompt.md"
+            echo "PROMPT_EOF_${GITHUB_RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Codex
+        id: codex
+        if: env.FORCE_GEMINI != 'true'
+        continue-on-error: true
         uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
           prompt-file: ${{ runner.temp }}/codex-prompt.md
-          output-file: ${{ runner.temp }}/codex-report.md
+          output-file: ${{ runner.temp }}/out/codex-report.md
           allow-bot-users: chatgpt-codex-connector[bot]
 
-      - name: Commit and push
-        id: push
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ steps.pr.outputs.ref }}
+      # Fallback (owner, 2026-11-25): if Codex fails (for example, out of API
+      # quota), Gemini gets the same prompt in the same read-only job. Throw
+      # away anything a failed Codex run left behind first.
+      - name: Reset after a failed Codex run
+        if: steps.codex.outcome == 'failure'
         run: |
-          if git status --porcelain | cut -c4- | grep -q '^\.github/'; then
-            echo "::error::Codex changed files under .github/; refusing to push."
+          git reset -q --hard HEAD
+          git clean -qfd -e target/
+
+      - name: Run Gemini (fallback, or forced by /gemini-fix)
+        id: gemini
+        if: steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true'
+        continue-on-error: true
+        uses: google-github-actions/run-gemini-cli@e061df3d60a224aed843cdac838189d1f6bff576 # v0.1.9
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          github_pr_number: ${{ inputs.pr || github.event.issue.number }}
+
+      - name: Record which agent ran
+        id: agent
+        if: always()
+        env:
+          CODEX: ${{ steps.codex.outcome }}
+          GEMINI: ${{ steps.gemini.outcome }}
+          SUMMARY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          if [ "$CODEX" = "success" ]; then
+            echo "name=Codex" >> "$GITHUB_OUTPUT"
+          elif [ "$GEMINI" = "success" ] && [ "$CODEX" = "skipped" ]; then
+            echo "name=Gemini" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
+          elif [ "$GEMINI" = "success" ]; then
+            echo "name=Gemini (fallback: Codex failed)" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
+          else
+            echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
+            echo "::error::Codex failed and the Gemini fallback did not succeed."
             exit 1
           fi
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git config user.name "codex-fix[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Hand over the changed files themselves (not a patch), so publish can
+      # build the commit through the API without checking anything out.
+      - name: Collect changes
+        id: patch
+        env:
+          BASE: ${{ steps.pr.outputs.base }}
+        run: |
           git add -A
-          git commit -m "Apply review fixes (#$PR)"
-          git push
-          echo "pushed=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          # A GITHUB_TOKEN push starts no workflows: run CI on the branch explicitly.
-          gh workflow run ci.yml --ref "$BRANCH"
+          python3 -I - "$RUNNER_TEMP/out" <<'PY'
+          import json, os, shutil, subprocess, sys
+          out = sys.argv[1]
+          # Against the exact base commit, so even a local commit by the agent is caught.
+          names = subprocess.run(["git", "diff", "--cached", "--name-only", "--no-renames", "-z", os.environ["BASE"]],
+                                 check=True, capture_output=True).stdout.split(b"\0")
+          changes = []
+          for raw in filter(None, names):
+              path = raw.decode()
+              if path.startswith((".gemini/", ".codex/")):
+                  continue  # agent tool settings, not part of the fix
+              staged = subprocess.run(["git", "ls-files", "-s", "--", path],
+                                      check=True, capture_output=True, text=True).stdout.split()
+              if staged:
+                  dest = os.path.join(out, "files", path)
+                  os.makedirs(os.path.dirname(dest), exist_ok=True)
+                  if staged[0] == "120000":
+                      with open(dest, "w") as f:
+                          f.write(os.readlink(path))
+                  else:
+                      shutil.copyfile(path, dest)
+                  changes.append({"path": path, "mode": staged[0]})
+              else:
+                  changes.append({"path": path, "deleted": True})
+          with open(os.path.join(out, "changes.json"), "w") as f:
+              json.dump(changes, f)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"changed={'true' if changes else 'false'}\n")
+          PY
+
+      - name: Upload changes and report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    needs: implement
+    if: needs.implement.result == 'success' && needs.implement.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      pushed: ${{ steps.push.outputs.pushed }}
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      # No checkout: nothing from the PR is ever executed here.
+      - name: Download changes
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/in
+
+      # Builds the commit with the Git Data API on top of the exact commit
+      # Codex worked on; the branch update is a fast-forward only, so it fails
+      # if the branch moved meanwhile.
+      - name: Commit and push via the API
+        id: push
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          PR: ${{ inputs.pr || github.event.issue.number }}
+          BRANCH: ${{ needs.implement.outputs.ref }}
+          BASE: ${{ needs.implement.outputs.base }}
+          IN: ${{ runner.temp }}/in
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { owner, repo } = context.repo;
+            const changes = JSON.parse(fs.readFileSync(path.join(process.env.IN, 'changes.json'), 'utf8'));
+            const blocked = changes.filter(c => c.path === '.github' || c.path.startsWith('.github/'));
+            if (blocked.length) {
+              return core.setFailed(`Codex changed files under .github/; refusing: ${blocked.map(c => c.path).join(', ')}`);
+            }
+            const tree = [];
+            for (const c of changes) {
+              if (c.deleted) {
+                tree.push({ path: c.path, mode: '100644', type: 'blob', sha: null });
+                continue;
+              }
+              const content = fs.readFileSync(path.join(process.env.IN, 'files', c.path)).toString('base64');
+              const { data: blob } = await github.rest.git.createBlob({ owner, repo, content, encoding: 'base64' });
+              tree.push({ path: c.path, mode: c.mode, type: 'blob', sha: blob.sha });
+            }
+            const base = process.env.BASE;
+            const { data: baseCommit } = await github.rest.git.getCommit({ owner, repo, commit_sha: base });
+            const { data: newTree } = await github.rest.git.createTree({ owner, repo, base_tree: baseCommit.tree.sha, tree });
+            const { data: commit } = await github.rest.git.createCommit({ owner, repo,
+              message: `Apply review fixes (#${process.env.PR})`, tree: newTree.sha, parents: [base] });
+            // force: false makes this a fast-forward only: it fails if the branch moved.
+            await github.rest.git.updateRef({ owner, repo, ref: `heads/${process.env.BRANCH}`, sha: commit.sha, force: false });
+            core.setOutput('pushed', 'true');
+            core.setOutput('sha', commit.sha);
+            // A GITHUB_TOKEN push starts no workflows: run CI on the branch explicitly.
+            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'ci.yml', ref: process.env.BRANCH });
+
+  reply:
+    needs: [implement, publish]
+    if: always() && needs.implement.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Download report
+        continue-on-error: true
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/in
 
       - name: Reply on PR
-        if: always()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          STATUS: ${{ job.status }}
+          PR: ${{ inputs.pr || github.event.issue.number }}
+          IMPLEMENT: ${{ needs.implement.result }}
+          AGENT: ${{ needs.implement.outputs.agent || 'Codex' }}
+          PUBLISH: ${{ needs.publish.result }}
+          PUSHED: ${{ needs.publish.outputs.pushed }}
+          SHA: ${{ needs.publish.outputs.sha }}
           CHAINED: ${{ inputs.request != '' }}
-          PUSHED: ${{ steps.push.outputs.pushed }}
-          SHA: ${{ steps.push.outputs.sha }}
-          REPORT: ${{ runner.temp }}/codex-report.md
+          REPORT: ${{ runner.temp }}/in/codex-report.md
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
             let report = '';
             try { report = fs.readFileSync(process.env.REPORT, 'utf8').slice(0, 60000); } catch {}
+            const failed = process.env.IMPLEMENT !== 'success' ||
+              (process.env.PUBLISH !== 'success' && process.env.PUBLISH !== 'skipped');
             let head;
-            if (process.env.STATUS !== 'success') {
-              head = `❌ **Codex** run ${process.env.STATUS}. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: Number(process.env.PR), labels: ['needs-owner'] });
+            if (failed) {
+              head = `❌ **${process.env.AGENT}** run failed. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
             } else if (process.env.PUSHED === 'true') {
               const next = process.env.CHAINED === 'true'
                 ? 'Claude will re-check it.'
                 : 'Comment `@claude review` for a new review.';
-              head = `✅ **Codex** pushed ${process.env.SHA.slice(0, 7)}; CI started. ${next}`;
+              head = `✅ **${process.env.AGENT}** pushed ${process.env.SHA.slice(0, 7)}; CI started. ${next}`;
             } else {
-              head = '✅ **Codex** finished with no changes to push.';
+              head = `✅ **${process.env.AGENT}** finished with no changes to push.`;
             }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: Number(process.env.PR),
-              body: `${head}\n\n${report}`.trim(),
-            });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: `${head}\n\n${report}`.trim() });
