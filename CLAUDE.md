@@ -126,7 +126,8 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
 - Auto-merge (owner, 2026-11-24; `agent-merge.yml`): a `codex/*` PR merges
   (squash) once Claude's review or re-check says ready (an `agent-review`
   commit status on that exact commit; the `agent-ready` label mirrors it) and
-  CI succeeded on the same commit with no failed checks. A new push has no
+  CI succeeded on the same commit with no failed checks; it also waits (up to
+  40 min) for code scanning, including the slow Rust analysis. A new push has no
   status, so it needs a new review. Never auto-merged: other branches, PRs touching
   `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
   else still merges only on the owner's ask.

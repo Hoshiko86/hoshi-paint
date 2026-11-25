@@ -9,7 +9,8 @@
 # A status belongs to one commit, so any later push is unreviewed by
 # construction. The `agent-ready` label mirrors it for people.
 # Green signal: the CI workflow ("Desktop canvas and core") succeeded on the
-# PR's head commit and no check run on it failed. Either signal can arrive
+# PR's head commit, code scanning finished (waited for here, up to 40 minutes,
+# since its runs cannot trigger this workflow), and no check run failed. Either signal can arrive
 # second, so this runs on both: when Claude marks ready, and when CI finishes.
 #
 # Merges made with GITHUB_TOKEN start no workflows, so after merging this
@@ -39,7 +40,8 @@ jobs:
   merge:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Up to ~40 minutes waiting for code scanning, plus margin.
+    timeout-minutes: 50
     concurrency:
       group: agent-merge-${{ inputs.pr || github.event.workflow_run.head_sha }}
       cancel-in-progress: false
@@ -116,18 +118,39 @@ jobs:
             if (!ci.length || ci[0].status !== 'completed') return skip('CI not finished on the head commit');
             if (ci[0].conclusion !== 'success') return skip(`CI ${ci[0].conclusion}`);
 
-            // No check on this commit may have failed (pending ones from other
-            // apps, such as code scanning, do not block).
             // Judge only the latest run of each check: a dispatched CI run can
             // replace (cancel) an earlier pull_request run on the same commit.
-            const checks = await github.paginate(github.rest.checks.listForRef, { owner, repo, ref: sha, per_page: 100 });
-            const latest = new Map();
-            for (const c of checks) {
-              const prev = latest.get(c.name);
-              if (!prev || new Date(c.started_at) > new Date(prev.started_at)) latest.set(c.name, c);
+            const latestChecks = async () => {
+              const checks = await github.paginate(github.rest.checks.listForRef, { owner, repo, ref: sha, per_page: 100 });
+              const latest = new Map();
+              for (const c of checks) {
+                const prev = latest.get(c.name);
+                if (!prev || new Date(c.started_at) > new Date(prev.started_at)) latest.set(c.name, c);
+              }
+              return [...latest.values()];
+            };
+            // Code scanning (GitHub's default CodeQL setup) runs outside our CI
+            // and can finish later, especially the Rust analysis. Its runs
+            // cannot trigger this workflow, so wait for them here: re-check
+            // every minute for up to 40 minutes.
+            const isScan = c => c.name === 'CodeQL' || c.name.startsWith('Analyze (');
+            let checks = await latestChecks();
+            for (let i = 0; i < 40 && checks.some(c => isScan(c) && c.status !== 'completed'); i++) {
+              core.info(`Waiting for code scanning: ${checks.filter(c => isScan(c) && c.status !== 'completed').map(c => c.name).join(', ')}`);
+              await new Promise(r => setTimeout(r, 60_000));
+              checks = await latestChecks();
             }
-            const bad = [...latest.values()].filter(c => ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion));
+            const pendingScan = checks.filter(c => isScan(c) && c.status !== 'completed');
+            if (pendingScan.length) return skip(`code scanning still running: ${pendingScan.map(c => c.name).join(', ')}`);
+
+            // No check on this commit may have failed.
+            const bad = checks.filter(c => ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion));
             if (bad.length) return skip(`failed checks: ${bad.map(c => c.name).join(', ')}`);
+
+            // Re-read the PR: the head may have moved while waiting.
+            const { data: fresh } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            if (fresh.head.sha !== sha) return skip('head moved while waiting');
+            pr.mergeable = fresh.mergeable;
 
             if (pr.mergeable === false) {
               await github.rest.issues.createComment({ owner, repo, issue_number: number,
