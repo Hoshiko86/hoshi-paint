@@ -112,9 +112,30 @@ jobs:
           for snapshot in sorted(Path("target/smoke").glob("*.png")):
               shutil.copy2(snapshot, package / snapshot.name)
           shutil.copytree("licenses", package / "licenses", dirs_exist_ok=True)
-      - name: Bundle corresponding source and locked dependencies
+      # GPL-3.0 §6(d): point to the exact source on GitHub instead of bundling
+      # a copy with every build. Cargo.lock pins every dependency version.
+      - name: Point to the corresponding source
         if: needs.plan.outputs.smoke == 'true'
-        run: python3 scripts/package_source.py target/spike-package/hoshi-paint-source.tar.gz
+        shell: python
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          import os, shutil
+          from pathlib import Path
+          package = Path("target/spike-package")
+          package.mkdir(parents=True, exist_ok=True)
+          sha, repo = os.environ["SOURCE_SHA"], os.environ["SOURCE_REPO"]
+          (package / "SOURCE.md").write_text(
+              "# Source\n\n"
+              "This build is Hoshi Paint, licensed GPL-3.0-only (see LICENSE).\n"
+              f"Its complete source is the commit it was built from:\n\n{repo}/tree/{sha}\n\n"
+              f"Download: {repo}/archive/{sha}.tar.gz\n\n"
+              "Cargo.lock (included) pins every dependency; each one's source is on\n"
+              "crates.io at that exact version. Third-party licenses are in licenses/\n"
+              "and THIRD_PARTY_NOTICES.md.\n",
+              encoding="utf-8")
+          shutil.copy2("Cargo.lock", package / "Cargo.lock")
       - if: needs.plan.outputs.smoke == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7, Node 24
         with:
