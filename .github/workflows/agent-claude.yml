@@ -59,7 +59,7 @@ jobs:
 
       - name: Refuse fork PRs
         id: fork
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           PR: ${{ steps.pr.outputs.number }}
         with:
@@ -147,7 +147,7 @@ jobs:
            fromJSON(steps.review.outputs.structured_output || '{}').verdict == null ||
            (fromJSON(steps.review.outputs.structured_output || '{}').verdict == 'fixes' &&
             fromJSON(steps.review.outputs.structured_output || '{}').fixes == ''))
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           PR: ${{ steps.pr.outputs.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -167,7 +167,7 @@ jobs:
       issues: write
     steps:
       - name: Remove agent-ready
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             try {
