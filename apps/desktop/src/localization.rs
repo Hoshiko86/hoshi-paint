@@ -170,6 +170,7 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "hoshi_layered_project",
     "hsv_range",
     "hue",
+    "hue_saturation_wheel",
     "image_background",
     "image_edit_note",
     "image_error_apply_limits",
@@ -323,7 +324,6 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "restore",
     "restore_original_color",
     "rgb_range",
-    "saturation_value_area",
     "save",
     "save_as",
     "save_before_closing",
@@ -676,7 +676,7 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_current_color(text("current_color"));
     translations.set_restore(text("restore"));
     translations.set_restore_original_color(text("restore_original_color"));
-    translations.set_saturation_value_area(text("saturation_value_area"));
+    translations.set_hue_saturation_wheel(text("hue_saturation_wheel"));
     translations.set_hue(text("hue"));
     translations.set_alpha(text("alpha"));
     translations.set_rgb_range(text("rgb_range"));

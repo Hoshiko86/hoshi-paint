@@ -189,7 +189,10 @@ export component ColorPanel inherits Rectangle {
     in property <float> brightness;
     in-out property <string> hex-value;
     in property <string> error;
-    in property <image> sv-image;
+    in property <image> wheel-image;
+    // Unit-square marker coordinates are computed in Rust and scaled by the host.
+    in property <float> wheel-marker-x;
+    in property <float> wheel-marker-y;
     in property <color> current-color;
     in property <color> original-color;
     in property <string> original-description;
@@ -204,14 +207,16 @@ export component ColorPanel inherits Rectangle {
     out property <float> red-slider-top: red-channel.slider-top;
     out property <float> red-slider-width: red-channel.slider-width;
     out property <float> red-slider-height: red-channel.slider-height;
-    out property <float> sv-left: sv.absolute-position.x / 1px;
-    out property <float> sv-top: sv.absolute-position.y / 1px;
-    out property <float> sv-width: sv.width / 1px;
-    out property <float> sv-height: sv.height / 1px;
+    out property <float> wheel-left: wheel.absolute-position.x / 1px;
+    out property <float> wheel-top: wheel.absolute-position.y / 1px;
+    out property <float> wheel-size: wheel.width / 1px;
+    changed wheel-size => { root.wheel-size-changed(root.wheel-size); }
     out property <float> swatches-left: library.swatches-left;
     out property <float> swatches-top: library.swatches-top;
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
+    callback pick-wheel(float, float, float);
+    callback wheel-size-changed(float);
     callback set-hex(string);
     callback restore-original();
     callback close-picker();
@@ -272,27 +277,31 @@ export component ColorPanel inherits Rectangle {
                 reset-palette => { root.reset-palette(); }
                 set-palette-expanded(value) => { root.set-palette-expanded(value); }
             }
-            sv := Rectangle {
+            Rectangle {
                 height: 180px;
-                clip: true;
-                Image { source: root.sv-image; width: parent.width; height: parent.height; image-fit: fill; }
-                Rectangle {
-                    x: parent.width * root.saturation / 100 - 6px;
-                    y: parent.height * (1 - root.brightness / 100) - 6px;
-                    width: 12px; height: 12px; border-radius: 6px;
-                    border-width: 2px; border-color: white; background: transparent;
-                    Rectangle { x: 2px; y: 2px; width: 8px; height: 8px; border-radius: 4px; border-width: 1px; border-color: #18253c; background: transparent; }
+                wheel := Rectangle {
+                    width: min(parent.width, parent.height); height: self.width;
+                    x: (parent.width - self.width) / 2;
+                    Image { source: root.wheel-image; width: parent.width; height: parent.height; image-fit: contain; }
+                    Rectangle {
+                        x: parent.width * root.wheel-marker-x - self.width / 2;
+                        y: parent.height * root.wheel-marker-y - self.height / 2;
+                        width: 12px; height: 12px; border-radius: 6px;
+                        border-width: 2px; border-color: DesktopTheme.text;
+                        background: DesktopTheme.panel-background;
+                    }
+                    TouchArea {
+                        pointer-event(event) => { if event.kind == PointerEventKind.down {
+                            root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
+                        } }
+                        moved => { if self.pressed {
+                            root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
+                        } }
+                    }
+                    accessible-role: image;
+                    accessible-label: Translations.hue-saturation-wheel;
                 }
-                area := TouchArea {
-                    pointer-event(event) => { if event.kind == PointerEventKind.down {
-                        root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100);
-                    } }
-                    moved => { if self.pressed { root.set-hsv(root.hue, self.mouse-x / self.width * 100, (1 - self.mouse-y / self.height) * 100); } }
-                }
-                accessible-role: image;
-                accessible-label: Translations.saturation-value-area;
             }
-            Channel { label: Translations.hue; track: @linear-gradient(90deg, hsv(0, root.saturation / 100, root.brightness / 100) 0%, hsv(60, root.saturation / 100, root.brightness / 100) 16.6667%, hsv(120, root.saturation / 100, root.brightness / 100) 33.3333%, hsv(180, root.saturation / 100, root.brightness / 100) 50%, hsv(240, root.saturation / 100, root.brightness / 100) 66.6667%, hsv(300, root.saturation / 100, root.brightness / 100) 83.3333%, hsv(360, root.saturation / 100, root.brightness / 100) 100%); maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
             Rectangle {
                 height: root.width < 560px ? 288px : 136px;
                 VerticalLayout {
@@ -374,7 +383,9 @@ export component ColorPickerWindow inherits Window {
     in property <float> brightness <=> panel.brightness;
     in-out property <string> hex-value <=> panel.hex-value;
     in property <string> error <=> panel.error;
-    in property <image> sv-image <=> panel.sv-image;
+    in property <image> wheel-image <=> panel.wheel-image;
+    in property <float> wheel-marker-x <=> panel.wheel-marker-x;
+    in property <float> wheel-marker-y <=> panel.wheel-marker-y;
     in property <color> current-color <=> panel.current-color;
     in property <color> original-color <=> panel.original-color;
     in property <string> original-description <=> panel.original-description;
@@ -389,10 +400,9 @@ export component ColorPickerWindow inherits Window {
     out property <float> red-slider-top: panel.red-slider-top;
     out property <float> red-slider-width: panel.red-slider-width;
     out property <float> red-slider-height: panel.red-slider-height;
-    out property <float> sv-left: panel.sv-left;
-    out property <float> sv-top: panel.sv-top;
-    out property <float> sv-width: panel.sv-width;
-    out property <float> sv-height: panel.sv-height;
+    out property <float> wheel-left: panel.wheel-left;
+    out property <float> wheel-top: panel.wheel-top;
+    out property <float> wheel-size: panel.wheel-size;
     out property <float> swatches-left: panel.swatches-left;
     out property <float> swatches-top: panel.swatches-top;
     in property <bool> docked <=> panel.docked;
@@ -400,6 +410,8 @@ export component ColorPickerWindow inherits Window {
     callback placement-selected(PanelPlacement);
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
+    callback pick-wheel(float, float, float);
+    callback wheel-size-changed(float);
     callback set-hex(string);
     callback restore-original();
     callback close-picker();
@@ -426,6 +438,8 @@ export component ColorPickerWindow inherits Window {
         placement-selected(value) => { root.placement-selected(value); }
         set-rgba(r,g,b,a) => { root.set-rgba(r,g,b,a); }
         set-hsv(h,s,v) => { root.set-hsv(h,s,v); }
+        pick-wheel(x,y,size) => { root.pick-wheel(x,y,size); }
+        wheel-size-changed(size) => { root.wheel-size-changed(size); }
         set-hex(text) => { root.set-hex(text); }
         restore-original => { root.restore-original(); }
         close-picker => { root.close-picker(); }

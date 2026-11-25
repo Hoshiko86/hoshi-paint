@@ -4,6 +4,7 @@ use hoshi_controller::{Controller, ControllerError, ShapeMode, Tool, ToolId};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 mod color_library;
+mod color_wheel;
 mod colors;
 pub mod documents;
 mod error_text;

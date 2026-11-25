@@ -53,8 +53,8 @@ fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
     let before_click = state.borrow().primary_color();
     picker.window().take_snapshot().unwrap();
     let position = slint::LogicalPosition::new(
-        picker.get_sv_left() + picker.get_sv_width() * 0.8,
-        picker.get_sv_top() + picker.get_sv_height() * 0.2,
+        picker.get_wheel_left() + picker.get_wheel_size() * 0.8,
+        picker.get_wheel_top() + picker.get_wheel_size() * 0.2,
     );
     picker
         .window()
@@ -71,7 +71,7 @@ fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
     assert_ne!(
         state.borrow().primary_color(),
         before_click,
-        "actual SV pointer input must select a color"
+        "actual wheel pointer input must select a color"
     );
     assert_eq!(
         state.borrow().composite()[50 * 512 + 50],
@@ -405,6 +405,144 @@ fn gradient_track_reacts_to_other_channels_without_changing_its_own_value() {
     let second = sample();
     assert_eq!((second.g, second.b), (200, 56));
     assert_eq!(picker.get_red(), 12);
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+fn wheel_pointer(window: &slint::Window, position: slint::LogicalPosition, down: bool) {
+    let button = slint::platform::PointerEventButton::Left;
+    window.dispatch_event(if down {
+        slint::platform::WindowEvent::PointerPressed { position, button }
+    } else {
+        slint::platform::WindowEvent::PointerReleased { position, button }
+    });
+}
+
+#[test]
+fn wheel_press_center_and_live_drag_work_in_both_hosts_without_history() {
+    use hoshi_desktop::{PanelPlacement, Translations};
+    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+    let (ui, state, picker) = gradient_app();
+    ui.window().set_size(LogicalSize::new(1280., 1000.));
+    for docked in [false, true] {
+        if docked {
+            ui.invoke_set_colors_placement(PanelPlacement::Right);
+        }
+        picker.invoke_set_rgba(12, 34, 56, 128);
+        picker.invoke_set_hsv(120., 60., 80.);
+        let window = if docked { ui.window() } else { picker.window() };
+        window.take_snapshot().unwrap();
+        let (left, top, size) = if docked {
+            (
+                ui.get_color_wheel_left(),
+                ui.get_color_wheel_top(),
+                ui.get_color_wheel_size(),
+            )
+        } else {
+            (
+                picker.get_wheel_left(),
+                picker.get_wheel_top(),
+                picker.get_wheel_size(),
+            )
+        };
+        let right = slint::LogicalPosition::new(left + size - 0.01, top + size / 2.);
+        wheel_pointer(window, right, true);
+        assert!(picker.get_hue().abs() < 0.5);
+        assert!((picker.get_saturation() - 100.).abs() < 0.5);
+        assert_eq!(state.borrow().primary_color(), Color::rgba(204, 0, 0, 128));
+        let upper = slint::LogicalPosition::new(left + size / 2., top + 0.01);
+        window.dispatch_event(slint::platform::WindowEvent::PointerMoved { position: upper });
+        assert!((picker.get_hue() - 90.).abs() < 0.5);
+        assert!((picker.get_saturation() - 100.).abs() < 0.5);
+        assert_ne!(state.borrow().primary_color(), Color::rgba(204, 0, 0, 128));
+        wheel_pointer(window, upper, false);
+        let center = slint::LogicalPosition::new(left + size / 2., top + size / 2.);
+        wheel_pointer(window, center, true);
+        wheel_pointer(window, center, false);
+        assert!((picker.get_hue() - 90.).abs() < 0.5);
+        assert!(picker.get_saturation().abs() < 0.5);
+        assert_eq!(picker.get_brightness(), 80.);
+        assert_eq!(
+            state.borrow().primary_color(),
+            Color::rgba(204, 204, 204, 128)
+        );
+        assert_eq!(state.borrow().document().undo_len(), 0);
+    }
+    let label = picker.global::<Translations>().get_hue_saturation_wheel();
+    assert!(
+        ElementHandle::find_by_accessible_label(picker.as_ref(), &label)
+            .any(|e| e.accessible_role() == Some(AccessibleRole::Image))
+    );
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+#[test]
+fn wheel_hosts_cache_images_by_value_and_match_displayed_size() {
+    use hoshi_desktop::PanelPlacement;
+    let (ui, _, picker) = gradient_app();
+    picker.invoke_set_hsv(0., 60., 80.);
+    picker.window().take_snapshot().unwrap();
+    let first = picker.get_wheel_image();
+    assert_eq!(
+        first.size().width,
+        picker.get_wheel_size().min(256.).ceil() as u32
+    );
+    assert!(first.size().width > 0);
+    picker.invoke_set_hsv(120., 30., 80.);
+    assert_eq!(picker.get_wheel_image(), first);
+    picker.invoke_set_rgba(143, 204, 143, 30);
+    assert_eq!(
+        picker.get_wheel_image(),
+        first,
+        "alpha and hue do not redraw the wheel"
+    );
+    picker.invoke_set_hsv(120., 30., 40.);
+    let dimmed = picker.get_wheel_image();
+    assert_ne!(dimmed, first);
+    for value in [62.5, 99.] {
+        picker.invoke_set_hsv(0., 80., value);
+        let cached = picker.get_wheel_image();
+        picker.invoke_set_hsv(120., 30., value);
+        assert_eq!(picker.get_wheel_image(), cached);
+        let color = (picker.get_red(), picker.get_green(), picker.get_blue());
+        picker.invoke_set_rgba(color.0, color.1, color.2, 60);
+        assert_eq!(picker.get_wheel_image(), cached);
+        assert_eq!(picker.get_brightness(), value);
+    }
+    picker.invoke_set_hsv(120., 30., 40.);
+    ui.window().set_size(LogicalSize::new(1280., 1000.));
+    ui.invoke_set_colors_placement(PanelPlacement::Right);
+    ui.window().take_snapshot().unwrap();
+    slint::platform::update_timers_and_animations();
+    assert_eq!(
+        ui.get_color_wheel_image().size().width,
+        ui.get_color_wheel_size().min(256.).ceil() as u32
+    );
+    let docked = ui.get_color_wheel_image();
+    ui.invoke_edit_hsv(240., 80., 40.);
+    assert_eq!(ui.get_color_wheel_image(), docked);
+    ui.invoke_edit_hsv(240., 80., 60.);
+    assert_ne!(ui.get_color_wheel_image(), docked);
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+#[test]
+fn wheel_rejects_non_finite_pointer_coordinates_and_zero_size() {
+    let (ui, state, picker) = gradient_app();
+    let before = state.borrow().primary_color();
+    for (x, y, size) in [
+        (f32::NAN, 0., 180.),
+        (0., f32::INFINITY, 180.),
+        (0., 0., f32::NAN),
+        (0., 0., 0.),
+    ] {
+        picker.invoke_pick_wheel(x, y, size);
+        ui.invoke_pick_color_wheel(x, y, size);
+        assert_eq!(state.borrow().primary_color(), before);
+    }
+    assert_eq!(state.borrow().document().undo_len(), 0);
     picker.hide().unwrap();
     ui.hide().unwrap();
 }

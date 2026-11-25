@@ -270,7 +270,7 @@
   "current_color": "Current color",
   "restore": "Restore",
   "restore_original_color": "Restore original color",
-  "saturation_value_area": "Saturation and value. Numeric controls below provide keyboard access.",
+  "hue_saturation_wheel": "Hue and saturation wheel",
   "hue": "Hue",
   "alpha": "Alpha",
   "rgb_range": "RGB · 0–255",
