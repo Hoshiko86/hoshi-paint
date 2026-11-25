@@ -171,8 +171,29 @@ jobs:
           # Free-tier key (owner, 2026-11-25): flagship Pro models are not
           # included, and the default "auto" routing tries them first and
           # stalls on 503s. Hydrogen is the free-tier model for coding and
-          # agentic work; gemini-3.8-flash is the fallback choice.
+          # agentic work; gemini-3.8-flash is tried next if it fails.
           gemini_model: gemini-4-hydrogen
+          prompt: ${{ steps.prompt.outputs.text }}
+          github_pr_number: ${{ inputs.pr || github.event.issue.number }}
+
+      # If the first Gemini model is unavailable (503 "high demand" is common
+      # on the free tier), try a second free-tier model once (owner, 2026-11-25).
+      - name: Reset after a failed Gemini run
+        if: steps.gemini.outcome == 'failure'
+        run: |
+          git reset -q --hard HEAD
+          git clean -qfd -e target/
+
+      - name: Run Gemini (second model)
+        id: gemini2
+        if: steps.gemini.outcome == 'failure'
+        continue-on-error: true
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.8-flash
           prompt: ${{ steps.prompt.outputs.text }}
           github_pr_number: ${{ inputs.pr || github.event.issue.number }}
 
@@ -182,23 +203,26 @@ jobs:
         env:
           CODEX: ${{ steps.codex.outcome }}
           GEMINI: ${{ steps.gemini.outcome }}
+          GEMINI2: ${{ steps.gemini2.outcome }}
           SUMMARY: ${{ steps.gemini.outputs.summary }}
+          SUMMARY2: ${{ steps.gemini2.outputs.summary }}
         run: |
+          if [ "$CODEX" = "skipped" ]; then via="Gemini"; else via="Gemini (fallback: Codex failed)"; fi
           if [ "$CODEX" = "success" ]; then
             echo "name=Codex" >> "$GITHUB_OUTPUT"
-          elif [ "$GEMINI" = "success" ] && [ "$CODEX" = "skipped" ]; then
-            echo "name=Gemini" >> "$GITHUB_OUTPUT"
-            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
           elif [ "$GEMINI" = "success" ]; then
-            echo "name=Gemini (fallback: Codex failed)" >> "$GITHUB_OUTPUT"
+            echo "name=$via" >> "$GITHUB_OUTPUT"
             printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
+          elif [ "$GEMINI2" = "success" ]; then
+            echo "name=$via, gemini-3.8-flash" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$SUMMARY2" > "$RUNNER_TEMP/out/codex-report.md"
           else
             if [ "$CODEX" = "skipped" ]; then
               echo "name=Gemini" >> "$GITHUB_OUTPUT"
-              echo "::error::Gemini failed (see the Gemini step above)."
+              echo "::error::Gemini failed with both models (see the Gemini steps above)."
             else
               echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
-              echo "::error::Codex failed and the Gemini fallback did not succeed."
+              echo "::error::Codex failed and Gemini failed with both models."
             fi
             exit 1
           fi
