@@ -162,6 +162,10 @@ jobs:
         if: steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true'
         continue-on-error: true
         uses: google-github-actions/run-gemini-cli@e061df3d60a224aed843cdac838189d1f6bff576 # v0.1.9
+        env:
+          # The CLI refuses to act in an untrusted folder; this job's checkout
+          # is the workspace it is meant to edit (read-only token, no creds).
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: ${{ steps.prompt.outputs.text }}
@@ -184,8 +188,13 @@ jobs:
             echo "name=Gemini (fallback: Codex failed)" >> "$GITHUB_OUTPUT"
             printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/out/codex-report.md"
           else
-            echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
-            echo "::error::Codex failed and the Gemini fallback did not succeed."
+            if [ "$CODEX" = "skipped" ]; then
+              echo "name=Gemini" >> "$GITHUB_OUTPUT"
+              echo "::error::Gemini failed (see the Gemini step above)."
+            else
+              echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
+              echo "::error::Codex failed and the Gemini fallback did not succeed."
+            fi
             exit 1
           fi
 
