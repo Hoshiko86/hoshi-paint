@@ -1,14 +1,19 @@
 # Codex's role (AGENTS.md): implementation and PR fixes.
 #
 # Two ways in:
-# - workflow_call from agent-claude.yml: Claude's review found in-scope fixes,
+# - workflow_call from agent-round.yml: Claude's review found in-scope fixes,
 #   and Codex applies them automatically (the normal path).
 # - An owner PR comment starting with "/codex-fix": a manual request. (Any
 #   "@codex..." text wakes ChatGPT's own Codex connector, so no @ is used.)
 #
-# Fix commits are pushed with GITHUB_TOKEN, which does not start other
-# workflows, so this workflow starts CI itself (ci.yml's workflow_dispatch runs
-# the full suite on the PR branch, and its checks attach to the fix commit).
+# Split in two jobs so PR code never runs next to a write token:
+# - implement: read-only token, no git credentials. Checks out the PR, runs
+#   Codex (which builds and tests PR code) and uploads the result as a patch.
+# - publish: write token, runs no PR code. Applies the patch with git, refuses
+#   .github/ changes, commits and pushes.
+# Fix commits are pushed with GITHUB_TOKEN, which starts no other workflows,
+# so publish also dispatches ci.yml on the PR branch; its checks attach to the
+# fix commit.
 name: Codex (PR fixes)
 
 on:
@@ -22,14 +27,14 @@ on:
         required: true
     outputs:
       pushed:
-        value: ${{ jobs.fix.outputs.pushed }}
+        value: ${{ jobs.publish.outputs.pushed }}
       sha:
-        value: ${{ jobs.fix.outputs.sha }}
+        value: ${{ jobs.publish.outputs.sha }}
   issue_comment:
     types: [created]
 
 jobs:
-  fix:
+  implement:
     # In a called workflow, github.event is the caller's, so a non-empty
     # `inputs.request` is what marks the workflow_call path.
     if: |
@@ -43,13 +48,12 @@ jobs:
       group: codex-fix-${{ inputs.pr || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      actions: write
+      contents: read
+      pull-requests: read
     outputs:
-      pushed: ${{ steps.push.outputs.pushed }}
-      sha: ${{ steps.push.outputs.sha }}
+      ref: ${{ steps.pr.outputs.ref }}
+      base: ${{ steps.pr.outputs.base }}
+      changed: ${{ steps.patch.outputs.changed }}
     env:
       PR: ${{ inputs.pr || github.event.issue.number }}
       REQUEST: ${{ inputs.request || github.event.comment.body }}
@@ -71,11 +75,14 @@ jobs:
               core.setFailed('The PR is not open.');
             }
             core.setOutput('ref', pr.head.ref);
+            core.setOutput('base', pr.head.sha);
 
-      - name: Checkout PR branch
+      # Pinned to the head commit read above, with no stored credentials.
+      - name: Checkout PR head (read only)
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ steps.pr.outputs.ref }}
+          ref: ${{ steps.pr.outputs.base }}
+          persist-credentials: false
           fetch-depth: 1
 
       - name: Install Slint Linux dependencies
@@ -96,6 +103,7 @@ jobs:
 
       - name: Write prompt
         run: |
+          mkdir -p "$RUNNER_TEMP/out"
           {
             echo "You are the implementer for Hoshi Paint, working on the branch of PR #$PR."
             echo "Read AGENTS.md first and follow it strictly, especially §3a \"Review rounds\":"
@@ -121,26 +129,75 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
           prompt-file: ${{ runner.temp }}/codex-prompt.md
-          output-file: ${{ runner.temp }}/codex-report.md
+          output-file: ${{ runner.temp }}/out/codex-report.md
           allow-bot-users: chatgpt-codex-connector[bot]
 
-      - name: Commit and push
+      - name: Make patch
+        id: patch
+        run: |
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/out/fix.patch"
+          if [ -s "$RUNNER_TEMP/out/fix.patch" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload patch and report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    needs: implement
+    if: needs.implement.result == 'success' && needs.implement.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      pushed: ${{ steps.push.outputs.pushed }}
+      sha: ${{ steps.push.outputs.sha }}
+    env:
+      PR: ${{ inputs.pr || github.event.issue.number }}
+    steps:
+      # Only git runs here: nothing from the PR is built or executed.
+      - name: Checkout PR branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.implement.outputs.ref }}
+          fetch-depth: 1
+
+      - name: Download patch
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/in
+
+      - name: Apply, commit and push
         id: push
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ steps.pr.outputs.ref }}
+          BRANCH: ${{ needs.implement.outputs.ref }}
+          BASE: ${{ needs.implement.outputs.base }}
         run: |
-          if git status --porcelain | cut -c4- | grep -q '^\.github/'; then
+          patch="$RUNNER_TEMP/in/fix.patch"
+          if [ "$(git rev-parse HEAD)" != "$BASE" ]; then
+            echo "::error::The PR branch moved while Codex was working; not pushing."
+            exit 1
+          fi
+          if git apply --numstat "$patch" | cut -f3- | grep -qE '^(\.github/|.* => \.github/)'; then
             echo "::error::Codex changed files under .github/; refusing to push."
             exit 1
           fi
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          git apply --index --binary "$patch"
           git config user.name "codex-fix[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
           git commit -m "Apply review fixes (#$PR)"
           git push
           echo "pushed=true" >> "$GITHUB_OUTPUT"
@@ -148,26 +205,46 @@ jobs:
           # A GITHUB_TOKEN push starts no workflows: run CI on the branch explicitly.
           gh workflow run ci.yml --ref "$BRANCH"
 
+  reply:
+    needs: [implement, publish]
+    if: always() && needs.implement.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Download report
+        continue-on-error: true
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: codex-fix
+          path: ${{ runner.temp }}/in
+
       - name: Reply on PR
-        if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
-          STATUS: ${{ job.status }}
+          PR: ${{ inputs.pr || github.event.issue.number }}
+          IMPLEMENT: ${{ needs.implement.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          PUSHED: ${{ needs.publish.outputs.pushed }}
+          SHA: ${{ needs.publish.outputs.sha }}
           CHAINED: ${{ inputs.request != '' }}
-          PUSHED: ${{ steps.push.outputs.pushed }}
-          SHA: ${{ steps.push.outputs.sha }}
-          REPORT: ${{ runner.temp }}/codex-report.md
+          REPORT: ${{ runner.temp }}/in/codex-report.md
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR);
             let report = '';
             try { report = fs.readFileSync(process.env.REPORT, 'utf8').slice(0, 60000); } catch {}
+            const failed = process.env.IMPLEMENT !== 'success' ||
+              (process.env.PUBLISH !== 'success' && process.env.PUBLISH !== 'skipped');
             let head;
-            if (process.env.STATUS !== 'success') {
-              head = `❌ **Codex** run ${process.env.STATUS}. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: Number(process.env.PR), labels: ['needs-owner'] });
+            if (failed) {
+              head = `❌ **Codex** run failed. See the [workflow run](${process.env.RUN_URL}). @Hoshiko86`;
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-owner'] });
             } else if (process.env.PUSHED === 'true') {
               const next = process.env.CHAINED === 'true'
                 ? 'Claude will re-check it.'
@@ -176,9 +253,5 @@ jobs:
             } else {
               head = '✅ **Codex** finished with no changes to push.';
             }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: Number(process.env.PR),
-              body: `${head}\n\n${report}`.trim(),
-            });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: `${head}\n\n${report}`.trim() });
