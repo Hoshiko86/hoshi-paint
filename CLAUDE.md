@@ -128,7 +128,8 @@ Nits are fixed in the PR, not filed (owner, 2026-11-18):
   (squash) once Claude's review or re-check says ready (an `agent-review`
   commit status on that exact commit; the `agent-ready` label mirrors it) and
   CI succeeded on the same commit with no failed checks; it also waits (up to
-  40 min) for code scanning, including the slow Rust analysis. A new push has no
+  40 min) for code scanning (`codeql.yml`; the slow Rust analysis runs on a PR
+  only when Rust sources or manifests change). A new push has no
   status, so it needs a new review. Never auto-merged: other branches, PRs touching
   `.github/` or `docs/adr/`, PRs labelled `hold`, or conflicts. Everything
   else still merges only on the owner's ask.
