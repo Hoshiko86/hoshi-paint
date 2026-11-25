@@ -1,0 +1,58 @@
+import { DesktopTheme } from "theme.slint";
+
+// Icon-only controls share centering, theme colors, input and selected state.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <length> icon-size: 16px;
+    in property <bool> enabled: true;
+    in property <bool> checked;
+    // accessible-label is inherited from Rectangle.
+    callback clicked();
+    private property <bool> keyboard-pressed;
+    preferred-width: DesktopTheme.small-button-size;
+    preferred-height: DesktopTheme.small-button-size;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    border-radius: 4px;
+    border-width: root.checked || keyboard.has-focus ? 1px : 0px;
+    border-color: DesktopTheme.focus-ring;
+    background: root.enabled && (touch.pressed || root.keyboard-pressed) ? DesktopTheme.raised-background : root.checked ? DesktopTheme.highlight-background : root.enabled && touch.has-hover ? DesktopTheme.hover-background : transparent;
+    opacity: root.enabled ? 1 : 0.4;
+    forward-focus: keyboard;
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-checked: root.checked;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    changed enabled => { if !root.enabled { root.keyboard-pressed = false; } }
+    Image {
+        width: root.icon-size; height: root.icon-size;
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        source: root.icon; image-fit: contain; colorize: DesktopTheme.text;
+    }
+    keyboard := FocusScope {
+        width: parent.width; height: parent.height;
+        enabled: root.enabled;
+        changed has-focus => { if !self.has-focus { root.keyboard-pressed = false; } }
+        key-pressed(event) => {
+            if root.enabled && (event.text == Key.Space || event.text == Key.Return) {
+                root.keyboard-pressed = true; return accept;
+            }
+            reject
+        }
+        key-released(event) => {
+            if event.text == Key.Space || event.text == Key.Return {
+                if root.enabled && root.keyboard-pressed { root.keyboard-pressed = false; root.clicked(); }
+                return accept;
+            }
+            reject
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left { keyboard.focus(); }
+        }
+        clicked => { root.clicked(); }
+    }
+    @children
+}

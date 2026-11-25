@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 import { Button, LineEdit, ScrollView, Palette } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
@@ -28,26 +29,26 @@ export component DesktopCommandBars inherits Rectangle {
         spacing: 4px;
         HorizontalLayout {
             height: DesktopTheme.compact-button-size; spacing: 4px;
-            Button { icon: @image-url("../icons/undo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.undo; enabled: root.can-undo || root.has-shape; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/undo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.undo; enabled: root.can-undo || root.has-shape;
                 Tooltip { Text { text: Translations.undo + " · " + Translations.shortcut-undo; color: Palette.foreground; } } clicked => { root.action(0); } }
-            Button { icon: @image-url("../icons/redo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.redo; enabled: root.can-redo && !root.has-shape; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/redo-2.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.redo; enabled: root.can-redo && !root.has-shape;
                 Tooltip { Text { text: Translations.redo + " · " + Translations.shortcut-redo; color: Palette.foreground; } } clicked => { root.action(1); } }
-            Button { icon: @image-url("../icons/clock-arrow-left.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.history; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/clock-arrow-left.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.history; enabled: root.has-document;
                 Tooltip { Text { text: Translations.history; color: Palette.foreground; } } clicked => { root.show-history(); } }
-            Button { icon: @image-url("../icons/check.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.commit-shape; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/check.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.commit-shape; enabled: root.has-shape;
                 Tooltip { Text { text: Translations.commit-shape + " · " + Translations.key-commit; color: Palette.foreground; } } clicked => { root.action(2); } }
-            Button { icon: @image-url("../icons/x.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.cancel-shape; enabled: root.has-shape; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/x.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.cancel-shape; enabled: root.has-shape;
                 Tooltip { Text { text: Translations.cancel-shape; color: Palette.foreground; } } clicked => { root.action(3); } }
-            Button { icon: @image-url("../icons/sliders-horizontal.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.shape-properties; enabled: root.has-document; opacity: self.enabled ? 1 : 0.4;
+            IconButton { icon: @image-url("../icons/sliders-horizontal.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.shape-properties; enabled: root.has-document;
                 Tooltip { Text { text: Translations.shape-properties; color: Palette.foreground; } } clicked => { root.show-shape-properties(); } }
             Rectangle { horizontal-stretch: 1; }
-            Button { icon: @image-url("../icons/zoom-out.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.zoom-out;
+            IconButton { icon: @image-url("../icons/zoom-out.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.zoom-out;
                 Tooltip { Text { text: Translations.zoom-out; color: Palette.foreground; } } clicked => { root.zoom(-1); } }
-            Button { icon: @image-url("../icons/maximize.svg"); width: DesktopTheme.compact-button-size; enabled: root.has-document && !root.modal-visible; opacity: self.enabled ? 1 : 0.4; accessible-label: Translations.fit-canvas;
+            IconButton { icon: @image-url("../icons/maximize.svg"); width: DesktopTheme.compact-button-size; enabled: root.has-document && !root.modal-visible; accessible-label: Translations.fit-canvas;
                 Tooltip { Text { text: Translations.fit-canvas; color: Palette.foreground; } } clicked => { root.fit-canvas(); } }
-            Button { icon: @image-url("../icons/crosshair.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.reset-view;
+            IconButton { icon: @image-url("../icons/crosshair.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.reset-view;
                 Tooltip { Text { text: Translations.reset-view; color: Palette.foreground; } } clicked => { root.action(4); } }
-            Button { icon: @image-url("../icons/zoom-in.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.zoom-in;
+            IconButton { icon: @image-url("../icons/zoom-in.svg"); width: DesktopTheme.compact-button-size; accessible-label: Translations.zoom-in;
                 Tooltip { Text { text: Translations.zoom-in; color: Palette.foreground; } } clicked => { root.zoom(1); } }
         }
     }
@@ -76,7 +77,7 @@ export component DocumentTabs inherits ScrollView {
                     clicked => { root.activate(tab.id); }
                     Tooltip { Text { text: tab.detail; color: Palette.foreground; } }
                 }
-                Button { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: Translations.close-document + " " + tab.title;
+                IconButton { icon: @image-url("../icons/x.svg"); width: 26px; accessible-label: Translations.close-document + " " + tab.title;
                     enabled: !root.modal-visible; clicked => { root.close(tab.id); } }
             }
         }

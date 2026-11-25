@@ -1,3 +1,4 @@
+import { IconButton } from "icon-button.slint";
 import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView } from "std-widgets.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
@@ -115,7 +116,7 @@ export component ToolOptionsBar inherits Rectangle {
         AntialiasingOption { enabled: root.has-document; value: root.antialiasing; changed-value(value) => { root.toggle-shape-antialiasing(value); } }
     }
     // Keep Finish reachable while longer localized options scroll horizontally.
-    if root.selected-tool == "shapes": Button {
+    if root.selected-tool == "shapes": IconButton {
         x: parent.width - self.width - 6px; y: 2px;
         width: DesktopTheme.compact-button-size; height: 32px;
         icon: @image-url("../icons/check.svg"); accessible-label: Translations.finish-shape;
