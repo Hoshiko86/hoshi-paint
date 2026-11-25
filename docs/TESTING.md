@@ -106,7 +106,8 @@ Rules:
 2. Add one entry to `SMOKES` in `xtask/src/smoke.rs` with its purpose, screen
    size, snapshot variables and display scales. `cargo xtask test smoke`
    refuses to run while an example is missing from the table.
-3. Snapshots land in `target/smoke/`; CI uploads that directory.
+3. Snapshots land in `target/smoke/`; CI uploads them as the
+   `smoke-snapshots-<os>` artifact.
 
 Each smoke is killed after 300 s. The suite runs every selected smoke and then
 lists all failures, rather than stopping at the first.
