@@ -41,6 +41,14 @@ fn is_inert(path: &str) -> bool {
         || path.starts_with(".github/ISSUE_TEMPLATE/")
         || path == ".github/pull_request_template.md"
         || path == ".github/copilot-instructions.md"
+        || is_agent_workflow(path)
+}
+
+/// The review/fix agent workflows (`agent-claude.yml`, `agent-codex.yml`, …)
+/// never affect a build or test result; `ci.yml` itself still runs everything.
+fn is_agent_workflow(path: &str) -> bool {
+    path.strip_prefix(".github/workflows/agent-")
+        .is_some_and(|rest| !rest.contains('/') && rest.ends_with(".yml"))
 }
 
 /// What a change needs to run.
@@ -174,6 +182,30 @@ mod tests {
     fn docs_only_change_selects_nothing() {
         let selection = select(["docs/TESTING.md", "README.md", "CLAUDE.md"]);
         assert!(selection.is_empty(), "{selection:?}");
+    }
+
+    #[test]
+    fn agent_workflow_only_change_selects_nothing() {
+        let selection = select([
+            ".github/workflows/agent-claude.yml",
+            ".github/workflows/agent-codex.yml",
+            ".github/workflows/agent-merge.yml",
+            ".github/workflows/agent-round.yml",
+            "GEMINI.md",
+        ]);
+        assert!(selection.is_empty(), "{selection:?}");
+    }
+
+    #[test]
+    fn only_top_level_agent_yml_files_are_inert() {
+        for path in [
+            ".github/workflows/agent-x/nested.yml",
+            ".github/workflows/agent-notes.txt",
+            ".github/workflows/agents.yml",
+            ".github/workflows/project-sync.yml",
+        ] {
+            assert!(select([path]).everything, "{path}");
+        }
     }
 
     #[test]
