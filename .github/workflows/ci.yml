@@ -51,6 +51,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # Line numbers for backtraces without full debug info: smaller objects,
+      # faster links. Dependencies already build without debug info.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Linux desktop prerequisites
@@ -59,6 +63,17 @@ jobs:
       - name: Install pinned Rust
         if: needs.plan.outputs.rust == 'true'
         run: rustup show
+      - name: Link with rust-lld on Windows (faster than link.exe)
+        if: runner.os == 'Windows' && needs.plan.outputs.rust == 'true'
+        shell: pwsh
+        run: '"CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=rust-lld.exe" >> $env:GITHUB_ENV'
+      # Restores compiled dependencies; only main saves, so PRs reuse main's
+      # cache without filling the repository's 10 GB cache limit.
+      - name: Cache Rust builds
+        if: needs.plan.outputs.rust == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-nextest (prebuilt, pinned)
         if: needs.plan.outputs.rust == 'true'
         shell: bash
@@ -162,6 +177,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
       - name: Install pinned Rust with LLVM tools
         run: rustup show && rustup component add llvm-tools-preview
+      # Instrumented builds differ from the core jobs', so they get their own key.
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-llvm-cov (prebuilt, pinned; keep in step with xtask/src/coverage.rs)
         env:
           LLVM_COV: "0.9.1"
