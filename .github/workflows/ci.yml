@@ -6,6 +6,12 @@ on:
   pull_request:
 permissions:
   contents: read
+# A new push to a PR (or a re-dispatch on a branch) cancels that ref's
+# still-running CI, so superseded commits stop using runners. Runs on main
+# are never cancelled.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   # Decides what the change needs (xtask/src/changed.rs, docs/TESTING.md).
   # Pull requests run only that; pushes to main and manual runs run everything.
