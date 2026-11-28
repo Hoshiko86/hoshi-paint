@@ -157,10 +157,32 @@ jobs:
           git reset -q --hard HEAD
           git clean -qfd -e target/
 
+      # Free-tier keys have a small daily request limit per model. When it is
+      # used up, the CLI keeps retrying for many minutes before failing, so
+      # ask the API once first and skip a model whose daily quota is gone
+      # (owner, 2026-11-27). A per-minute limit is not skipped: the CLI's own
+      # backoff handles that.
+      - name: Check Gemini quota (gemini-4-hydrogen)
+        id: quota1
+        if: steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL: gemini-4-hydrogen
+        run: |
+          code=$(curl -sS -o "$RUNNER_TEMP/quota.json" -w '%{http_code}' \
+            -H "x-goog-api-key: $GEMINI_API_KEY" -H 'Content-Type: application/json' \
+            -d '{"contents":[{"parts":[{"text":"ok"}]}],"generationConfig":{"maxOutputTokens":1}}' \
+            "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" || echo 000)
+          if [ "$code" = 429 ] && grep -qiE 'PerDay|per day' "$RUNNER_TEMP/quota.json"; then
+            echo "::warning::$MODEL: daily free-tier quota used up; skipping it."
+            echo "exhausted=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Gemini (fallback, or forced by /gemini-fix)
         id: gemini
-        if: steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true'
+        if: (steps.codex.outcome == 'failure' || env.FORCE_GEMINI == 'true') && steps.quota1.outputs.exhausted != 'true'
         continue-on-error: true
+        timeout-minutes: 12
         uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
         env:
           # The CLI refuses to act in an untrusted folder; this job's checkout
@@ -184,10 +206,27 @@ jobs:
           git reset -q --hard HEAD
           git clean -qfd -e target/
 
+      - name: Check Gemini quota (gemini-3.8-flash)
+        id: quota2
+        if: steps.gemini.outcome == 'failure' || steps.quota1.outputs.exhausted == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL: gemini-3.8-flash
+        run: |
+          code=$(curl -sS -o "$RUNNER_TEMP/quota.json" -w '%{http_code}' \
+            -H "x-goog-api-key: $GEMINI_API_KEY" -H 'Content-Type: application/json' \
+            -d '{"contents":[{"parts":[{"text":"ok"}]}],"generationConfig":{"maxOutputTokens":1}}' \
+            "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" || echo 000)
+          if [ "$code" = 429 ] && grep -qiE 'PerDay|per day' "$RUNNER_TEMP/quota.json"; then
+            echo "::warning::$MODEL: daily free-tier quota used up; skipping it."
+            echo "exhausted=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Gemini (second model)
         id: gemini2
-        if: steps.gemini.outcome == 'failure'
+        if: (steps.gemini.outcome == 'failure' || steps.quota1.outputs.exhausted == 'true') && steps.quota2.outputs.exhausted != 'true'
         continue-on-error: true
+        timeout-minutes: 12
         uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
         env:
           GEMINI_CLI_TRUST_WORKSPACE: "true"
@@ -206,6 +245,8 @@ jobs:
           GEMINI2: ${{ steps.gemini2.outcome }}
           SUMMARY: ${{ steps.gemini.outputs.summary }}
           SUMMARY2: ${{ steps.gemini2.outputs.summary }}
+          QUOTA1: ${{ steps.quota1.outputs.exhausted }}
+          QUOTA2: ${{ steps.quota2.outputs.exhausted }}
         run: |
           if [ "$CODEX" = "skipped" ]; then via="Gemini"; else via="Gemini (fallback: Codex failed)"; fi
           if [ "$CODEX" = "success" ]; then
@@ -223,6 +264,13 @@ jobs:
             else
               echo "name=Codex and Gemini" >> "$GITHUB_OUTPUT"
               echo "::error::Codex failed and Gemini failed with both models."
+            fi
+            if [ "$QUOTA1" = true ] || [ "$QUOTA2" = true ]; then
+              used=""
+              [ "$QUOTA1" = true ] && used="gemini-4-hydrogen"
+              [ "$QUOTA2" = true ] && used="${used:+$used and }gemini-3.8-flash"
+              printf '%s\n' "Gemini's daily free-tier limit is used up ($used). It resets at midnight Pacific time; try \`/gemini-fix\` again after that." \
+                > "$RUNNER_TEMP/out/codex-report.md"
             fi
             exit 1
           fi
