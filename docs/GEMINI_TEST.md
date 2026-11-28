@@ -1,5 +1,5 @@
 # Gemini fallback test
 
-The quick brown fox jumps over the lazy dog.
+The quick brown fox jumps over the sleepy dog.
 
 This file exists only to test the `/gemini-fix` workflow. The PR will be closed without merging.
