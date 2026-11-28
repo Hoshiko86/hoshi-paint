@@ -6,9 +6,6 @@ use std::time::Duration;
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (ui, state, picker) = hoshi_desktop::create_app_with_colors()?;
     picker.invoke_set_expanded(true);
-    picker
-        .window()
-        .set_size(slint::LogicalSize::new(640., 720.));
     let main = ui.as_weak();
     slint::Timer::single_shot(Duration::from_millis(150), move || {
         let ui = main.upgrade().unwrap();
@@ -110,6 +107,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert!(!ui.get_colors_docked());
         assert!(picker.window().is_visible());
         ui.invoke_show_colors();
+        picker
+            .window()
+            .set_size(slint::LogicalSize::new(680., 720.));
         slint::Timer::single_shot(Duration::from_millis(200), move || {
             let snapshot = picker.window().take_snapshot().unwrap();
             assert!(snapshot.width() >= 640 && snapshot.height() >= 660);
