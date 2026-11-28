@@ -222,6 +222,10 @@ export component AppWindow inherits Window {
     in property <PanelPlacement> colors-placement;
     in property <bool> colors-docked;
     in property <bool> colors-visible;
+    in property <bool> colors-expanded;
+    callback set-colors-expanded(bool);
+    out property <float> colors-preferred-width: docked-colors.preferred-width / 1px;
+    changed colors-expanded => { root.layout-panels(); }
     in property <int> color-r;
     in property <int> color-g;
     in property <int> color-b;
@@ -574,6 +578,8 @@ export component AppWindow inherits Window {
                 }
             }
             docked-colors := ColorPanel {
+                expanded: root.colors-expanded;
+                set-expanded(value) => { root.set-colors-expanded(value); }
                 workspace-primary: root.workspace-primary; workspace-secondary: root.workspace-secondary;
                 primary-description: root.workspace-primary-description; secondary-description: root.workspace-secondary-description;
                 swap-colors => { root.swap-colors(); } reset-colors => { root.reset-colors(); }

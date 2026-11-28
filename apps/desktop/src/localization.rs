@@ -61,6 +61,8 @@ pub(crate) const REQUIRED_KEYS: &[&str] = &[
     "color_palette",
     "colors",
     "colors_heading",
+    "colors_less",
+    "colors_more",
     "colors_tooltip",
     "commit_shape",
     "confirm_format_and_save",
@@ -842,6 +844,8 @@ fn apply_translations(translations: Translations<'_>, localizer: &Localizer) {
     translations.set_tools_heading(text("tools_heading"));
     translations.set_colors_heading(text("colors_heading"));
     translations.set_colors(text("colors"));
+    translations.set_colors_less(text("colors_less"));
+    translations.set_colors_more(text("colors_more"));
     translations.set_menu_close(text("menu_close"));
     translations.set_clear_recent(text("clear_recent"));
     translations.set_colors_tooltip(text("colors_tooltip"));
@@ -965,6 +969,7 @@ mod tests {
     fn color_window_labels_follow_the_selected_locale() {
         i_slint_backend_testing::init_no_event_loop();
         let window = ColorPickerWindow::new().unwrap();
+        window.set_expanded(true);
         apply_colors(&window, &Localizer::new(&select_preferred(["es-ES"])));
         for label in [
             "Restaurar el color original",

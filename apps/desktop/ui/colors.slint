@@ -6,6 +6,28 @@ import { FileShortcuts, FileAction } from "file-shortcuts.slint";
 import { DesktopTheme } from "theme.slint";
 import { Translations } from "localization.slint";
 import { Button, SpinBox, LineEdit, Palette, ScrollView, ComboBox } from "std-widgets.slint";
+// Local layout lengths until theme lengths become configurable (ADR 0007 §1).
+global ColorLayout {
+    out property <length> padding: 8px;
+    out property <length> gap: 8px;
+    out property <length> control-gap: 4px;
+    out property <length> compact-width: 264px;
+    out property <length> expanded-width: 640px;
+    // Measured default native content sizes; the body still lays itself out intrinsically.
+    out property <length> compact-window-height: 232px;
+    out property <length> expanded-window-height: 738px;
+    // Expanded content can scroll when the user requests a shorter window.
+    out property <length> expanded-min-height: 560px;
+    out property <length> swatch-offset: 24px;
+    out property <length> slot-width: 64px;
+    out property <length> wheel-size: 176px;
+    out property <length> text-row: 20px;
+}
+struct ChannelGeometry {
+    red-left: float, red-top: float, red-width: float, red-height: float,
+    green-left: float, green-width: float, blue-left: float, blue-width: float,
+}
+struct LibraryGeometry { name-left: float, name-top: float, swatches-left: float, swatches-top: float }
 component Channel inherits Rectangle {
     preferred-height: 34px;
     in property <string> label;
@@ -103,6 +125,10 @@ export component ToolPanelFrame inherits Rectangle {
     callback placement-selected(PanelPlacement);
     in property <length> body-height: 624px;
     in property <bool> docked;
+    in property <bool> expandable;
+    in property <bool> expanded;
+    callback set-expanded(bool);
+    out property <length> chrome-height: 2 * ColorLayout.padding + header.height + ColorLayout.gap;
     callback toggle-dock();
     callback close-panel();
     // A selection can replace the ComboBox's initial binding. Keep later
@@ -116,24 +142,30 @@ export component ToolPanelFrame inherits Rectangle {
     }
     changed placement => {
         if root.placement != PanelPlacement.floating { root.last-docked = root.placement; }
-        placement-choice.current-index = root.placement-index(root.placement);
     }
     background: DesktopTheme.panel-background;
     VerticalLayout {
-        padding: 8px; spacing: 8px;
-        HorizontalLayout {
-            height: 32px; spacing: 8px;
+        padding: ColorLayout.padding; spacing: ColorLayout.gap;
+        header := HorizontalLayout {
+            height: 32px; spacing: root.expandable && !root.expanded ? ColorLayout.control-gap : ColorLayout.gap;
             Text { text: root.title; font-size: 20px; font-weight: 700; color: DesktopTheme.text; }
+            if root.expandable: Button {
+                text: root.expanded ? Translations.colors-less : Translations.colors-more;
+                accessible-label: self.text;
+                clicked => { root.set-expanded(!root.expanded); }
+            }
             Rectangle { horizontal-stretch: 1; }
-            placement-choice := ComboBox {
+            if !root.expandable || root.expanded: ComboBox {
                 width: 92px;
                 model: [Translations.placement-float, Translations.placement-left, Translations.placement-right, Translations.placement-top, Translations.placement-bottom];
+                private property <PanelPlacement> synced-placement: root.placement;
                 current-index: root.placement-index(root.placement);
+                changed synced-placement => { self.current-index = root.placement-index(root.placement); }
                 accessible-label: root.title + " " + Translations.dock-location;
                 selected(value) => { root.placement-selected(root.placement-at(self.current-index)); }
             }
             IconButton {
-                width: 32px;
+                width: root.expandable && !root.expanded ? DesktopTheme.small-button-size : 32px;
                 icon: root.docked ? @image-url("../icons/panels-top-left.svg") : @image-url("../icons/pin.svg");
                 Tooltip { text: Translations.styled(Translations.toggle-dock-tooltip); }
                 accessible-label: (root.docked ? Translations.float-panel : Translations.dock-panel) + " " + root.title;
@@ -178,8 +210,10 @@ export component ColorPanel inherits Rectangle {
     callback open-palettes-folder();
     callback reset-palette();
     callback set-palette-expanded(bool);
-    out property <float> name-input-left: library.name-input-left;
-    out property <float> name-input-top: library.name-input-top;
+    private property <LibraryGeometry> library-geometry;
+    private property <ChannelGeometry> channel-geometry;
+    out property <float> name-input-left: root.library-geometry.name-left;
+    out property <float> name-input-top: root.library-geometry.name-top;
     in property <int> red;
     in property <int> green;
     in property <int> blue;
@@ -199,20 +233,20 @@ export component ColorPanel inherits Rectangle {
     in property <string> current-description;
     in property <bool> has-active-shape;
     in property <bool> screen-picking;
-    out property <float> green-slider-left: green-channel.slider-left;
-    out property <float> green-slider-width: green-channel.slider-width;
-    out property <float> blue-slider-left: blue-channel.slider-left;
-    out property <float> blue-slider-width: blue-channel.slider-width;
-    out property <float> red-slider-left: red-channel.slider-left;
-    out property <float> red-slider-top: red-channel.slider-top;
-    out property <float> red-slider-width: red-channel.slider-width;
-    out property <float> red-slider-height: red-channel.slider-height;
+    out property <float> green-slider-left: root.channel-geometry.green-left;
+    out property <float> green-slider-width: root.channel-geometry.green-width;
+    out property <float> blue-slider-left: root.channel-geometry.blue-left;
+    out property <float> blue-slider-width: root.channel-geometry.blue-width;
+    out property <float> red-slider-left: root.channel-geometry.red-left;
+    out property <float> red-slider-top: root.channel-geometry.red-top;
+    out property <float> red-slider-width: root.channel-geometry.red-width;
+    out property <float> red-slider-height: root.channel-geometry.red-height;
     out property <float> wheel-left: wheel.absolute-position.x / 1px;
     out property <float> wheel-top: wheel.absolute-position.y / 1px;
     out property <float> wheel-size: wheel.width / 1px;
     changed wheel-size => { root.wheel-size-changed(root.wheel-size); }
-    out property <float> swatches-left: library.swatches-left;
-    out property <float> swatches-top: library.swatches-top;
+    out property <float> swatches-left: root.library-geometry.swatches-left;
+    out property <float> swatches-top: root.library-geometry.swatches-top;
     callback set-rgba(int, int, int, int);
     callback set-hsv(float, float, float);
     callback pick-wheel(float, float, float);
@@ -224,116 +258,161 @@ export component ColorPanel inherits Rectangle {
     callback placement-selected(PanelPlacement);
     in property <PanelPlacement> placement;
     in property <bool> docked;
-    preferred-height: 720px;
-    ToolPanelFrame {
+    in property <bool> expanded;
+    callback set-expanded(bool);
+    preferred-width: root.expanded ? ColorLayout.expanded-width : ColorLayout.compact-width;
+    preferred-height: frame.chrome-height + body.preferred-height;
+    frame := ToolPanelFrame {
         title: Translations.colors; docked: root.docked; placement: root.placement;
-        body-height: (root.width < 560px ? 880px : 728px) - 40px + library.height;
+        expandable: true; expanded: root.expanded;
+        set-expanded(value) => { root.set-expanded(value); }
+        body-height: body.preferred-height;
         placement-selected(value) => { root.placement-selected(value); }
         toggle-dock => { root.toggle-dock(); }
         close-panel => { root.close-picker(); }
-        VerticalLayout {
-            padding: 8px;
-            spacing: 8px;
-            WorkspaceColors {
-                primary: root.workspace-primary; secondary: root.workspace-secondary;
-                primary-description: root.primary-description; secondary-description: root.secondary-description;
-                slot: root.color-slot; picking: root.screen-picking;
-                select(value) => { root.select-color-slot(value); }
-                swap => { root.swap-colors(); } reset => { root.reset-colors(); }
-            }
-            Text { text: root.color-slot == 0 ? Translations.editing-primary : Translations.editing-secondary; color: DesktopTheme.muted-text; height: 20px; }
+        body := VerticalLayout {
+            x: 0px; y: 0px;
+            height: self.preferred-height; spacing: ColorLayout.gap;
             HorizontalLayout {
-                height: 40px; spacing: 6px;
-                Text { text: Translations.original; color: DesktopTheme.muted-text; vertical-alignment: center; }
-                Rectangle { width: 32px; height: 40px;
-                    ColorPreview { y: 4px; value: root.original-color; label: Translations.original-color; description: root.original-description; }
-                }
-                Text { text: Translations.current; color: DesktopTheme.muted-text; vertical-alignment: center; }
-                Rectangle { width: 32px; height: 40px;
-                    ColorPreview { y: 4px; value: root.current-color; label: Translations.current-color; description: root.current-description; }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                Button { text: Translations.restore; accessible-label: Translations.restore-original-color; enabled: root.current-color != root.original-color;
-                    Tooltip { text: Translations.styled(Translations.restore-original-color); }
-                    clicked => { root.restore-original(); }
-                }
-
-            }
-            library := ColorLibrary {
-                color-name-query <=> root.color-name-query; color-name-suggestions: root.color-name-suggestions;
-                swatches: root.swatches; current-color: root.current-color;
-                palette-names: root.palette-names; palette-selected: root.palette-selected;
-                palette-title: root.palette-title; palette-inserting: root.palette-inserting;
-                palette-expanded: root.palette-expanded; palette-dirty: root.palette-dirty; palette-error: root.palette-error;
-                search-color-name(value) => { root.search-color-name(value); }
-                choose-named-color(value) => { root.choose-named-color(value); }
-                select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
-                toggle-palette-insert => { root.toggle-palette-insert(); }
-                select-palette(index) => { root.select-palette(index); }
-                save-palette-as => { root.save-palette-as(); }
-                import-palette => { root.import-palette(); }
-                export-palette => { root.export-palette(); }
-                open-palettes-folder => { root.open-palettes-folder(); }
-                reset-palette => { root.reset-palette(); }
-                set-palette-expanded(value) => { root.set-palette-expanded(value); }
-            }
-            Rectangle {
-                height: 180px;
-                wheel := Rectangle {
-                    width: min(parent.width, parent.height); height: self.width;
-                    x: (parent.width - self.width) / 2;
-                    Image { source: root.wheel-image; width: parent.width; height: parent.height; image-fit: contain; }
+                spacing: ColorLayout.gap;
+                Rectangle {
+                    width: ColorLayout.slot-width + ColorLayout.gap + ColorLayout.wheel-size;
+                    height: ColorLayout.wheel-size + (root.expanded ? ColorLayout.gap + ColorLayout.text-row : 0px);
+                    if root.expanded: Text {
+                        y: ColorLayout.wheel-size + ColorLayout.gap;
+                        height: ColorLayout.text-row; width: parent.width;
+                        text: root.color-slot == 0 ? Translations.editing-primary : Translations.editing-secondary;
+                        color: DesktopTheme.muted-text;
+                    }
                     Rectangle {
-                        x: parent.width * root.wheel-marker-x - self.width / 2;
-                        y: parent.height * root.wheel-marker-y - self.height / 2;
-                        width: 12px; height: 12px; border-radius: 6px;
-                        border-width: 2px; border-color: DesktopTheme.text;
-                        background: DesktopTheme.panel-background;
+                        x: 0px;
+                        width: ColorLayout.slot-width;
+                        height: ColorLayout.slot-width + ColorLayout.gap + DesktopTheme.small-button-size;
+                        y: (ColorLayout.wheel-size - self.height) / 2;
+                        ColorSwatch { x: ColorLayout.swatch-offset; y: ColorLayout.swatch-offset;
+                            value: root.workspace-secondary; label: Translations.secondary-color; description: root.secondary-description;
+                            selected: root.color-slot == 1; enabled: !root.screen-picking; clicked => { root.select-color-slot(1); } }
+                        ColorSwatch { x: 0px; y: 0px; value: root.workspace-primary; label: Translations.primary-color; description: root.primary-description;
+                            selected: root.color-slot == 0; enabled: !root.screen-picking; clicked => { root.select-color-slot(0); } }
+                        HorizontalLayout {
+                            x: 0px; width: parent.width;
+                            y: ColorLayout.slot-width + ColorLayout.gap; height: DesktopTheme.small-button-size;
+                            spacing: ColorLayout.gap;
+                            IconButton { width: DesktopTheme.small-button-size; icon: @image-url("../icons/swap-colors.svg");
+                                enabled: !root.screen-picking; accessible-label: Translations.swap-colors-label;
+                                Tooltip { text: Translations.styled(Translations.swap-colors-label + " · X"); }
+                                clicked => { root.swap-colors(); } }
+                            IconButton { width: DesktopTheme.small-button-size; icon: @image-url("../icons/reset-colors.svg");
+                                enabled: !root.screen-picking; accessible-label: Translations.reset-colors-label;
+                                Tooltip { text: Translations.styled(Translations.reset-colors-label + " · D"); }
+                                clicked => { root.reset-colors(); } }
+                        }
                     }
-                    TouchArea {
-                        pointer-event(event) => { if event.kind == PointerEventKind.down {
-                            root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
-                        } }
-                        moved => { if self.pressed {
-                            root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
-                        } }
+                    wheel := Rectangle {
+                        y: 0px;
+                        width: ColorLayout.wheel-size; height: self.width;
+                        x: ColorLayout.slot-width + ColorLayout.gap;
+                        Image { source: root.wheel-image; width: parent.width; height: parent.height; image-fit: contain; }
+                        Rectangle {
+                            x: parent.width * root.wheel-marker-x - self.width / 2;
+                            y: parent.height * root.wheel-marker-y - self.height / 2;
+                            width: 12px; height: 12px; border-radius: 6px;
+                            border-width: 2px; border-color: DesktopTheme.text;
+                            background: DesktopTheme.panel-background;
+                        }
+                        TouchArea {
+                            pointer-event(event) => { if event.kind == PointerEventKind.down {
+                                    root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
+                                } }
+                            moved => { if self.pressed {
+                                    root.pick-wheel(self.mouse-x / 1px, self.mouse-y / 1px, self.width / 1px);
+                                } }
+                        }
+                        accessible-role: image;
+                        accessible-label: Translations.hue-saturation-wheel;
                     }
-                    accessible-role: image;
-                    accessible-label: Translations.hue-saturation-wheel;
+                }
+                if root.expanded: Rectangle {
+                    min-width: 300px;
+                    height: details.preferred-height;
+                    property <ChannelGeometry> positions: {
+                        red-left: red-channel.slider-left, red-top: red-channel.slider-top,
+                        red-width: red-channel.slider-width, red-height: red-channel.slider-height,
+                        green-left: green-channel.slider-left, green-width: green-channel.slider-width,
+                        blue-left: blue-channel.slider-left, blue-width: blue-channel.slider-width,
+                    };
+                    init => { root.channel-geometry = self.positions; }
+                    changed positions => { root.channel-geometry = self.positions; }
+                    details := VerticalLayout {
+                        spacing: ColorLayout.control-gap;
+                        Text { text: Translations.rgb-range; height: ColorLayout.text-row; color: DesktopTheme.muted-text; }
+                        red-channel := Channel { label: "R"; track: @linear-gradient(90deg, rgb(0, root.green, root.blue) 0%, rgb(255, root.green, root.blue) 100%); value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
+                        green-channel := Channel { label: "G"; track: @linear-gradient(90deg, rgb(root.red, 0, root.blue) 0%, rgb(root.red, 255, root.blue) 100%); value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
+                        blue-channel := Channel { label: "B"; track: @linear-gradient(90deg, rgb(root.red, root.green, 0) 0%, rgb(root.red, root.green, 255) 100%); value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
+                        Text { text: Translations.hsv-range; height: ColorLayout.text-row; color: DesktopTheme.muted-text; }
+                        Channel { label: "H"; track: @linear-gradient(90deg, hsv(0, root.saturation / 100, root.brightness / 100) 0%, hsv(60, root.saturation / 100, root.brightness / 100) 16.6667%, hsv(120, root.saturation / 100, root.brightness / 100) 33.3333%, hsv(180, root.saturation / 100, root.brightness / 100) 50%, hsv(240, root.saturation / 100, root.brightness / 100) 66.6667%, hsv(300, root.saturation / 100, root.brightness / 100) 83.3333%, hsv(360, root.saturation / 100, root.brightness / 100) 100%); maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
+                        Channel { label: "S"; track: @linear-gradient(90deg, hsv(root.hue, 0, root.brightness / 100) 0%, hsv(root.hue, 1, root.brightness / 100) 100%); maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
+                        Channel { label: "V"; track: @linear-gradient(90deg, hsv(root.hue, root.saturation / 100, 0) 0%, hsv(root.hue, root.saturation / 100, 1) 100%); maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
+                        Channel { label: Translations.alpha; track: @linear-gradient(90deg, rgba(root.red, root.green, root.blue, 0) 0%, rgba(root.red, root.green, root.blue, 1) 100%); checkered: true; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }            HorizontalLayout {
+                            height: DesktopTheme.compact-button-size;
+                            Text { text: "Hex"; width: 32px; vertical-alignment: center; color: DesktopTheme.text; }
+                            hex-entry := LineEdit { text <=> root.hex-value; accessible-label: Translations.hex-color; accessible-description: Translations.hex-apply; Tooltip { text: Translations.styled(Translations.hex-apply); } accepted(text) => { root.set-hex(text); } }
+                        }
+                        HorizontalLayout {
+                            height: 40px; spacing: ColorLayout.control-gap;
+                            Text { text: Translations.original; color: DesktopTheme.muted-text; vertical-alignment: center; }
+                            Rectangle { width: 32px; height: 40px;
+                                ColorPreview { y: 4px; value: root.original-color; label: Translations.original-color; description: root.original-description; }
+                            }
+                            Text { text: Translations.current; color: DesktopTheme.muted-text; vertical-alignment: center; }
+                            Rectangle { width: 32px; height: 40px;
+                                ColorPreview { y: 4px; value: root.current-color; label: Translations.current-color; description: root.current-description; }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            Button { text: Translations.restore; accessible-label: Translations.restore-original-color; enabled: root.current-color != root.original-color;
+                                Tooltip { text: Translations.styled(Translations.restore-original-color); }
+                                clicked => { root.restore-original(); }
+                            }
+                        }
+                    }
                 }
             }
-            Rectangle {
-                height: root.width < 560px ? 288px : 136px;
-                VerticalLayout {
-                    x: 0px; y: 0px;
-                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
-                    height: 136px;
-                    Text { text: Translations.rgb-range; color: DesktopTheme.muted-text; }
-                    red-channel := Channel { label: "R"; track: @linear-gradient(90deg, rgb(0, root.green, root.blue) 0%, rgb(255, root.green, root.blue) 100%); value: root.red; edited(v) => { root.set-rgba(round(v), root.green, root.blue, root.alpha); } }
-                    green-channel := Channel { label: "G"; track: @linear-gradient(90deg, rgb(root.red, 0, root.blue) 0%, rgb(root.red, 255, root.blue) 100%); value: root.green; edited(v) => { root.set-rgba(root.red, round(v), root.blue, root.alpha); } }
-                    blue-channel := Channel { label: "B"; track: @linear-gradient(90deg, rgb(root.red, root.green, 0) 0%, rgb(root.red, root.green, 255) 100%); value: root.blue; edited(v) => { root.set-rgba(root.red, root.green, round(v), root.alpha); } }
-                }
-                VerticalLayout {
-                    x: root.width < 560px ? 0px : (parent.width + 16px) / 2;
-                    y: root.width < 560px ? 152px : 0px;
-                    width: root.width < 560px ? parent.width : (parent.width - 16px) / 2;
-                    height: 136px;
-                    Text { text: Translations.hsv-range; color: DesktopTheme.muted-text; }
-                    Channel { label: "H"; track: @linear-gradient(90deg, hsv(0, root.saturation / 100, root.brightness / 100) 0%, hsv(60, root.saturation / 100, root.brightness / 100) 16.6667%, hsv(120, root.saturation / 100, root.brightness / 100) 33.3333%, hsv(180, root.saturation / 100, root.brightness / 100) 50%, hsv(240, root.saturation / 100, root.brightness / 100) 66.6667%, hsv(300, root.saturation / 100, root.brightness / 100) 83.3333%, hsv(360, root.saturation / 100, root.brightness / 100) 100%); maximum: 360; value: root.hue; edited(v) => { root.set-hsv(v, root.saturation, root.brightness); } }
-                    Channel { label: "S"; track: @linear-gradient(90deg, hsv(root.hue, 0, root.brightness / 100) 0%, hsv(root.hue, 1, root.brightness / 100) 100%); maximum: 100; value: root.saturation; edited(v) => { root.set-hsv(root.hue, v, root.brightness); } }
-                    Channel { label: "V"; track: @linear-gradient(90deg, hsv(root.hue, root.saturation / 100, 0) 0%, hsv(root.hue, root.saturation / 100, 1) 100%); maximum: 100; value: root.brightness; edited(v) => { root.set-hsv(root.hue, root.saturation, v); } }
+            if root.expanded: Rectangle {
+                height: library.height;
+                property <LibraryGeometry> positions: {
+                    name-left: library.name-input-left, name-top: library.name-input-top,
+                    swatches-left: library.swatches-left, swatches-top: library.swatches-top,
+                };
+                init => { root.library-geometry = self.positions; }
+                changed positions => { root.library-geometry = self.positions; }
+                library := ColorLibrary {
+                    color-name-query <=> root.color-name-query; color-name-suggestions: root.color-name-suggestions;
+                    swatches: root.swatches; current-color: root.current-color;
+                    palette-names: root.palette-names; palette-selected: root.palette-selected;
+                    palette-title: root.palette-title; palette-inserting: root.palette-inserting;
+                    palette-expanded: root.palette-expanded; palette-dirty: root.palette-dirty; palette-error: root.palette-error;
+                    search-color-name(value) => { root.search-color-name(value); }
+                    choose-named-color(value) => { root.choose-named-color(value); }
+                    select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }
+                    toggle-palette-insert => { root.toggle-palette-insert(); }
+                    select-palette(index) => { root.select-palette(index); }
+                    save-palette-as => { root.save-palette-as(); }
+                    import-palette => { root.import-palette(); }
+                    export-palette => { root.export-palette(); }
+                    open-palettes-folder => { root.open-palettes-folder(); }
+                    reset-palette => { root.reset-palette(); }
+                    set-palette-expanded(value) => { root.set-palette-expanded(value); }
                 }
             }
-            Channel { label: Translations.alpha; track: @linear-gradient(90deg, rgba(root.red, root.green, root.blue, 0) 0%, rgba(root.red, root.green, root.blue, 1) 100%); checkered: true; value: root.alpha; edited(v) => { root.set-rgba(root.red, root.green, root.blue, round(v)); } }
-            HorizontalLayout {
-                Text { text: "Hex"; width: 32px; vertical-alignment: center; color: DesktopTheme.text; }
-                hex-entry := LineEdit { text <=> root.hex-value; accessible-label: Translations.hex-color; accessible-description: Translations.hex-apply; Tooltip { text: Translations.styled(Translations.hex-apply); } accepted(text) => { root.set-hex(text); } }
+            if root.expanded: Text {
+                text: root.error != "" ? root.error : root.has-active-shape ? Translations.picker-editing-shape : Translations.picker-next-color;
+                color: root.error == "" ? DesktopTheme.muted-text : DesktopTheme.error-text;
+                height: ColorLayout.text-row; wrap: word-wrap;
             }
-            Text { text: root.error != "" ? root.error : root.has-active-shape ? Translations.picker-editing-shape : Translations.picker-next-color;
-                color: root.error == "" ? DesktopTheme.muted-text : DesktopTheme.error-text; height: 36px; wrap: word-wrap; }
         }
     }
 }
+
 export component ColorPickerWindow inherits Window {
     callback file-action(FileAction);
     callback cycle-document(bool);
@@ -346,8 +425,13 @@ export component ColorPickerWindow inherits Window {
     in property <int> color-slot <=> panel.color-slot;
     callback select-color-slot(int);
     title: (root.color-slot == 0 ? Translations.primary-color : Translations.secondary-color) + " · Hoshi Paint";
-    preferred-width: 640px; preferred-height: 720px;
-    min-width: 380px; min-height: 680px;
+    in property <bool> expanded <=> panel.expanded;
+    callback set-expanded(bool);
+    out property <float> preferred-panel-width: panel.preferred-width / 1px;
+    out property <float> preferred-panel-height: (root.expanded ? ColorLayout.expanded-window-height : ColorLayout.compact-window-height) / 1px;
+    preferred-width: panel.preferred-width; preferred-height: root.preferred-panel-height * 1px;
+    min-width: panel.preferred-width;
+    min-height: root.expanded ? ColorLayout.expanded-min-height : ColorLayout.compact-window-height;
     background: DesktopTheme.panel-background; default-font-size: 13px;
     init => { Palette.color-scheme = ColorScheme.dark; }
     in property <[PaletteSwatch]> swatches <=> panel.swatches;
@@ -421,6 +505,7 @@ export component ColorPickerWindow inherits Window {
         file-action(value) => { root.file-action(value); }
         cycle-document(backward) => { root.cycle-document(backward); }
     panel := ColorPanel {
+        set-expanded(value) => { root.set-expanded(value); }
         search-color-name(value) => { root.search-color-name(value); }
         choose-named-color(value) => { root.choose-named-color(value); }
         select-palette-color(index,inactive) => { root.select-palette-color(index,inactive); }

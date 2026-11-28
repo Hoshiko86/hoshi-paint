@@ -16,6 +16,7 @@ fn name_search_requires_selection_and_palette_slots_preserve_alpha() {
     // Keep this interaction test independent of the user's saved palettes.
     let app = create_app_with_palette_root(None).unwrap();
     let picker = &app.colors;
+    picker.invoke_set_expanded(true);
     app.ui.show().unwrap();
     app.ui.invoke_show_colors();
     picker.window().set_size(LogicalSize::new(640., 1100.));

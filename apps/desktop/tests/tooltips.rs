@@ -15,6 +15,10 @@ fn swatch_hover_opens_rich_tooltip_without_changing_selection_or_blocking_clicks
     )))
     .unwrap();
     let (ui, state, picker) = create_app_with_colors().unwrap();
+    picker.invoke_set_expanded(true);
+    picker
+        .window()
+        .set_size(slint::LogicalSize::new(640., 1100.));
     ui.show().unwrap();
     ui.invoke_show_colors();
     picker.invoke_set_rgba(0, 0, 0, 128);

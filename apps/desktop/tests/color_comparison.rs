@@ -29,6 +29,7 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
     )))
     .unwrap();
     let (ui, state, picker) = create_app_with_colors().unwrap();
+    picker.invoke_set_expanded(true);
     ui.show().unwrap();
     let original = Color::rgba(24, 80, 140, 96);
     picker.invoke_set_rgba(24, 80, 140, 96);
@@ -115,7 +116,7 @@ fn original_survives_live_edits_and_docking_and_restore_keeps_shape_editable() {
     );
     // Narrow panels use one column, with readable aligned tracks rather than
     // collapsed handles that can be mistaken for separate radio buttons.
-    picker.window().set_size(LogicalSize::new(380.0, 720.0));
+    picker.window().set_size(LogicalSize::new(640.0, 720.0));
     picker.window().take_snapshot().unwrap();
     assert!(picker.get_red_slider_width() > 170.0);
     assert_eq!(picker.get_red_slider_left(), picker.get_green_slider_left());

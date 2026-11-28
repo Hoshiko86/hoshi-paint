@@ -27,6 +27,7 @@ fn save(window: &slint::Window, name: &str) {
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = create_app_with_palette_root(None)?;
+    app.colors.invoke_set_expanded(true);
     app.ui.window().set_size(LogicalSize::new(1120., 760.));
     app.colors.window().set_size(LogicalSize::new(640., 950.));
     let weak = app.ui.as_weak();
