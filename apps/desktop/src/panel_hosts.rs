@@ -22,7 +22,7 @@ fn arrange(ui: &AppWindow) {
             id: PanelId::Colors,
             visible: ui.get_colors_visible() && ui.get_colors_docked(),
             placement: placement_code(ui.get_colors_placement()),
-            width: 420.,
+            width: f64::from(ui.get_colors_preferred_width()),
         },
         PanelSpec {
             id: PanelId::History,

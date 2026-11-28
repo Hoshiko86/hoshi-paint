@@ -28,6 +28,7 @@ fn colors_and_history_can_dock_on_every_edge_without_covering_canvas_or_each_oth
     )))
     .unwrap();
     let (ui, state, picker) = create_app_with_colors().unwrap();
+    picker.invoke_set_expanded(true);
     ui.window().set_size(LogicalSize::new(1400.0, 1100.0));
     ui.show().unwrap();
     ui.invoke_pointer_down(40.0, 40.0);
@@ -194,6 +195,7 @@ fn every_colors_placement_round_trips_and_displays_its_catalog_text() {
     )))
     .unwrap();
     let (ui, _, picker) = create_app_with_colors().unwrap();
+    picker.invoke_set_expanded(true);
     ui.window().set_size(LogicalSize::new(1400., 1100.));
     ui.show().unwrap();
     ui.invoke_show_colors();
@@ -223,4 +225,61 @@ fn every_colors_placement_round_trips_and_displays_its_catalog_text() {
         );
     }
     ui.invoke_close_colors();
+}
+
+#[test]
+fn more_less_changes_dock_width_without_overlapping_history() {
+    use hoshi_desktop::Translations;
+    use i_slint_backend_testing::ElementHandle;
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, state, picker) = create_app_with_colors().unwrap();
+    ui.window().set_size(LogicalSize::new(2000., 1200.));
+    ui.show().unwrap();
+    ui.invoke_set_colors_placement(PanelPlacement::Right);
+    ui.invoke_set_history_placement(PanelPlacement::Right);
+    ui.window().take_snapshot().unwrap();
+    let compact = ui.get_colors_host_width();
+    for expanded in [true, false] {
+        let text = ui.global::<Translations>();
+        let label = if expanded {
+            text.get_colors_more()
+        } else {
+            text.get_colors_less()
+        };
+        ElementHandle::find_by_accessible_label(&ui, &label)
+            .next()
+            .unwrap()
+            .mock_single_click(slint::platform::PointerEventButton::Left);
+        ui.window().take_snapshot().unwrap();
+        assert_eq!(ui.get_colors_expanded(), expanded);
+        assert_eq!(picker.get_expanded(), expanded);
+        if expanded {
+            assert!(ui.get_colors_host_width() > compact);
+        } else {
+            assert_eq!(ui.get_colors_host_width(), compact);
+        }
+        let colors = Bounds {
+            x: ui.get_colors_host_left(),
+            y: ui.get_colors_host_top(),
+            width: ui.get_colors_host_width(),
+            height: ui.get_colors_host_height(),
+        };
+        let history = Bounds {
+            x: ui.get_history_host_left(),
+            y: ui.get_history_host_top(),
+            width: ui.get_history_host_width(),
+            height: ui.get_history_host_height(),
+        };
+        assert!(separated(colors, history));
+        assert_eq!(state.borrow().document().undo_len(), 0);
+    }
+    picker.hide().unwrap();
+    ui.hide().unwrap();
 }

@@ -204,6 +204,8 @@
   "menu_about": "Acerca de Hoshi Paint",
   "tools_heading": "HERRAMIENTAS",
   "colors_heading": "COLORES",
+  "colors_more": "Más >>",
+  "colors_less": "<< Menos",
   "colors": "Colores",
   "menu_close": "Cerrar",
   "status_document": "{width} × {height} · {zoom}% · Deshacer: {undo}{shape}",

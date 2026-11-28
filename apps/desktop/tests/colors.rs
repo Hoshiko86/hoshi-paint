@@ -41,6 +41,7 @@ fn picker_controls_sync_live_color_alpha_and_repeat_edits() {
         "opening Colors must settle the gesture without discarding its preview"
     );
     assert!(state.borrow().document().active_shape().is_some());
+    picker.invoke_set_expanded(true);
     picker.window().set_size(LogicalSize::new(640.0, 680.0));
     picker.invoke_set_rgba(12, 34, 56, 128);
     assert_eq!(state.borrow().primary_color(), Color::rgba(12, 34, 56, 128));
@@ -217,6 +218,7 @@ fn gradient_app() -> (
     let (ui, state, picker) = create_app_with_colors().unwrap();
     ui.show().unwrap();
     ui.invoke_show_colors();
+    picker.invoke_set_expanded(true);
     picker.window().set_size(LogicalSize::new(640., 1200.));
     picker.window().take_snapshot().unwrap();
     (ui, state, picker)
@@ -543,6 +545,185 @@ fn wheel_rejects_non_finite_pointer_coordinates_and_zero_size() {
         assert_eq!(state.borrow().primary_color(), before);
     }
     assert_eq!(state.borrow().document().undo_len(), 0);
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+fn compact_app() -> (
+    hoshi_desktop::AppWindow,
+    hoshi_desktop::SharedController,
+    std::rc::Rc<hoshi_desktop::ColorPickerWindow>,
+) {
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    let (ui, state, picker) = create_app_with_colors().unwrap();
+    ui.show().unwrap();
+    ui.invoke_show_colors();
+    picker.window().take_snapshot().unwrap();
+    (ui, state, picker)
+}
+
+fn color_element(
+    picker: &hoshi_desktop::ColorPickerWindow,
+    label: &str,
+) -> i_slint_backend_testing::ElementHandle {
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(picker, label)
+        .next()
+        .unwrap()
+}
+
+#[test]
+fn colors_open_compact_with_only_wheel_swatches_and_more() {
+    use hoshi_desktop::Translations;
+    use i_slint_backend_testing::ElementHandle;
+    let (ui, state, picker) = compact_app();
+    let text = picker.global::<Translations>();
+    assert!(!picker.get_expanded());
+    assert!(!ui.get_colors_expanded());
+    for absent in [
+        "R",
+        "H",
+        "S",
+        "V",
+        text.get_alpha().as_str(),
+        text.get_color_name().as_str(),
+        text.get_restore_original_color().as_str(),
+    ] {
+        assert!(
+            ElementHandle::find_by_accessible_label(picker.as_ref(), absent)
+                .next()
+                .is_none(),
+            "compact must remove {absent}"
+        );
+    }
+    for present in [
+        text.get_colors_more(),
+        text.get_hue_saturation_wheel(),
+        text.get_primary_color(),
+        text.get_secondary_color(),
+        text.get_swap_colors_label(),
+        text.get_reset_colors_label(),
+    ] {
+        assert!(
+            ElementHandle::find_by_accessible_label(picker.as_ref(), &present)
+                .next()
+                .is_some(),
+            "missing compact control {present}"
+        );
+    }
+    color_element(&picker, &text.get_secondary_color())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    assert_eq!(
+        state.borrow().color_slot(),
+        hoshi_controller::ColorSlot::Secondary
+    );
+    color_element(&picker, &text.get_primary_color())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    assert_eq!(
+        state.borrow().color_slot(),
+        hoshi_controller::ColorSlot::Primary
+    );
+    let secondary = state.borrow().secondary_color();
+    color_element(&picker, &text.get_swap_colors_label())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    assert_eq!(state.borrow().primary_color(), secondary);
+    color_element(&picker, &text.get_reset_colors_label())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    assert_eq!(state.borrow().primary_color(), Color::rgba(0, 0, 0, 255));
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+#[test]
+fn more_less_sync_hosts_resize_preserve_origin_and_keep_wheel_color() {
+    use hoshi_desktop::Translations;
+    use i_slint_backend_testing::AccessibleRole;
+    let (ui, state, picker) = compact_app();
+    picker.invoke_set_rgba(12, 34, 56, 128);
+    let size = picker.get_wheel_size();
+    let point = (
+        picker.get_wheel_left() + size - 0.01,
+        picker.get_wheel_top() + size / 2.,
+    );
+    pointer(&picker, point.0, point.1, true);
+    pointer(&picker, point.0, point.1, false);
+    let chosen = state.borrow().primary_color();
+    let compact = picker.window().size();
+    let origin = picker.window().position();
+    let text = picker.global::<Translations>();
+    color_element(&picker, &text.get_colors_more())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    picker.window().take_snapshot().unwrap();
+    assert!(picker.get_expanded() && ui.get_colors_expanded());
+    assert_eq!(state.borrow().primary_color(), chosen);
+    let expanded = picker.window().size();
+    assert!(expanded.width > compact.width && expanded.height > compact.height);
+    assert_eq!(picker.window().position(), origin);
+    let red = channel_control(&picker, "R", AccessibleRole::Slider);
+    red.invoke_accessible_increment_action();
+    assert_eq!(state.borrow().primary_color().r, chosen.r + 1);
+    color_element(&picker, &text.get_colors_less())
+        .mock_single_click(slint::platform::PointerEventButton::Left);
+    picker.window().take_snapshot().unwrap();
+    assert!(!picker.get_expanded() && !ui.get_colors_expanded());
+    assert_eq!(picker.window().size(), compact);
+    assert_eq!(picker.window().position(), origin);
+    assert_eq!(state.borrow().document().undo_len(), 0);
+    picker.hide().unwrap();
+    ui.hide().unwrap();
+}
+
+#[test]
+fn spanish_compact_header_controls_fit_inside_the_window() {
+    const NAME: &str = "colors::spanish_compact_header_controls_fit_inside_the_window";
+    if std::env::var("HOSHI_SPANISH_COMPACT_CHILD").as_deref() != Ok("1") {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", NAME, "--test-threads=1"])
+            .env("HOSHI_LOCALE", "es-ES")
+            .env("HOSHI_SPANISH_COMPACT_CHILD", "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("running 1 test"));
+        return;
+    }
+    use hoshi_desktop::Translations;
+    let (ui, _, picker) = compact_app();
+    let text = picker.global::<Translations>();
+    assert_eq!(text.get_colors_more(), "Más >>");
+    let bounds = picker.window().size();
+    for label in [
+        text.get_colors_more(),
+        text.get_primary_color(),
+        text.get_secondary_color(),
+        text.get_swap_colors_label(),
+        text.get_reset_colors_label(),
+        text.get_close_panel(),
+    ] {
+        let element = color_element(&picker, &label);
+        let point = element.absolute_position();
+        let size = element.size();
+        assert!(point.x >= 0. && point.y >= 0.);
+        assert!(
+            point.x + size.width <= bounds.width as f32 + 0.5,
+            "clipped {label}"
+        );
+        assert!(
+            point.y + size.height <= bounds.height as f32 + 0.5,
+            "clipped {label}"
+        );
+    }
     picker.hide().unwrap();
     ui.hide().unwrap();
 }

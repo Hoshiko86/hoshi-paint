@@ -25,6 +25,7 @@ fn colors_float_dock_reopen_and_pointer_edits_share_one_editable_shape() {
     )))
     .unwrap();
     let (ui, state, picker) = create_app_with_colors().unwrap();
+    picker.invoke_set_expanded(true);
     ui.window().set_size(LogicalSize::new(1120.0, 920.0));
     ui.show().unwrap();
     ui.invoke_pointer_down(40.0, 40.0);

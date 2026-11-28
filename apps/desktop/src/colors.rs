@@ -115,6 +115,36 @@ fn bind_wheel(ui: &AppWindow, picker: &ColorPickerWindow) {
     });
 }
 
+fn resize_picker(picker: &ColorPickerWindow) {
+    let position = picker.window().position();
+    picker.window().set_size(slint::LogicalSize::new(
+        picker.get_preferred_panel_width(),
+        picker.get_preferred_panel_height(),
+    ));
+    picker.window().set_position(position);
+}
+
+fn bind_expansion(ui: &AppWindow, picker: &ColorPickerWindow) {
+    let (main, colors) = (ui.as_weak(), picker.as_weak());
+    picker.on_set_expanded(move |expanded| {
+        if let (Some(ui), Some(picker)) = (main.upgrade(), colors.upgrade()) {
+            if picker.get_expanded() == expanded {
+                return;
+            }
+            picker.set_expanded(expanded);
+            ui.set_colors_expanded(expanded);
+            ui.invoke_layout_panels();
+            resize_picker(&picker);
+        }
+    });
+    let colors = picker.as_weak();
+    ui.on_set_colors_expanded(move |expanded| {
+        if let Some(picker) = colors.upgrade() {
+            picker.invoke_set_expanded(expanded);
+        }
+    });
+}
+
 pub(super) fn bind_picker(
     ui: &AppWindow,
     controller: SharedController,
@@ -123,6 +153,7 @@ pub(super) fn bind_picker(
 ) -> Result<Rc<ColorPickerWindow>, slint::PlatformError> {
     let picker = Rc::new(ColorPickerWindow::new()?);
     bind_wheel(ui, &picker);
+    bind_expansion(ui, &picker);
     let original = Rc::new(Cell::new(controller.borrow().selected_color()));
     let originals = Rc::new(Cell::new([
         controller.borrow().primary_color(),
