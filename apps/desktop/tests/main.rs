@@ -5,6 +5,7 @@
 //! as a module; `cargo test -p xtask` fails if a file is left out.
 
 mod aspect_ratio;
+mod close_prompts;
 mod color_comparison;
 mod color_library;
 mod color_slots;
